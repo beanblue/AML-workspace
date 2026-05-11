@@ -1,5 +1,6 @@
 import { apiClient } from './apiClient';
 import type {
+  AMLModule,
   AMLReport,
   AMLRiskProfile,
   AssessmentRecord,
@@ -75,6 +76,7 @@ type ModuleMockData = {
   risk: AMLRiskProfile[];
   str: STRCase[];
   largeTransaction: LargeTransactionRecord[];
+  otherOps: Array<Record<string, unknown>>;
   report: AMLReport[];
   rectification: RectificationTask[];
 };
@@ -91,13 +93,15 @@ const mockDataMap: ModuleMockData = {
   risk: [],
   str: [],
   largeTransaction: [],
+  otherOps: [],
   report: [],
   rectification: [],
 };
 
 export const notionService = {
   // 第一期开启 mock；第二期在此接入 Notion Database Query API
-  async queryModuleData<T>(module: keyof ModuleMockData, params?: Record<string, unknown>) {
+  async queryModuleData<T>(module: AMLModule, params?: Record<string, unknown>) {
+    const moduleData = mockDataMap[module as keyof ModuleMockData] ?? [];
     return apiClient.request<T>(
       {
         module,
@@ -105,7 +109,7 @@ export const notionService = {
         params,
         method: 'GET',
       },
-      mockDataMap[module] as T,
+      moduleData as T,
     );
   },
 
