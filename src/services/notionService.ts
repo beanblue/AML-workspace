@@ -388,34 +388,27 @@ const queryNotionDatabase = async (options?: { filter?: Record<string, unknown> 
     throw new Error('生产环境未启用 Notion 代理，回退 mock。');
   }
 
-  const fallbackDbId = toHyphenId(FALLBACK_DB_ID_RAW);
-  const candidates = Array.from(new Set([getPrimaryDatabaseId(), fallbackDbId]));
-  if (candidates.length === 0) throw new Error('Notion 数据库 ID 未配置。');
+  // 本地开发通过 Vite server route 中转，避免浏览器直连超时与密钥暴露。
+  const response = await fetch('/notion-local/query', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Notion-Version': NOTION_VERSION,
+    },
+    body: JSON.stringify({
+      filter: options?.filter,
+      databaseHint: getPrimaryDatabaseId(),
+      fallbackHint: toHyphenId(FALLBACK_DB_ID_RAW),
+    }),
+  });
 
-  let lastError = '';
-  for (const databaseId of candidates) {
-    const response = await fetch(`/notion-api/v1/databases/${databaseId}/query`, {
-      method: 'POST',
-      headers: {
-        'Notion-Version': NOTION_VERSION,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        page_size: 100,
-        ...(options?.filter ? { filter: options.filter } : {}),
-      }),
-    });
-
-    if (response.ok) {
-      const data = (await response.json()) as NotionQueryResponse;
-      return data.results.map(mapNotionToKnowledge);
-    }
-
+  if (!response.ok) {
     const text = await response.text();
-    lastError = `${response.status} ${text}`;
+    throw new Error(`Notion 查询失败：${response.status} ${text}`);
   }
 
-  throw new Error(`Notion 查询失败：${lastError}`);
+  const data = (await response.json()) as NotionQueryResponse;
+  return data.results.map(mapNotionToKnowledge);
 };
 
 export const notionService = {
