@@ -62,12 +62,61 @@ export interface PolicyProcessItem extends BaseEntity {
   category: '制度' | '流程';
   code: string;
   name: string;
+  sourceLevel: '监管层' | '总公司层' | '分公司层';
+  issuingUnit: string;
+  documentNo: string;
   ownerDepartment: string;
   version: string;
   status: 'draft' | 'active' | 'inactive' | 'archived';
   effectiveDate: string;
   abolishedDate?: string;
+  relatedRoles: string[];
+  fullText: string;
+  fileName?: string;
+  historyVersions: Array<{
+    version: string;
+    updatedAt: string;
+    note: string;
+  }>;
+  annotations: Array<{
+    id: string;
+    createdAt: string;
+    content: string;
+  }>;
   description?: string;
+}
+
+export interface ProcessStep {
+  id: string;
+  index: number;
+  name: string;
+  triggerCondition: string;
+  ownerRole: string;
+  sla: string;
+  evidenceRequirement: string;
+  note?: string;
+}
+
+export interface ProcessLibraryItem extends BaseEntity {
+  processCode: string;
+  processName: string;
+  businessDomain: string;
+  version: string;
+  status: EntityStatus;
+  updatedAt: string;
+  steps: ProcessStep[];
+}
+
+export interface ReferenceKnowledgeItem extends BaseEntity {
+  materialType: '图书' | '论文' | '监管报告' | '新闻资讯' | '观点文章' | '其他';
+  title: string;
+  sourceOrg: string;
+  publishDate: string;
+  summary: string;
+  tags: string[];
+  originLink?: string;
+  attachmentName?: string;
+  personalNote: string;
 }
 
 export interface ResponsibilityRole extends BaseEntity {
@@ -179,6 +228,8 @@ export interface RectificationTask extends BaseEntity {
 export type AMLModule =
   | 'dashboard'
   | 'policy'
+  | 'policyProcess'
+  | 'policyKnowledge'
   | 'responsibility'
   | 'committee'
   | 'training'
