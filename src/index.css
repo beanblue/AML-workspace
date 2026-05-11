@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/* 全局基础样式，后续可在模块中按需扩展 */
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
