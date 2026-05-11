@@ -112,6 +112,12 @@ export interface ProcessLibraryItem extends BaseEntity {
 
 export interface ReferenceKnowledgeItem extends BaseEntity {
   materialType: '图书' | '论文' | '监管报告' | '新闻资讯' | '观点文章' | '其他';
+  type?: string;
+  status?: '有效' | '拟稿草案' | '已废止' | '仅参考' | string;
+  docType?: '制度类' | '操作指引类' | '案例类' | '理论类' | '研究类' | string;
+  amlLabel?: string;
+  keyPoints?: string;
+  scope?: string;
   title: string;
   sourceOrg: string;
   publishDate: string;

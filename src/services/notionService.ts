@@ -256,9 +256,202 @@ const mockDataMap: ModuleMockData = {
   rectification: [],
 };
 
+const NOTION_VERSION = '2022-06-28';
+const FALLBACK_DB_ID_RAW = 'ee38fb1070e24a39a553fce111752217';
+
+interface NotionRichText {
+  plain_text?: string;
+}
+
+interface NotionProperty {
+  type?: string;
+  title?: NotionRichText[];
+  rich_text?: NotionRichText[];
+  select?: { name?: string } | null;
+  multi_select?: Array<{ name?: string }>;
+  date?: { start?: string | null } | null;
+}
+
+interface NotionPage {
+  id: string;
+  created_time: string;
+  last_edited_time: string;
+  properties: Record<string, NotionProperty>;
+}
+
+interface NotionQueryResponse {
+  results: NotionPage[];
+}
+
+const toHyphenId = (idOrPath: string): string => {
+  const raw = idOrPath.replace(/^collection:\/\//, '').replace(/-/g, '').trim();
+  if (raw.length !== 32) return idOrPath.replace(/^collection:\/\//, '').trim();
+  return `${raw.slice(0, 8)}-${raw.slice(8, 12)}-${raw.slice(12, 16)}-${raw.slice(16, 20)}-${raw.slice(20)}`;
+};
+
+const getPrimaryDatabaseId = (): string => {
+  const resource = import.meta.env.VITE_NOTION_DB_RESOURCE as string | undefined;
+  if (resource) return toHyphenId(resource);
+  return toHyphenId(FALLBACK_DB_ID_RAW);
+};
+
+const getTitle = (props: Record<string, NotionProperty>, key: string): string =>
+  props[key]?.title?.map((item) => item.plain_text ?? '').join('') ?? '';
+const getRichText = (props: Record<string, NotionProperty>, key: string): string =>
+  props[key]?.rich_text?.map((item) => item.plain_text ?? '').join('') ?? '';
+const getSelect = (props: Record<string, NotionProperty>, key: string): string => props[key]?.select?.name ?? '';
+const getDate = (props: Record<string, NotionProperty>, key: string): string => props[key]?.date?.start ?? '';
+const getMultiSelect = (props: Record<string, NotionProperty>, key: string): string[] =>
+  props[key]?.multi_select?.map((item) => item.name ?? '').filter(Boolean) ?? [];
+
+const normalizeMaterialType = (value: string): ReferenceKnowledgeItem['materialType'] => {
+  const allowed: ReferenceKnowledgeItem['materialType'][] = ['图书', '论文', '监管报告', '新闻资讯', '观点文章', '其他'];
+  return (allowed.includes(value as ReferenceKnowledgeItem['materialType']) ? value : '其他') as ReferenceKnowledgeItem['materialType'];
+};
+
+const mapNotionToKnowledge = (page: NotionPage): ReferenceKnowledgeItem => {
+  const props = page.properties;
+  const type = getSelect(props, '类型');
+  const status = getSelect(props, '状态');
+  const effectiveDate = getDate(props, '生效/发布日期');
+  const source = getRichText(props, '来源');
+  const summary = getRichText(props, '摘要');
+  const docType = getSelect(props, '文档类型');
+  const tags = getMultiSelect(props, '主题标签');
+  const amlLabel = getSelect(props, '反洗钱识别标签');
+  const keyPoints = getRichText(props, '关键要点 / 适用情景') || getRichText(props, '关键要点/适用情景');
+  const scope = getRichText(props, '适用范围');
+
+  return {
+    id: page.id,
+    createdAt: page.created_time,
+    updatedAt: page.last_edited_time,
+    materialType: normalizeMaterialType(type || docType || '其他'),
+    type,
+    status,
+    docType,
+    amlLabel,
+    keyPoints,
+    scope,
+    title: getTitle(props, '标题') || '未命名资料',
+    sourceOrg: source || '-',
+    publishDate: effectiveDate || '',
+    summary: summary || keyPoints || '-',
+    tags,
+    originLink: '',
+    personalNote: '',
+  };
+};
+
+const mapKnowledgeToPolicy = (item: ReferenceKnowledgeItem, index: number): PolicyProcessItem => {
+  const statusMap: Record<string, PolicyProcessItem['status']> = {
+    有效: 'active',
+    拟稿草案: 'draft',
+    已废止: 'archived',
+    仅参考: 'inactive',
+  };
+
+  return {
+    id: `policy-${item.id}`,
+    category: '制度',
+    documentType: '制度',
+    code: `AML-ZD-${new Date().getFullYear()}-${String(index + 1).padStart(3, '0')}`,
+    name: item.title,
+    sourceLevel:
+      item.sourceOrg.includes('监管') || item.sourceOrg.includes('银保监') || item.sourceOrg.includes('人民银行')
+        ? '监管层'
+        : item.sourceOrg.includes('分公司')
+          ? '分公司层'
+          : '总公司层',
+    issuingUnit: item.sourceOrg || '-',
+    documentNo: '-',
+    issueDate: item.publishDate || item.createdAt.slice(0, 10),
+    ownerDepartment: '合规管理部',
+    version: 'V1.0',
+    status: statusMap[item.status ?? ''] ?? 'active',
+    effectiveDate: item.publishDate || item.createdAt.slice(0, 10),
+    abolishedDate: undefined,
+    relatedRoles: [],
+    fullText: `${item.summary}\n${item.keyPoints ?? ''}\n${item.scope ?? ''}`.trim(),
+    fileName: item.attachmentName,
+    historyVersions: [{ version: 'V1.0', updatedAt: item.updatedAt, note: '来自 Notion 同步' }],
+    annotations: [],
+    summary: item.summary,
+    description: item.summary,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+};
+
+const queryNotionDatabase = async (options?: { filter?: Record<string, unknown> }): Promise<ReferenceKnowledgeItem[]> => {
+  if (!import.meta.env.DEV) {
+    throw new Error('生产环境未启用 Notion 代理，回退 mock。');
+  }
+
+  const fallbackDbId = toHyphenId(FALLBACK_DB_ID_RAW);
+  const candidates = Array.from(new Set([getPrimaryDatabaseId(), fallbackDbId]));
+  if (candidates.length === 0) throw new Error('Notion 数据库 ID 未配置。');
+
+  let lastError = '';
+  for (const databaseId of candidates) {
+    const response = await fetch(`/notion-api/v1/databases/${databaseId}/query`, {
+      method: 'POST',
+      headers: {
+        'Notion-Version': NOTION_VERSION,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        page_size: 100,
+        ...(options?.filter ? { filter: options.filter } : {}),
+      }),
+    });
+
+    if (response.ok) {
+      const data = (await response.json()) as NotionQueryResponse;
+      return data.results.map(mapNotionToKnowledge);
+    }
+
+    const text = await response.text();
+    lastError = `${response.status} ${text}`;
+  }
+
+  throw new Error(`Notion 查询失败：${lastError}`);
+};
+
 export const notionService = {
-  // 第一期开启 mock；第二期在此接入 Notion Database Query API
   async queryModuleData<T>(module: AMLModule, params?: Record<string, unknown>) {
+    if (module === 'policyKnowledge' || module === 'policy') {
+      try {
+        const knowledgeData = await queryNotionDatabase(
+          module === 'policy'
+            ? {
+                filter: {
+                  property: '文档类型',
+                  select: { equals: '制度类' },
+                },
+              }
+            : undefined,
+        );
+
+        if (module === 'policyKnowledge') {
+          return {
+            success: true,
+            data: knowledgeData as T,
+            message: 'policyKnowledge/query (notion)',
+          };
+        }
+
+        const policyData = knowledgeData.map(mapKnowledgeToPolicy);
+        return {
+          success: true,
+          data: policyData as T,
+          message: 'policy/query (notion)',
+        };
+      } catch (error) {
+        console.warn('[notionService] 使用真实 Notion 数据失败，回退 mock：', error);
+      }
+    }
+
     const moduleData = mockDataMap[module as keyof ModuleMockData] ?? [];
     return apiClient.request<T>(
       {
