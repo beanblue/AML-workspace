@@ -13,7 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 import { notionService } from '../services/notionService';
-import type { DashboardMetricCard, DashboardOverview } from '../types';
+import type { DashboardMetricCard, DashboardOverview, PolicyProcessItem } from '../types';
 
 const COLOR_MAP = {
   blue: 'bg-blue-50 text-blue-700 border-blue-100',
@@ -60,6 +60,7 @@ function MetricCard({ metric }: { metric: DashboardMetricCard }) {
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardOverview | null>(null);
+  const [expiringCount, setExpiringCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,8 +69,18 @@ export default function Dashboard() {
       setLoading(true);
       setError(null);
       try {
-        const result = await notionService.queryModuleData<DashboardOverview>('dashboard');
-        setData(result.data);
+        const [dashboardResult, policyResult] = await Promise.all([
+          notionService.queryModuleData<DashboardOverview>('dashboard'),
+          notionService.queryModuleData<PolicyProcessItem[]>('policy'),
+        ]);
+        setData(dashboardResult.data);
+        const count = policyResult.data.filter((item) => {
+          if (!item.abolishedDate) return false;
+          const diff = new Date(item.abolishedDate).getTime() - Date.now();
+          const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+          return days >= 0 && days <= 30;
+        }).length;
+        setExpiringCount(count);
       } catch (err) {
         setError(err instanceof Error ? err.message : '加载总览数据失败');
       } finally {
@@ -122,6 +133,12 @@ export default function Dashboard() {
           <MetricCard key={metric.key} metric={metric} />
         ))}
       </div>
+
+      {expiringCount > 0 ? (
+        <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-medium text-orange-700">
+          ⚠️ 有 {expiringCount} 项制度即将到期，请及时更新
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
         <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">

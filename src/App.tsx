@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import { Layout } from './components/layout/Layout'
 import { AssessmentModule } from './components/org/AssessmentModule'
 import { CommitteeModule } from './components/org/CommitteeModule'
+import PolicyDetail from './components/org/PolicyDetail'
 import { PolicyModule } from './components/org/PolicyModule'
 import { PublicityModule } from './components/org/PublicityModule'
 import { ResponsibilityModule } from './components/org/ResponsibilityModule'
@@ -19,6 +20,8 @@ import Dashboard from './pages/Dashboard'
 const MODULE_PATH_MAP: Record<AMLModule, string> = {
   dashboard: '/dashboard',
   policy: '/org/policy',
+  policyProcess: '/org/policy',
+  policyKnowledge: '/org/policy',
   responsibility: '/org/responsibility',
   committee: '/org/committee',
   training: '/org/training',
@@ -34,9 +37,10 @@ const MODULE_PATH_MAP: Record<AMLModule, string> = {
 }
 
 function getActiveModuleByPath(pathname: string): AMLModule {
-  const matched = (Object.entries(MODULE_PATH_MAP) as Array<[AMLModule, string]>).find(
-    ([, path]) => path === pathname,
-  )
+  const matched = (Object.entries(MODULE_PATH_MAP) as Array<[AMLModule, string]>).find(([module, path]) => {
+    if (module === 'policy') return pathname.startsWith('/org/policy')
+    return path === pathname
+  })
   return matched?.[0] ?? 'dashboard'
 }
 
@@ -57,6 +61,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
 
         <Route path="/org/policy" element={<PolicyModule />} />
+        <Route path="/org/policy/:policyId" element={<PolicyDetail />} />
         <Route path="/org/responsibility" element={<ResponsibilityModule />} />
         <Route path="/org/committee" element={<CommitteeModule />} />
         <Route path="/org/training" element={<TrainingModule />} />

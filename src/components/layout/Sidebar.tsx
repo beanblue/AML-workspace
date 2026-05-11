@@ -62,7 +62,7 @@ const NAV_GROUPS: SidebarGroup[] = [
       {
         module: 'policy',
         label: '制度与流程管理',
-        features: ['新建/修改/废止', '查询筛选', '弹窗编辑'],
+        features: ['制度库', '流程库', '参考知识库'],
         icon: Building2,
       },
       {
