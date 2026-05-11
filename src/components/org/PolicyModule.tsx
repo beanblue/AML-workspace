@@ -319,7 +319,7 @@ export function PolicyModule() {
   return (
     <ModuleWorkspace
       title="制度与流程管理"
-      description="制度库 / 流程库 / 参考知识库的一体化工作台。"
+      description="制度库 / 流程库 / 知识库的一体化工作台。"
       metrics={[
         { label: '制度数量', value: String(policies.length) },
         { label: '流程数量', value: String(processes.length) },
@@ -332,7 +332,7 @@ export function PolicyModule() {
         {[
           ['policy', '制度库'],
           ['process', '流程库'],
-          ['knowledge', '参考知识库'],
+          ['knowledge', '知识库'],
         ].map(([key, label]) => (
           <button
             key={key}
