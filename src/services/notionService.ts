@@ -48,7 +48,7 @@ const mockPolicies: PolicyProcessItem[] = [
 
 const mockOverview: DashboardOverview = {
   metrics: [
-    { key: 'org', title: '组织类事项', value: 26, trend: 8, color: 'blue' },
+    { key: 'org', title: '组织类事项', value: 32, trend: 8, color: 'blue' },
     { key: 'ops', title: '操作类事项', value: 54, trend: -2, color: 'green' },
     { key: 'special', title: '专项类事项', value: 19, trend: 3, color: 'orange' },
   ],

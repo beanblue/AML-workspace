@@ -22,6 +22,11 @@ const COLOR_MAP = {
 } as const;
 
 const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b'];
+const TODAY_TODOS = [
+  '复核高风险客户名单更新记录',
+  '提交本周可疑交易分析简报',
+  '完成制度修订会议纪要归档',
+];
 
 function TrendIcon({ trend }: { trend: number }) {
   if (trend > 0) return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
@@ -116,6 +121,29 @@ export default function Dashboard() {
         {data.metrics.map((metric) => (
           <MetricCard key={metric.key} metric={metric} />
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
+        <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <h3 className="text-sm font-semibold text-slate-900">年度重点工作</h3>
+          <p className="mt-2 text-sm text-slate-600">推进反洗钱制度体系标准化升级与落地。</p>
+        </article>
+        <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <h3 className="text-sm font-semibold text-slate-900">月度重点工作</h3>
+          <p className="mt-2 text-sm text-slate-600">完成重点客户风险重评与抽样复核。</p>
+        </article>
+        <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <h3 className="text-sm font-semibold text-slate-900">本周重点工作</h3>
+          <p className="mt-2 text-sm text-slate-600">组织 STR 线索复盘并更新流程留痕模板。</p>
+        </article>
+        <article className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <h3 className="text-sm font-semibold text-blue-900">今日待办</h3>
+          <ul className="mt-2 space-y-1 text-sm text-blue-800">
+            {TODAY_TODOS.map((todo) => (
+              <li key={todo}>- {todo}</li>
+            ))}
+          </ul>
+        </article>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
