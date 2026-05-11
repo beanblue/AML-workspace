@@ -60,11 +60,13 @@ export interface DashboardOverview {
 
 export interface PolicyProcessItem extends BaseEntity {
   category: '制度' | '流程';
+  documentType: '制度' | '办法' | '规定' | '通知' | '其他';
   code: string;
   name: string;
   sourceLevel: '监管层' | '总公司层' | '分公司层';
   issuingUnit: string;
   documentNo: string;
+  issueDate: string;
   ownerDepartment: string;
   version: string;
   status: 'draft' | 'active' | 'inactive' | 'archived';
@@ -83,6 +85,7 @@ export interface PolicyProcessItem extends BaseEntity {
     createdAt: string;
     content: string;
   }>;
+  summary: string;
   description?: string;
 }
 

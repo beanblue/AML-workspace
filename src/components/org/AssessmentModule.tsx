@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAMLData } from '../../hooks/useAMLData'
 import { DataTable, type TableColumn } from '../shared/DataTable'
+import { ModuleWorkspace } from '../shared/ModuleWorkspace'
 
 type AssessmentRow = {
   id: string
@@ -24,12 +25,17 @@ export function AssessmentModule() {
   ]
 
   return (
-    <section className="space-y-4">
-      <header>
-        <h2 className="text-lg font-semibold text-slate-900">评估考核管理</h2>
-        <p className="mt-1 text-sm text-slate-500">部门/个人双维度评分表与趋势图骨架。</p>
-      </header>
-
+    <ModuleWorkspace
+      title="评估考核管理"
+      description="部门/个人双维度评分表与趋势图骨架。"
+      metrics={[
+        { label: '部门评估', value: '12 项' },
+        { label: '个人评估', value: '48 项' },
+        { label: '平均分', value: '87.5' },
+        { label: '低分预警', value: '3 项' },
+      ]}
+      alerts={['个人考核中有 1 项评分低于预警阈值']}
+    >
       <div className="inline-flex rounded-lg border border-slate-200 p-1">
         {(['部门', '个人'] as const).map((item) => (
           <button
@@ -46,6 +52,6 @@ export function AssessmentModule() {
       </div>
 
       <DataTable columns={columns} data={rows} rowKey={(row) => row.id} loading={loading} error={error} />
-    </section>
+    </ModuleWorkspace>
   )
 }

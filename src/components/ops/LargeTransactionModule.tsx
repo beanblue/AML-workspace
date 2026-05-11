@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAMLData } from '../../hooks/useAMLData'
 import { DataTable, type TableColumn } from '../shared/DataTable'
+import { ModuleWorkspace } from '../shared/ModuleWorkspace'
 
 type LargeTxnRow = {
   id: string
@@ -23,8 +24,17 @@ export function LargeTransactionModule() {
   ]
 
   return (
-    <section className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-900">大额交易管理</h2>
+    <ModuleWorkspace
+      title="大额交易管理"
+      description="阈值预警、交易记录与归档全流程管理。"
+      metrics={[
+        { label: '本周预警', value: '17 条' },
+        { label: '已复核', value: '13 条' },
+        { label: '待归档', value: '4 条' },
+        { label: '超阈值金额', value: '¥ 920 万' },
+      ]}
+      alerts={['4 条大额交易仍待完成归档']}
+    >
       <div className="inline-flex rounded-lg border border-slate-200 p-1">
         {(['流程视图', '内容视图'] as const).map((item) => (
           <button
@@ -46,6 +56,6 @@ export function LargeTransactionModule() {
       ) : (
         <DataTable columns={columns} data={rows} rowKey={(row) => row.id} loading={loading} error={error} />
       )}
-    </section>
+    </ModuleWorkspace>
   )
 }

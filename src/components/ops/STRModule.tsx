@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAMLData } from '../../hooks/useAMLData'
 import { DataTable, type TableColumn } from '../shared/DataTable'
+import { ModuleWorkspace } from '../shared/ModuleWorkspace'
 
 type STRRow = {
   id: string
@@ -23,8 +24,17 @@ export function STRModule() {
   ]
 
   return (
-    <section className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-900">STR 可疑交易报告</h2>
+    <ModuleWorkspace
+      title="STR 可疑交易报告"
+      description="报告提交流程、状态追踪和附件管理。"
+      metrics={[
+        { label: '本月应报', value: '4 份' },
+        { label: '已提交', value: '3 份' },
+        { label: '待复核', value: '2 份' },
+        { label: '退回重报', value: '1 份' },
+      ]}
+      alerts={['本月仍有 1 份 STR 报告未提交']}
+    >
       <div className="inline-flex rounded-lg border border-slate-200 p-1">
         {(['流程视图', '内容视图'] as const).map((item) => (
           <button
@@ -46,6 +56,6 @@ export function STRModule() {
       ) : (
         <DataTable columns={columns} data={rows} rowKey={(row) => row.id} loading={loading} error={error} />
       )}
-    </section>
+    </ModuleWorkspace>
   )
 }

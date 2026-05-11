@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAMLData } from '../../hooks/useAMLData'
 import { DataTable, type TableColumn } from '../shared/DataTable'
+import { ModuleWorkspace } from '../shared/ModuleWorkspace'
 
 type RiskRow = {
   id: string
@@ -21,8 +22,17 @@ export function RiskModule() {
   ]
 
   return (
-    <section className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-900">洗钱风险管理</h2>
+    <ModuleWorkspace
+      title="洗钱风险管理"
+      description="风险评级、评分输入输出与等级分布管理。"
+      metrics={[
+        { label: '高风险客户', value: '23 户' },
+        { label: '中风险客户', value: '96 户' },
+        { label: '低风险客户', value: '312 户' },
+        { label: '本周重评', value: '11 户' },
+      ]}
+      alerts={['2 户高风险客户超期未重评']}
+    >
       <div className="inline-flex rounded-lg border border-slate-200 p-1">
         {(['流程视图', '内容视图'] as const).map((item) => (
           <button
@@ -44,6 +54,6 @@ export function RiskModule() {
       ) : (
         <DataTable columns={columns} data={rows} rowKey={(row) => row.id} loading={loading} error={error} />
       )}
-    </section>
+    </ModuleWorkspace>
   )
 }

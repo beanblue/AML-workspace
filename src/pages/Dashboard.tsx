@@ -1,210 +1,148 @@
-import { AlertTriangle, BarChart3, CheckCircle2, Clock3 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { notionService } from '../services/notionService';
-import type { DashboardMetricCard, DashboardOverview, PolicyProcessItem } from '../types';
+import { ArrowRight, Bot, Search } from 'lucide-react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
-const COLOR_MAP = {
-  blue: 'bg-blue-50 text-blue-700 border-blue-100',
-  green: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-  orange: 'bg-orange-50 text-orange-700 border-orange-100',
-} as const;
-
-const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b'];
-const TODAY_TODOS = [
-  '复核高风险客户名单更新记录',
-  '提交本周可疑交易分析简报',
-  '完成制度修订会议纪要归档',
-];
-
-function TrendIcon({ trend }: { trend: number }) {
-  if (trend > 0) return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
-  if (trend < 0) return <AlertTriangle className="h-4 w-4 text-amber-600" />;
-  return <Clock3 className="h-4 w-4 text-slate-500" />;
-}
-
-function MetricCard({ metric }: { metric: DashboardMetricCard }) {
-  return (
-    <article className={`rounded-xl border p-4 ${COLOR_MAP[metric.color]}`}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs">{metric.title}</p>
-          <p className="mt-2 text-2xl font-semibold">
-            {metric.value}
-            {metric.unit ? <span className="ml-1 text-sm font-medium">{metric.unit}</span> : null}
-          </p>
-        </div>
-        <TrendIcon trend={metric.trend} />
-      </div>
-      <p className="mt-3 text-xs">
-        同比
-        <span className="mx-1 font-semibold">
-          {metric.trend > 0 ? '+' : ''}
-          {metric.trend}%
-        </span>
-      </p>
-    </article>
-  );
+interface FocusItem {
+  text: string
+  target: string
 }
 
 export default function Dashboard() {
-  const [data, setData] = useState<DashboardOverview | null>(null);
-  const [expiringCount, setExpiringCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate()
+  const [command, setCommand] = useState('')
+  const [agentReply, setAgentReply] = useState('')
+  const [todos, setTodos] = useState([
+    { id: 'todo-1', text: '复核高风险客户名单更新记录', done: false },
+    { id: 'todo-2', text: '提交本周可疑交易分析简报', done: false },
+    { id: 'todo-3', text: '完成制度修订会议纪要归档', done: true },
+  ])
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [dashboardResult, policyResult] = await Promise.all([
-          notionService.queryModuleData<DashboardOverview>('dashboard'),
-          notionService.queryModuleData<PolicyProcessItem[]>('policy'),
-        ]);
-        setData(dashboardResult.data);
-        const count = policyResult.data.filter((item) => {
-          if (!item.abolishedDate) return false;
-          const diff = new Date(item.abolishedDate).getTime() - Date.now();
-          const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-          return days >= 0 && days <= 30;
-        }).length;
-        setExpiringCount(count);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '加载总览数据失败');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void load();
-  }, []);
-
-  const hasData = useMemo(() => Boolean(data && data.metrics.length > 0), [data]);
-
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <p className="text-sm text-slate-500">正在加载总览数据...</p>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="h-28 animate-pulse rounded-xl bg-slate-100" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !hasData || !data) {
-    return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
-        <p className="font-medium">总览数据加载失败</p>
-        <p className="mt-1 text-sm">{error ?? '暂无可用数据，请稍后重试。'}</p>
-      </div>
-    );
-  }
+  const focusItems: FocusItem[] = [
+    { text: '制度《客户身份识别管理制度》距废止还有 12 天', target: '/org/policy' },
+    { text: '整改任务「XX问题整改」截止日期：本周五', target: '/special/rectification' },
+    { text: 'STR报告本月尚未提交', target: '/ops/str' },
+  ]
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900">反洗钱工作全景总览</h2>
-          <p className="mt-1 text-sm text-slate-500">组织类、操作类、专项类核心指标与进度概览</p>
+      <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center rounded-lg border border-slate-200 bg-white px-3">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input
+              value={command}
+              onChange={(event) => setCommand(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter') return
+                const value = command.trim()
+                if (!value) return
+                if (value.includes('?') || value.includes('？')) {
+                  setAgentReply(`[演示模式] Agent 已收到：${value}，接入 DeepSeek 后将自动处理`)
+                } else {
+                  navigate('/org/policy')
+                }
+              }}
+              placeholder="搜索制度/流程/任务，或直接告诉 AI 助手要做什么..."
+              className="w-full border-none px-2 py-3 text-sm outline-none"
+            />
+          </div>
+          <span className="text-xs text-blue-700">🤖 由 DeepSeek Agent 驱动</span>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600">
-          <BarChart3 className="h-4 w-4 text-blue-600" />
-          数据来源：Notion（Mock）
-        </div>
+        {agentReply ? (
+          <p className="mt-3 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">{agentReply}</p>
+        ) : null}
+      </article>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <article className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+          <h3 className="text-base font-semibold text-orange-800">⚠️ 需要关注</h3>
+          <div className="mt-3 space-y-2">
+            {focusItems.slice(0, 5).map((item) => (
+              <div key={item.text} className="flex items-center justify-between gap-3 rounded bg-white px-3 py-2 text-sm text-slate-700">
+                <span>{item.text}</span>
+                <button
+                  type="button"
+                  onClick={() => navigate(item.target)}
+                  className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-xs text-slate-600"
+                >
+                  前往
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <h3 className="text-base font-semibold text-blue-900">📋 今日待办</h3>
+          <div className="mt-3 space-y-2">
+            {todos.slice(0, 5).map((todo) => (
+              <label key={todo.id} className="flex items-center gap-2 rounded bg-white px-3 py-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={todo.done}
+                  onChange={() =>
+                    setTodos((prev) => prev.map((item) => (item.id === todo.id ? { ...item, done: !item.done } : item)))
+                  }
+                />
+                <span className={todo.done ? 'text-slate-400 line-through' : ''}>{todo.text}</span>
+              </label>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                const text = window.prompt('请输入待办内容')
+                if (!text?.trim()) return
+                setTodos((prev) => [...prev, { id: `todo-${Date.now()}`, text: text.trim(), done: false }])
+              }}
+              className="rounded border border-blue-200 bg-white px-2 py-1 text-xs text-blue-700"
+            >
+              + 新增待办
+            </button>
+            <p className="text-xs text-blue-700">待办由 Agent 自动生成，也可手动添加</p>
+          </div>
+        </article>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {data.metrics.map((metric) => (
-          <MetricCard key={metric.key} metric={metric} />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        {[
+          {
+            title: '🟦 组织类工作',
+            desc: '制度/流程/职责/培训/宣传/考核',
+            count: '8 项待办',
+            target: '/org/policy',
+            style: 'border-blue-200 bg-blue-50 text-blue-900',
+          },
+          {
+            title: '🟩 操作类工作',
+            desc: 'CDD/黑名单/风险/STR/大额',
+            count: '11 项待办',
+            target: '/ops/cdd',
+            style: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+          },
+          {
+            title: '🟧 报告与整改',
+            desc: '周期报告/触发报告/整改追踪',
+            count: '5 项待办',
+            target: '/special/report',
+            style: 'border-orange-200 bg-orange-50 text-orange-900',
+          },
+        ].map((item) => (
+          <button
+            key={item.title}
+            type="button"
+            onClick={() => navigate(item.target)}
+            className={`rounded-xl border p-4 text-left ${item.style}`}
+          >
+            <div className="inline-flex items-center gap-2 text-base font-semibold">
+              <Bot className="h-4 w-4" />
+              {item.title}
+            </div>
+            <p className="mt-2 text-sm">{item.desc}</p>
+            <p className="mt-3 text-xs font-medium">{item.count}</p>
+          </button>
         ))}
       </div>
-
-      {expiringCount > 0 ? (
-        <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-medium text-orange-700">
-          ⚠️ 有 {expiringCount} 项制度即将到期，请及时更新
-        </div>
-      ) : null}
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
-        <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <h3 className="text-sm font-semibold text-slate-900">年度重点工作</h3>
-          <p className="mt-2 text-sm text-slate-600">推进反洗钱制度体系标准化升级与落地。</p>
-        </article>
-        <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <h3 className="text-sm font-semibold text-slate-900">月度重点工作</h3>
-          <p className="mt-2 text-sm text-slate-600">完成重点客户风险重评与抽样复核。</p>
-        </article>
-        <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <h3 className="text-sm font-semibold text-slate-900">本周重点工作</h3>
-          <p className="mt-2 text-sm text-slate-600">组织 STR 线索复盘并更新流程留痕模板。</p>
-        </article>
-        <article className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-          <h3 className="text-sm font-semibold text-blue-900">今日待办</h3>
-          <ul className="mt-2 space-y-1 text-sm text-blue-800">
-            {TODAY_TODOS.map((todo) => (
-              <li key={todo}>- {todo}</li>
-            ))}
-          </ul>
-        </article>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <article className="rounded-xl border border-slate-200 p-4">
-          <h3 className="text-base font-semibold text-slate-900">风险等级分布</h3>
-          <p className="mt-1 text-sm text-slate-500">低/中/高风险客户占比</p>
-          <div className="mt-4 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data.riskDistribution}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={55}
-                  outerRadius={90}
-                  paddingAngle={2}
-                >
-                  {data.riskDistribution.map((entry, index) => (
-                    <Cell key={entry.name} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => [`${value ?? 0}%`, '占比']} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </article>
-
-        <article className="rounded-xl border border-slate-200 p-4">
-          <h3 className="text-base font-semibold text-slate-900">模块事项进展</h3>
-          <p className="mt-1 text-sm text-slate-500">各模块已完成与待处理任务</p>
-          <div className="mt-4 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.moduleProgress}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 12 }} />
-                <YAxis tick={{ fill: '#64748b', fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="completed" name="已完成" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="pending" name="待处理" fill="#f59e0b" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </article>
-      </div>
     </section>
-  );
+  )
 }

@@ -1,17 +1,23 @@
 import { useAMLData } from '../../hooks/useAMLData'
 import { KanbanBoard } from '../shared/KanbanBoard'
+import { ModuleWorkspace } from '../shared/ModuleWorkspace'
 
 export function PublicityModule() {
   const { data, loading, error } = useAMLData('publicity', 'query')
   const list = Array.isArray(data) ? data : []
 
   return (
-    <section className="space-y-4">
-      <header>
-        <h2 className="text-lg font-semibold text-slate-900">宣传管理</h2>
-        <p className="mt-1 text-sm text-slate-500">宣传计划、材料制作、执行记录与效果评估。</p>
-      </header>
-
+    <ModuleWorkspace
+      title="宣传管理"
+      description="宣传计划、材料制作、执行记录与效果评估。"
+      metrics={[
+        { label: '宣传计划', value: '5 个' },
+        { label: '材料库存', value: '21 份' },
+        { label: '执行记录', value: '14 条' },
+        { label: '待评估', value: '2 项' },
+      ]}
+      alerts={['本周宣传活动效果评估尚未提交']}
+    >
       <KanbanBoard
         loading={loading}
         error={error}
@@ -48,6 +54,6 @@ export function PublicityModule() {
           },
         ]}
       />
-    </section>
+    </ModuleWorkspace>
   )
 }

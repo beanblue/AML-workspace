@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAMLData } from '../../hooks/useAMLData'
 import { DataTable, type TableColumn } from '../shared/DataTable'
+import { ModuleWorkspace } from '../shared/ModuleWorkspace'
 
 type CDDRow = {
   id: string
@@ -23,8 +24,17 @@ export function CDDModule() {
   ]
 
   return (
-    <section className="space-y-4">
-      <h2 className="text-lg font-semibold text-slate-900">客户身份识别 CDD/EDD</h2>
+    <ModuleWorkspace
+      title="客户身份识别 CDD/EDD"
+      description="标准尽调、增强尽调、黑名单管理的流程与内容双视图。"
+      metrics={[
+        { label: '本月尽调', value: '126 次' },
+        { label: 'EDD 占比', value: '18%' },
+        { label: '黑名单命中', value: '2 条' },
+        { label: '待复核', value: '5 条' },
+      ]}
+      alerts={['有 1 条黑名单命中待人工复核']}
+    >
       <div className="inline-flex rounded-lg border border-slate-200 p-1">
         {(['流程视图', '内容视图'] as const).map((item) => (
           <button
@@ -46,6 +56,6 @@ export function CDDModule() {
       ) : (
         <DataTable columns={columns} data={rows} rowKey={(row) => row.id} loading={loading} error={error} />
       )}
-    </section>
+    </ModuleWorkspace>
   )
 }

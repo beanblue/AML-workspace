@@ -1,8 +1,8 @@
-import { Bell, Search, Sparkles } from 'lucide-react';
+import { Bell, Bot, Search } from 'lucide-react';
 
 interface HeaderProps {
   breadcrumb: string[];
-  onQuickAction?: (action: 'new' | 'agent' | 'notice') => void;
+  onQuickAction?: (action: 'new' | 'notice' | 'ai') => void;
 }
 
 export function Header({ breadcrumb, onQuickAction }: HeaderProps) {
@@ -29,11 +29,11 @@ export function Header({ breadcrumb, onQuickAction }: HeaderProps) {
           </button>
           <button
             type="button"
-            onClick={() => onQuickAction?.('agent')}
+            onClick={() => onQuickAction?.('ai')}
             className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
           >
-            <Sparkles className="h-4 w-4 text-amber-500" />
-            智能建议
+            <Bot className="h-4 w-4 text-blue-600" />
+            AI助手
           </button>
           <button
             type="button"
