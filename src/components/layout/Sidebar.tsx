@@ -2,7 +2,7 @@ import {
   BarChart3,
   BookOpen,
   Briefcase,
-  Building2,
+  FolderOpen,
   ClipboardList,
   FileBarChart2,
   FileSearch,
@@ -25,7 +25,6 @@ interface SidebarModuleItem {
   label: string;
   features: string[];
   icon: ComponentType<{ className?: string }>;
-  children?: Array<{ module: AMLModule; label: string }>;
 }
 
 interface SidebarGroup {
@@ -63,13 +62,9 @@ const NAV_GROUPS: SidebarGroup[] = [
     modules: [
       {
         module: 'policy',
-        label: '制度与流程管理',
-        features: [],
-        icon: Building2,
-        children: [
-          { module: 'policy', label: '制度库' },
-          { module: 'policyProcess', label: '流程库' },
-        ],
+        label: '文件库',
+        features: ['制度文件', '操作流程', '流程图示'],
+        icon: FolderOpen,
       },
       {
         module: 'policyKnowledge',
@@ -206,69 +201,43 @@ export function Sidebar({
             <div className="space-y-2">
               {group.modules.map((item) => {
                 const Icon = item.icon;
-                const childActive = item.children?.some((child) => child.module === activeModule) ?? false;
-                const isActive = activeModule === item.module || childActive;
+                const isActive = activeModule === item.module;
 
                 return (
-                  <div key={item.module} className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => onSelectModule(item.module)}
-                      className={`w-full rounded-lg border px-3 py-2 text-left transition ${
-                        isActive
-                          ? 'border-blue-200 bg-blue-50'
-                          : 'border-transparent bg-slate-50 hover:border-slate-200 hover:bg-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Icon className={`h-4 w-4 ${isActive ? 'text-blue-700' : 'text-slate-500'}`} />
-                        {!collapsed ? (
-                          <span
-                            className={`text-sm font-medium ${
-                              isActive ? 'text-blue-900' : 'text-slate-800'
-                            }`}
-                          >
-                            {item.label}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      {!collapsed && item.children == null ? (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {item.features.map((feature) => (
-                            <span
-                              key={feature}
-                              className="rounded bg-white px-2 py-0.5 text-[11px] text-slate-500"
-                            >
-                              {feature}
-                            </span>
-                          ))}
-                        </div>
+                  <button
+                    key={item.module}
+                    type="button"
+                    onClick={() => onSelectModule(item.module)}
+                    className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                      isActive
+                        ? 'border-blue-200 bg-blue-50'
+                        : 'border-transparent bg-slate-50 hover:border-slate-200 hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon className={`h-4 w-4 ${isActive ? 'text-blue-700' : 'text-slate-500'}`} />
+                      {!collapsed ? (
+                        <span
+                          className={`text-sm font-medium ${isActive ? 'text-blue-900' : 'text-slate-800'}`}
+                        >
+                          {item.label}
+                        </span>
                       ) : null}
-                    </button>
+                    </div>
 
-                    {!collapsed && item.children ? (
-                      <div className="space-y-1 pl-9">
-                        {item.children.map((child) => {
-                          const isChildActive = activeModule === child.module;
-                          return (
-                            <button
-                              key={child.module}
-                              type="button"
-                              onClick={() => onSelectModule(child.module)}
-                              className={`w-full rounded-md px-2 py-1.5 text-left text-sm transition ${
-                                isChildActive
-                                  ? 'bg-blue-50 text-blue-800'
-                                  : 'text-slate-600 hover:bg-slate-100'
-                              }`}
-                            >
-                              {child.label}
-                            </button>
-                          );
-                        })}
+                    {!collapsed ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {item.features.map((feature) => (
+                          <span
+                            key={feature}
+                            className="rounded bg-white px-2 py-0.5 text-[11px] text-slate-500"
+                          >
+                            {feature}
+                          </span>
+                        ))}
                       </div>
                     ) : null}
-                  </div>
+                  </button>
                 );
               })}
             </div>

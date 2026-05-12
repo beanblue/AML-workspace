@@ -48,7 +48,7 @@ export default function Dashboard() {
         context: '🕐 距到期还有 12 天 · 需提交续期或修订申请',
         contextClass: 'text-red-700',
         actionLabel: '立即查看 →',
-        actionTarget: '/org/policy/policies',
+        actionTarget: '/org/library',
       },
       {
         id: 'urgent-2',
@@ -230,7 +230,7 @@ export default function Dashboard() {
             {[
               { label: '📄 起草可疑交易分析简报 ↗', target: '/ops/str' },
               { label: '👤 列出需要 EDD 复核的客户 ↗', target: '/ops/risk' },
-              { label: '📅 查看未来 30 天到期制度 ↗', target: '/org/policy/policies' },
+              { label: '📅 查看未来 30 天到期制度 ↗', target: '/org/library' },
             ].map((item) => (
               <button
                 key={item.label}

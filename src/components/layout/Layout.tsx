@@ -12,8 +12,8 @@ interface LayoutProps extends PropsWithChildren {
 
 const BREADCRUMB_MAP: Record<AMLModule, string[]> = {
   dashboard: ['总览 Dashboard', '全景总览'],
-  policy: ['组织类', '制度与流程管理'],
-  policyProcess: ['组织类', '制度与流程管理'],
+  policy: ['组织类', '文件库'],
+  policyProcess: ['组织类', '文件库'],
   policyKnowledge: ['组织类', '知识库'],
   responsibility: ['组织类', '反洗钱工作职责管理'],
   committee: ['组织类', '反洗钱工作组织活动管理'],

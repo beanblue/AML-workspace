@@ -44,7 +44,7 @@ export default function PolicyDetail() {
         <p className="text-xs text-red-600">{error ?? '该制度可能已删除或尚未同步。'}</p>
         <button
           type="button"
-          onClick={() => navigate('/org/policy')}
+          onClick={() => navigate('/org/library')}
           className="rounded border border-red-200 bg-white px-2 py-1 text-xs text-red-700"
         >
           返回制度库
@@ -59,7 +59,7 @@ export default function PolicyDetail() {
         <h2 className="text-lg font-semibold text-slate-900">制度全文详情</h2>
         <button
           type="button"
-          onClick={() => navigate('/org/policy')}
+          onClick={() => navigate('/org/library')}
           className="rounded border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
         >
           返回制度库

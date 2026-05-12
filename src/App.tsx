@@ -20,8 +20,8 @@ import Dashboard from './pages/Dashboard'
 
 const MODULE_PATH_MAP: Record<AMLModule, string> = {
   dashboard: '/dashboard',
-  policy: '/org/policy/policies',
-  policyProcess: '/org/policy/processes',
+  policy: '/org/library',
+  policyProcess: '/org/library',
   policyKnowledge: '/org/knowledge',
   responsibility: '/org/responsibility',
   committee: '/org/committee',
@@ -38,12 +38,12 @@ const MODULE_PATH_MAP: Record<AMLModule, string> = {
 }
 
 function getActiveModuleByPath(pathname: string): AMLModule {
-  if (pathname.startsWith('/org/policy/processes')) return 'policyProcess'
-  if (pathname.startsWith('/org/policy')) return 'policy'
+  if (pathname.startsWith('/org/library')) return 'policy'
   if (pathname.startsWith('/org/knowledge')) return 'policyKnowledge'
+  if (pathname.startsWith('/org/policy')) return 'policy'
 
   const matched = (Object.entries(MODULE_PATH_MAP) as Array<[AMLModule, string]>).find(([module, path]) => {
-    if (module === 'policy') return pathname.startsWith('/org/policy')
+    if (module === 'policy') return pathname.startsWith('/org/library') || pathname.startsWith('/org/policy')
     return path === pathname
   })
   return matched?.[0] ?? 'dashboard'
@@ -65,10 +65,12 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
 
-        <Route path="/org/policy" element={<Navigate to="/org/policy/policies" replace />} />
-        <Route path="/org/policy/policies" element={<PolicyModule view="policy" />} />
-        <Route path="/org/policy/processes" element={<PolicyModule view="process" />} />
-        <Route path="/org/policy/:policyId" element={<PolicyDetail />} />
+        <Route path="/org/library" element={<PolicyModule />} />
+        <Route path="/org/library/:policyId" element={<PolicyDetail />} />
+        <Route path="/org/policy" element={<Navigate to="/org/library" replace />} />
+        <Route path="/org/policy/policies" element={<Navigate to="/org/library" replace />} />
+        <Route path="/org/policy/processes" element={<Navigate to="/org/library" replace />} />
+        <Route path="/org/policy/:policyId" element={<Navigate to="/org/library/:policyId" replace />} />
         <Route path="/org/knowledge" element={<KnowledgeModule />} />
         <Route path="/org/responsibility" element={<ResponsibilityModule />} />
         <Route path="/org/committee" element={<CommitteeModule />} />
