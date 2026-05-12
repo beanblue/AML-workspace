@@ -2,16 +2,18 @@ import { Bell, Bot, Search } from 'lucide-react';
 
 interface HeaderProps {
   breadcrumb: string[];
+  subtitle?: string;
   onQuickAction?: (action: 'new' | 'notice' | 'ai') => void;
 }
 
-export function Header({ breadcrumb, onQuickAction }: HeaderProps) {
+export function Header({ breadcrumb, subtitle, onQuickAction }: HeaderProps) {
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-6 py-4 backdrop-blur">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-xs text-slate-500">当前位置</p>
           <h1 className="mt-1 text-lg font-semibold text-slate-900">{breadcrumb.join(' / ')}</h1>
+          {subtitle ? <p className="mt-1 text-xs text-slate-500">{subtitle}</p> : null}
         </div>
 
         <div className="flex items-center gap-2">

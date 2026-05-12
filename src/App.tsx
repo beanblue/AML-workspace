@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import { Layout } from './components/layout/Layout'
 import { AssessmentModule } from './components/org/AssessmentModule'
 import { CommitteeModule } from './components/org/CommitteeModule'
+import { KnowledgeModule } from './components/org/KnowledgeModule'
 import PolicyDetail from './components/org/PolicyDetail'
 import { PolicyModule } from './components/org/PolicyModule'
 import { PublicityModule } from './components/org/PublicityModule'
@@ -19,9 +20,9 @@ import Dashboard from './pages/Dashboard'
 
 const MODULE_PATH_MAP: Record<AMLModule, string> = {
   dashboard: '/dashboard',
-  policy: '/org/policy',
-  policyProcess: '/org/policy',
-  policyKnowledge: '/org/policy',
+  policy: '/org/policy/policies',
+  policyProcess: '/org/policy/processes',
+  policyKnowledge: '/org/knowledge',
   responsibility: '/org/responsibility',
   committee: '/org/committee',
   training: '/org/training',
@@ -37,6 +38,10 @@ const MODULE_PATH_MAP: Record<AMLModule, string> = {
 }
 
 function getActiveModuleByPath(pathname: string): AMLModule {
+  if (pathname.startsWith('/org/policy/processes')) return 'policyProcess'
+  if (pathname.startsWith('/org/policy')) return 'policy'
+  if (pathname.startsWith('/org/knowledge')) return 'policyKnowledge'
+
   const matched = (Object.entries(MODULE_PATH_MAP) as Array<[AMLModule, string]>).find(([module, path]) => {
     if (module === 'policy') return pathname.startsWith('/org/policy')
     return path === pathname
@@ -60,8 +65,11 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
 
-        <Route path="/org/policy" element={<PolicyModule />} />
+        <Route path="/org/policy" element={<Navigate to="/org/policy/policies" replace />} />
+        <Route path="/org/policy/policies" element={<PolicyModule view="policy" />} />
+        <Route path="/org/policy/processes" element={<PolicyModule view="process" />} />
         <Route path="/org/policy/:policyId" element={<PolicyDetail />} />
+        <Route path="/org/knowledge" element={<KnowledgeModule />} />
         <Route path="/org/responsibility" element={<ResponsibilityModule />} />
         <Route path="/org/committee" element={<CommitteeModule />} />
         <Route path="/org/training" element={<TrainingModule />} />
