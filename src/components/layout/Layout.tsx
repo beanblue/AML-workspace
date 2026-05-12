@@ -52,7 +52,8 @@ export function Layout({ activeModule, onSelectModule, children }: LayoutProps) 
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
-          breadcrumb={breadcrumb}
+          breadcrumb={activeModule === 'dashboard' ? undefined : breadcrumb}
+          title={activeModule === 'dashboard' ? '全景总览' : undefined}
           onQuickAction={(action) => {
             if (action === 'ai') setAiOpen(true);
           }}
