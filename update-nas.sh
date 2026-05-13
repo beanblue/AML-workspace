@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+echo "请输入极空间 sudo 密码："
+read -s NAS_SUDO_PASS
+
 echo "🔄 拉取最新代码..."
 git pull
 
@@ -18,11 +21,11 @@ echo "📤 传输到极空间..."
 scp -P 10000 ~/aml-workspace-amd64.tar.gz 18610726373@192.168.88.9:/tmp/
 
 echo "🚀 更新极空间容器..."
-ssh -p 10000 18610726373@192.168.88.9 << 'EOF'
-sudo docker rm -f aml
-sudo docker load < /tmp/aml-workspace-amd64.tar.gz
-cd /zspace/aml
-sudo docker run -d -p 3000:3000 --env-file .env --name aml aml-workspace:amd64
-EOF
+ssh -p 10000 18610726373@192.168.88.9 \
+  "echo \"$NAS_SUDO_PASS\" | sudo -S docker rm -f aml 2>/dev/null; \
+   echo \"$NAS_SUDO_PASS\" | sudo -S docker load < /tmp/aml-workspace-amd64.tar.gz; \
+   cd /zspace/aml && \
+   echo \"$NAS_SUDO_PASS\" | sudo -S docker run -d -p 3000:3000 \
+     --env-file .env --name aml aml-workspace:amd64"
 
 echo "✅ 更新完成！访问 `http://192.168.88.9:3000`"
