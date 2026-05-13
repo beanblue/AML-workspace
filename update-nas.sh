@@ -24,7 +24,11 @@ echo "🚀 更新极空间容器..."
 ssh -p 10000 18610726373@192.168.88.9 \
   "echo \"$NAS_SUDO_PASS\" | sudo -S docker rm -f aml 2>/dev/null; \
    echo \"$NAS_SUDO_PASS\" | sudo -S docker load < /tmp/aml-workspace-amd64.tar.gz; \
-   cd /zspace/aml && node scripts/setup-notion-ids.js; \
+   echo \"🧩 自动获取 Notion 数据库 ID...\"; \
+   echo \"$NAS_SUDO_PASS\" | sudo -S docker run --rm --env-file /zspace/aml/.env \
+     aml-workspace:amd64 node scripts/setup-notion-ids.js > /tmp/aml-notion-ids.env; \
+   echo \"$NAS_SUDO_PASS\" | sudo -S sh -c 'grep -vE \"^(NOTION_DB_DOCUMENTS|NOTION_DB_ORG|NOTION_DB_KPI|NOTION_DB_SELF_EVAL|NOTION_DB_SUSPICIOUS)=\" /zspace/aml/.env > /tmp/aml-env.cleaned || true; cat /tmp/aml-env.cleaned /tmp/aml-notion-ids.env > /zspace/aml/.env'; \
+   cat /tmp/aml-notion-ids.env; \
    echo \"$NAS_SUDO_PASS\" | sudo -S docker run -d -p 3000:3000 \
      --env-file .env --name aml aml-workspace:amd64"
 
