@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+ENV DEPLOY_TARGET=local
 RUN npm run build
 RUN npm install -g serve
 EXPOSE 3000

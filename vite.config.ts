@@ -3,6 +3,7 @@ import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+const isGitHubPages = process.env.DEPLOY_TARGET === 'github'
 const FALLBACK_DB_ID_RAW = 'ee38fb1070e24a39a553fce111752217'
 
 const toHyphenId = (idOrPath: string): string => {
@@ -113,7 +114,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   return {
-    base: mode === 'production' ? '/AML-workspace/' : '/',
+    base: isGitHubPages ? '/AML-workspace/' : '/',
     plugins: [react(), tailwindcss(), notionLocalRoutePlugin(env)],
     server: {
       proxy: {
