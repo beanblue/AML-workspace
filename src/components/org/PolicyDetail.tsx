@@ -108,79 +108,143 @@ function getContent(row: NotionDocumentRow | null): string {
 
 type Clause = {
   id: string
-  number: string
-  title: string
+  no: string
+  lead: string
   body: string
 }
 
-const CLAUSE_MARKER_REGEX =
-  /(第[一二三四五六七八九十百千0-9]+[章节条]|（[一二三四五六七八九十百千0-9]+）|[一二三四五六七八九十百千0-9]+、|\d+\.)/g
+type Chapter = {
+  id: string
+  title: string
+  clauses: Clause[]
+}
 
-function splitToClauses(text: string): Clause[] {
-  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim()
-  if (!normalized) {
+const CHAPTER_REGEX = /^###\s*(第[一二三四五六七八九十百零\d]+[章节].*)/gm
+const CLAUSE_REGEX = /\*\*(第[一二三四五六七八九十百零\d]+条)[*\s]*\*\*\s*(.*)/g
+
+function parsePolicyMarkdown(content: string): Chapter[] {
+  const text = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim()
+  if (!text) {
     return [
       {
-        id: 'fulltext',
-        number: '全文',
-        title: '',
-        body: '暂无正文内容（待接入全文解析）。',
+        id: 'chapter-full',
+        title: '全文',
+        clauses: [
+          {
+            id: 'fulltext',
+            no: '全文',
+            lead: '',
+            body: '暂无正文内容（待接入全文解析）。',
+          },
+        ],
       },
     ]
   }
 
-  const indices: number[] = []
-  for (const match of normalized.matchAll(CLAUSE_MARKER_REGEX)) {
+  const chapters: Array<{ index: number; title: string }> = []
+  for (const match of text.matchAll(CHAPTER_REGEX)) {
+    chapters.push({ index: match.index ?? 0, title: String(match[1] ?? '').trim() })
+  }
+  chapters.sort((a, b) => a.index - b.index)
+
+  const clauses: Array<{ index: number; end: number; no: string; first: string }> = []
+  for (const match of text.matchAll(CLAUSE_REGEX)) {
     const idx = match.index ?? 0
-    if (idx === 0) {
-      indices.push(idx)
-      continue
-    }
-    const prev = normalized[idx - 1] ?? ''
-    if (/[\s\n，。,.;；：:]/.test(prev)) indices.push(idx)
+    const no = String(match[1] ?? '').trim()
+    const first = String(match[2] ?? '').trim()
+    clauses.push({ index: idx, end: idx + String(match[0] ?? '').length, no, first })
   }
+  clauses.sort((a, b) => a.index - b.index)
 
-  const uniq = Array.from(new Set(indices)).sort((a, b) => a - b)
-  if (uniq.length < 2) {
+  if (clauses.length === 0) {
     return [
       {
-        id: 'fulltext',
-        number: '全文',
-        title: '',
-        body: normalized,
+        id: 'chapter-full',
+        title: '全文',
+        clauses: [
+          {
+            id: 'fulltext',
+            no: '全文',
+            lead: '',
+            body: text,
+          },
+        ],
       },
     ]
   }
 
-  const segments = uniq.map((start, i) => normalized.slice(start, uniq[i + 1] ?? normalized.length).trim()).filter(Boolean)
-
-  const toClause = (segment: string, index: number): Clause => {
-    const markerMatch = segment.match(CLAUSE_MARKER_REGEX)?.[0] ?? `条款 ${index + 1}`
-    const rest = segment.replace(markerMatch, '').trimStart()
-    const firstBreak = rest.search(/[\n。；;：:]/)
-    const titleRaw = firstBreak === -1 ? rest : rest.slice(0, firstBreak)
-    const title = titleRaw.trim().slice(0, 36)
-    const bodyRaw = firstBreak === -1 ? '' : rest.slice(firstBreak + 1)
-    const body = bodyRaw.trim() || (firstBreak === -1 ? rest.trim() : '')
-    return {
-      id: `clause-${index + 1}`,
-      number: markerMatch,
-      title: title && title !== body ? title : '',
-      body: body && body !== title ? body : '',
+  const chapterAt = (pos: number): { index: number; title: string } | null => {
+    let last: { index: number; title: string } | null = null
+    for (const c of chapters) {
+      if (c.index <= pos) last = c
+      else break
     }
+    return last
   }
 
-  const clauses = segments.map(toClause)
-  return clauses.length > 0
-    ? clauses
-    : [
-        {
-          id: 'fulltext',
-          number: '全文',
-          title: '',
-          body: normalized,
-        },
-      ]
+  const nextChapterIndexAfter = (pos: number): number => {
+    for (const c of chapters) {
+      if (c.index > pos) return c.index
+    }
+    return Number.POSITIVE_INFINITY
+  }
+
+  const groups = new Map<string, Chapter>()
+  const ensureChapter = (title: string): Chapter => {
+    const key = title || '未分章'
+    const existing = groups.get(key)
+    if (existing) return existing
+    const chapter: Chapter = { id: `chapter-${groups.size + 1}`, title: key, clauses: [] }
+    groups.set(key, chapter)
+    return chapter
+  }
+
+  clauses.forEach((clause, idx) => {
+    const nextClauseStart = clauses[idx + 1]?.index ?? Number.POSITIVE_INFINITY
+    const nextChapterStart = nextChapterIndexAfter(clause.index)
+    const end = Math.min(nextClauseStart, nextChapterStart, text.length)
+    const tail = text.slice(clause.end, end).trim()
+    const body = [clause.first, tail].filter(Boolean).join('\n').trim()
+    const lead = clause.first || body.split('\n').map((x) => x.trim()).find(Boolean) || ''
+
+    const chapter = chapterAt(clause.index)
+    const chapterTitle = chapter?.title ?? '未分章'
+    const group = ensureChapter(chapterTitle)
+    group.clauses.push({
+      id: `clause-${group.clauses.length + 1}-${group.id}`,
+      no: clause.no,
+      lead,
+      body: body || '—',
+    })
+  })
+
+  const ordered: Chapter[] = []
+  for (const entry of groups.values()) ordered.push(entry)
+  return ordered
+}
+
+function renderClauseBody(body: string) {
+  const lines = body.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+
+  return (
+    <div className="mt-3 space-y-2 text-sm leading-7 text-slate-800">
+      {lines.map((line, idx) => {
+        const trimmed = line.replace(/\s+$/g, '')
+        if (!trimmed.trim()) return <div key={`blank-${idx}`} className="h-3" />
+        const indent =
+          /^（[一二三四五六七八九十百零\d]+）/.test(trimmed)
+            ? 'pl-6'
+            : /^[一二三四五六七八九十百零\d]+、/.test(trimmed) || /^\d+\./.test(trimmed)
+              ? 'pl-4'
+              : 'pl-0'
+        return (
+          <p key={`line-${idx}`} className={`whitespace-pre-wrap ${indent}`}>
+            {trimmed}
+          </p>
+        )
+      })}
+    </div>
+  )
 }
 
 function ClauseInsight({
@@ -276,15 +340,15 @@ export default function PolicyDetail() {
   const topics = useMemo(() => normalizeTextList(doc?.主题标签), [doc?.主题标签])
 
   const contentText = useMemo(() => getContent(doc), [doc])
-  const clauses = useMemo(() => splitToClauses(contentText), [contentText])
-  const toc = useMemo(
-    () =>
-      clauses.map((clause) => ({
-        id: clause.id,
-        label: `${clause.number}${clause.title ? ` ${clause.title}` : ''}`.trim(),
-      })),
-    [clauses],
-  )
+  const chapters = useMemo(() => parsePolicyMarkdown(contentText), [contentText])
+  const allClauses = useMemo(() => chapters.flatMap((chapter) => chapter.clauses), [chapters])
+  const clauseChapterMap = useMemo(() => {
+    const map = new Map<string, string>()
+    chapters.forEach((chapter) => {
+      chapter.clauses.forEach((clause) => map.set(clause.id, chapter.id))
+    })
+    return map
+  }, [chapters])
 
   const relatedDocs = useMemo(() => {
     const topic = topics[0]
@@ -297,12 +361,14 @@ export default function PolicyDetail() {
 
   const filteredClauses = useMemo(() => {
     const kw = search.trim().toLowerCase()
-    if (!kw) return clauses
-    return clauses.filter((clause) => {
-      const combined = `${clause.number} ${clause.title} ${clause.body}`.toLowerCase()
+    if (!kw) return allClauses
+    return allClauses.filter((clause) => {
+      const combined = `${clause.no} ${clause.lead} ${clause.body}`.toLowerCase()
       return combined.includes(kw)
     })
-  }, [clauses, search])
+  }, [allClauses, search])
+
+  const activeChapterId = clauseChapterMap.get(activeTocId) ?? chapters[0]?.id ?? 'chapter-full'
 
   useEffect(() => {
     if (filteredClauses.length === 0) return
@@ -403,21 +469,44 @@ export default function PolicyDetail() {
 
           {collapsed ? null : (
             <div className="max-h-[75vh] overflow-auto p-2">
-              {toc.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    const el = document.getElementById(item.id)
-                    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                  }}
-                  className={`w-full rounded px-2 py-1.5 text-left text-sm ${
-                    activeTocId === item.id ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
+              {chapters.map((chapter) => {
+                const firstClauseId = chapter.clauses[0]?.id
+                return (
+                  <div key={chapter.id} className="mb-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!firstClauseId) return
+                        const el = document.getElementById(firstClauseId)
+                        el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      }}
+                      className={`w-full rounded px-2 py-2 text-left text-sm font-semibold ${
+                        activeChapterId === chapter.id ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200/70'
+                      }`}
+                    >
+                      {chapter.title}
+                    </button>
+
+                    <div className="mt-1 space-y-1">
+                      {chapter.clauses.map((clause) => (
+                        <button
+                          key={clause.id}
+                          type="button"
+                          onClick={() => {
+                            const el = document.getElementById(clause.id)
+                            el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                          }}
+                          className={`w-full rounded px-2 py-1.5 text-left text-sm ${
+                            activeTocId === clause.id ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {clause.no}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </aside>
@@ -543,11 +632,11 @@ export default function PolicyDetail() {
                 <div key={item.id} id={item.id} className="rounded-lg border border-slate-200 bg-white p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-xs text-slate-500">
-                        {item.number}
-                        {item.title ? ` · ${item.title}` : ''}
-                      </p>
-                      <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-800">{item.body}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{item.no}</span>
+                        <span className="text-sm font-semibold text-slate-900">{item.lead || (item.no === '全文' ? '正文' : '—')}</span>
+                      </div>
+                      {renderClauseBody(item.body)}
                     </div>
                     <button
                       type="button"
