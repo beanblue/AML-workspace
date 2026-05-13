@@ -39,6 +39,7 @@ type NotionDocumentRow = {
   正文?: string
   全文?: string
   内容?: string
+  content?: string
   主题标签?: string[] | string
 }
 
@@ -98,28 +99,88 @@ function getEffectiveDate(row: NotionDocumentRow | null): string {
 }
 
 function getContent(row: NotionDocumentRow | null): string {
-  const text = String(row?.正文 ?? row?.全文 ?? row?.内容 ?? '').trim()
+  const text = String(row?.正文 ?? row?.全文 ?? row?.内容 ?? row?.content ?? '').trim()
   if (text) return text
   const summary = String(row?.摘要 ?? '').trim()
   const points = String(row?.['关键要点/适用情景'] ?? '').trim()
   return [summary, points].filter(Boolean).join('\n\n')
 }
 
-type TocItem = { id: string; label: string }
+type Clause = {
+  id: string
+  number: string
+  title: string
+  body: string
+}
 
-function buildToc(paragraphs: Array<{ id: string; text: string }>): TocItem[] {
-  const result: TocItem[] = []
-  const headingRegex = /^(第[一二三四五六七八九十0-9]+[章节条].*|[一二三四五六七八九十0-9]+[、.].*)$/
-  for (const p of paragraphs) {
-    const trimmed = p.text.trim()
-    if (!trimmed) continue
-    if (headingRegex.test(trimmed) || trimmed.length <= 18) {
-      result.push({ id: p.id, label: trimmed })
-    }
-    if (result.length >= 40) break
+const CLAUSE_MARKER_REGEX =
+  /(第[一二三四五六七八九十百千0-9]+[章节条]|（[一二三四五六七八九十百千0-9]+）|[一二三四五六七八九十百千0-9]+、|\d+\.)/g
+
+function splitToClauses(text: string): Clause[] {
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim()
+  if (!normalized) {
+    return [
+      {
+        id: 'fulltext',
+        number: '全文',
+        title: '',
+        body: '暂无正文内容（待接入全文解析）。',
+      },
+    ]
   }
-  if (result.length > 0) return result
-  return paragraphs.slice(0, 20).map((p, idx) => ({ id: p.id, label: `条款 ${idx + 1}` }))
+
+  const indices: number[] = []
+  for (const match of normalized.matchAll(CLAUSE_MARKER_REGEX)) {
+    const idx = match.index ?? 0
+    if (idx === 0) {
+      indices.push(idx)
+      continue
+    }
+    const prev = normalized[idx - 1] ?? ''
+    if (/[\s\n，。,.;；：:]/.test(prev)) indices.push(idx)
+  }
+
+  const uniq = Array.from(new Set(indices)).sort((a, b) => a - b)
+  if (uniq.length < 2) {
+    return [
+      {
+        id: 'fulltext',
+        number: '全文',
+        title: '',
+        body: normalized,
+      },
+    ]
+  }
+
+  const segments = uniq.map((start, i) => normalized.slice(start, uniq[i + 1] ?? normalized.length).trim()).filter(Boolean)
+
+  const toClause = (segment: string, index: number): Clause => {
+    const markerMatch = segment.match(CLAUSE_MARKER_REGEX)?.[0] ?? `条款 ${index + 1}`
+    const rest = segment.replace(markerMatch, '').trimStart()
+    const firstBreak = rest.search(/[\n。；;：:]/)
+    const titleRaw = firstBreak === -1 ? rest : rest.slice(0, firstBreak)
+    const title = titleRaw.trim().slice(0, 36)
+    const bodyRaw = firstBreak === -1 ? '' : rest.slice(firstBreak + 1)
+    const body = bodyRaw.trim() || (firstBreak === -1 ? rest.trim() : '')
+    return {
+      id: `clause-${index + 1}`,
+      number: markerMatch,
+      title: title && title !== body ? title : '',
+      body: body && body !== title ? body : '',
+    }
+  }
+
+  const clauses = segments.map(toClause)
+  return clauses.length > 0
+    ? clauses
+    : [
+        {
+          id: 'fulltext',
+          number: '全文',
+          title: '',
+          body: normalized,
+        },
+      ]
 }
 
 function ClauseInsight({
@@ -182,6 +243,7 @@ export default function PolicyDetail() {
   const [favorites, setFavorites] = useState<string[]>([])
   const [search, setSearch] = useState('')
   const [openClauseId, setOpenClauseId] = useState<string | null>(null)
+  const [activeTocId, setActiveTocId] = useState<string>('fulltext')
   const contentRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -214,20 +276,15 @@ export default function PolicyDetail() {
   const topics = useMemo(() => normalizeTextList(doc?.主题标签), [doc?.主题标签])
 
   const contentText = useMemo(() => getContent(doc), [doc])
-  const paragraphs = useMemo(() => {
-    const text = contentText
-    const raw = text
-      ? text
-          .split(/\n+/)
-          .map((line) => line.trim())
-          .filter(Boolean)
-      : []
-
-    const list = raw.map((line, idx) => ({ id: `clause-${idx + 1}`, text: line }))
-    return list.length > 0 ? list : [{ id: 'clause-1', text: '暂无正文内容（待接入全文解析）。' }]
-  }, [contentText])
-
-  const toc = useMemo(() => buildToc(paragraphs), [paragraphs])
+  const clauses = useMemo(() => splitToClauses(contentText), [contentText])
+  const toc = useMemo(
+    () =>
+      clauses.map((clause) => ({
+        id: clause.id,
+        label: `${clause.number}${clause.title ? ` ${clause.title}` : ''}`.trim(),
+      })),
+    [clauses],
+  )
 
   const relatedDocs = useMemo(() => {
     const topic = topics[0]
@@ -240,9 +297,40 @@ export default function PolicyDetail() {
 
   const filteredClauses = useMemo(() => {
     const kw = search.trim().toLowerCase()
-    if (!kw) return paragraphs
-    return paragraphs.filter((p) => p.text.toLowerCase().includes(kw))
-  }, [paragraphs, search])
+    if (!kw) return clauses
+    return clauses.filter((clause) => {
+      const combined = `${clause.number} ${clause.title} ${clause.body}`.toLowerCase()
+      return combined.includes(kw)
+    })
+  }, [clauses, search])
+
+  useEffect(() => {
+    if (filteredClauses.length === 0) return
+    setActiveTocId(filteredClauses[0]?.id ?? 'fulltext')
+  }, [filteredClauses])
+
+  useEffect(() => {
+    const ids = filteredClauses.map((item) => item.id)
+    if (ids.length === 0) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => (a.boundingClientRect.top ?? 0) - (b.boundingClientRect.top ?? 0))
+        const first = visible[0]
+        if (first?.target?.id) setActiveTocId(first.target.id)
+      },
+      { root: null, rootMargin: '-15% 0px -70% 0px', threshold: [0.1, 0.25, 0.5] },
+    )
+
+    ids.forEach((cid) => {
+      const el = document.getElementById(cid)
+      if (el) observer.observe(el)
+    })
+
+    return () => observer.disconnect()
+  }, [filteredClauses])
 
   const counts = useMemo(() => {
     const n = relatedDocs.length
@@ -323,7 +411,9 @@ export default function PolicyDetail() {
                     const el = document.getElementById(item.id)
                     el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                   }}
-                  className="w-full rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  className={`w-full rounded px-2 py-1.5 text-left text-sm ${
+                    activeTocId === item.id ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
                 >
                   {item.label}
                 </button>
@@ -449,12 +539,15 @@ export default function PolicyDetail() {
 
           <article className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="space-y-4">
-              {filteredClauses.map((item, idx) => (
+              {filteredClauses.map((item) => (
                 <div key={item.id} id={item.id} className="rounded-lg border border-slate-200 bg-white p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-xs text-slate-500">条款 {idx + 1}</p>
-                      <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-800">{item.text}</p>
+                      <p className="text-xs text-slate-500">
+                        {item.number}
+                        {item.title ? ` · ${item.title}` : ''}
+                      </p>
+                      <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-800">{item.body}</p>
                     </div>
                     <button
                       type="button"
@@ -562,4 +655,3 @@ export default function PolicyDetail() {
     </section>
   )
 }
-
