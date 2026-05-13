@@ -24,7 +24,7 @@ echo "🚀 更新极空间容器..."
 ssh -p 10000 18610726373@192.168.88.9 \
   "echo \"$NAS_SUDO_PASS\" | sudo -S docker rm -f aml 2>/dev/null; \
    echo \"$NAS_SUDO_PASS\" | sudo -S docker load < /tmp/aml-workspace-amd64.tar.gz; \
-   cd /zspace/aml && \
+   cd /zspace/aml && node scripts/setup-notion-ids.js; \
    echo \"$NAS_SUDO_PASS\" | sudo -S docker run -d -p 3000:3000 \
      --env-file .env --name aml aml-workspace:amd64"
 
