@@ -99,7 +99,21 @@ function getEffectiveDate(row: NotionDocumentRow | null): string {
 }
 
 function getContent(row: NotionDocumentRow | null): string {
-  const text = String(row?.正文 ?? row?.全文 ?? row?.内容 ?? row?.content ?? '').trim()
+  if (!row) return ''
+  const record = row as unknown as Record<string, unknown>
+  const raw =
+    record.content ??
+    record.Content ??
+    record.CONTENT ??
+    record.正文 ??
+    record.全文 ??
+    record.内容 ??
+    record['正文内容'] ??
+    row.content ??
+    row.正文 ??
+    row.全文 ??
+    row.内容
+  const text = typeof raw === 'string' ? raw.trim() : ''
   if (text) return text
   const summary = String(row?.摘要 ?? '').trim()
   const points = String(row?.['关键要点/适用情景'] ?? '').trim()
@@ -120,7 +134,7 @@ type Chapter = {
 }
 
 const CHAPTER_REGEX = /^###\s*(第[一二三四五六七八九十百零\d]+[章节].*)/gm
-const CLAUSE_REGEX = /\*\*(第[一二三四五六七八九十百零\d]+条)[*\s]*\*\*\s*(.*)/g
+const CLAUSE_REGEX = /\*\*(第[一二三四五六七八九十百零\d]+条)\*\*\s*(.*)/g
 
 function parsePolicyMarkdown(content: string): Chapter[] {
   const text = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim()
@@ -327,6 +341,8 @@ export default function PolicyDetail() {
   }, [])
 
   const doc = useMemo(() => allDocs.find((item) => item.id === id) ?? null, [allDocs, id])
+  const content = (doc as unknown as { content?: unknown } | null)?.content
+  console.log('[DEBUG content]', (typeof content === 'string' ? content : JSON.stringify(content ?? '')).slice(0, 300))
   const title = getTitle(doc)
   const timeliness = normalizeTimeliness(String(doc?.状态 ?? ''))
   const statusClass = STATUS_STYLE[timeliness] ?? 'bg-slate-100 text-slate-700'
@@ -339,7 +355,7 @@ export default function PolicyDetail() {
   const keyPoints = String(doc?.['关键要点/适用情景'] ?? '').trim()
   const topics = useMemo(() => normalizeTextList(doc?.主题标签), [doc?.主题标签])
 
-  const contentText = useMemo(() => getContent(doc), [doc])
+  const contentText = useMemo(() => (typeof content === 'string' && content.trim() ? content : getContent(doc)), [content, doc])
   const chapters = useMemo(() => parsePolicyMarkdown(contentText), [contentText])
   const allClauses = useMemo(() => chapters.flatMap((chapter) => chapter.clauses), [chapters])
   const clauseChapterMap = useMemo(() => {
