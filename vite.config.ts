@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 const isGitHubPages = process.env.DEPLOY_TARGET === 'github'
 const FALLBACK_DB_ID_RAW = 'ee38fb1070e24a39a553fce111752217'
+const NOTION_VERSION = '2022-06-28'
 
 const toHyphenId = (idOrPath: string): string => {
   const raw = idOrPath.replace(/^collection:\/\//, '').replace(/-/g, '').trim()
@@ -32,8 +33,80 @@ const readJsonBody = async (req: NodeJS.ReadableStream): Promise<Record<string, 
     req.on('error', reject)
   })
 
+const resolveDatabaseId = (env: Record<string, string>, databaseId: string): string => {
+  const map: Record<string, string | undefined> = {
+    documents: env.NOTION_DB_DOCUMENTS,
+    org: env.NOTION_DB_ORG,
+    kpi: env.NOTION_DB_KPI,
+    self_eval: env.NOTION_DB_SELF_EVAL,
+    suspicious: env.NOTION_DB_SUSPICIOUS,
+  }
+  return toHyphenId(map[databaseId] ?? databaseId)
+}
+
+const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
+  const token = env.NOTION_TOKEN ?? ''
+
+  return {
+    name: 'notion-api-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/notion/query', async (req, res, next) => {
+        if (req.method !== 'POST') {
+          next()
+          return
+        }
+
+        if (!token) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: 'Notion 中转未配置 NOTION_TOKEN。' }))
+          return
+        }
+
+        try {
+          const body = await readJsonBody(req)
+          const databaseIdRaw = String(body.databaseId ?? '')
+          const databaseId = resolveDatabaseId(env, databaseIdRaw)
+          const filter = body.filter
+          const startCursor = body.startCursor ? String(body.startCursor) : undefined
+
+          if (!databaseId) {
+            res.statusCode = 400
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ message: '缺少 databaseId。' }))
+            return
+          }
+
+          const response = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Notion-Version': NOTION_VERSION,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              page_size: 100,
+              ...(startCursor ? { start_cursor: startCursor } : {}),
+              ...(filter ? { filter } : {}),
+            }),
+          })
+
+          const text = await response.text()
+          res.statusCode = response.status
+          res.setHeader('Content-Type', 'application/json')
+          res.end(text)
+        } catch (error) {
+          res.statusCode = 400
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: error instanceof Error ? error.message : '请求体解析失败' }))
+        }
+      })
+    },
+  }
+}
+
 const notionLocalRoutePlugin = (env: Record<string, string>): Plugin => {
-  const token = env.VITE_NOTION_TOKEN ?? ''
+  const token = env.NOTION_TOKEN ?? env.VITE_NOTION_TOKEN ?? ''
   const dbCandidates = Array.from(
     new Set([toHyphenId(env.VITE_NOTION_DB_RESOURCE ?? ''), toHyphenId(FALLBACK_DB_ID_RAW)].filter(Boolean)),
   )
@@ -67,7 +140,7 @@ const notionLocalRoutePlugin = (env: Record<string, string>): Plugin => {
                 method: 'POST',
                 headers: {
                   Authorization: `Bearer ${token}`,
-                  'Notion-Version': '2022-06-28',
+                  'Notion-Version': NOTION_VERSION,
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
@@ -115,7 +188,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: isGitHubPages ? '/AML-workspace/' : '/',
-    plugins: [react(), tailwindcss(), notionLocalRoutePlugin(env)],
+    plugins: [react(), tailwindcss(), notionApiProxyPlugin(env), notionLocalRoutePlugin(env)],
     server: {
       proxy: {
         '/notion-api': {
@@ -123,8 +196,8 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/notion-api/, ''),
           headers: {
-            Authorization: `Bearer ${env.VITE_NOTION_TOKEN ?? ''}`,
-            'Notion-Version': '2022-06-28',
+            Authorization: `Bearer ${env.NOTION_TOKEN ?? ''}`,
+            'Notion-Version': NOTION_VERSION,
           },
         },
       },

@@ -6,4 +6,9 @@ services:
       - "3000:3000"
     environment:
       - NOTION_TOKEN=${NOTION_TOKEN}
+      - NOTION_DB_DOCUMENTS=${NOTION_DB_DOCUMENTS}
+      - NOTION_DB_ORG=${NOTION_DB_ORG}
+      - NOTION_DB_KPI=${NOTION_DB_KPI}
+      - NOTION_DB_SELF_EVAL=${NOTION_DB_SELF_EVAL}
+      - NOTION_DB_SUSPICIOUS=${NOTION_DB_SUSPICIOUS}
     restart: unless-stopped
