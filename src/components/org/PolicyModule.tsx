@@ -10,8 +10,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAMLData } from '../../hooks/useAMLData'
-import type { PolicyProcessItem, ProcessLibraryItem, ReferenceKnowledgeItem } from '../../types'
+import { queryDatabase } from '../../api/notion'
 import { Modal } from '../shared/Modal'
 
 type LibraryCategory = '全部' | '内控制度' | '法律法规' | '流程' | '图书' | '论文' | '其他'
@@ -21,7 +20,7 @@ type PageSize = 10 | 15 | 20 | 'all'
 
 type LibraryDoc = {
   id: string
-  source: 'policy' | 'process' | 'knowledge' | 'local'
+  source: 'notion' | 'local'
   category: Exclude<LibraryCategory, '全部'>
   timeliness: Timeliness
   title: string
@@ -87,6 +86,25 @@ const DEFAULT_ADVANCED: AdvancedFilters = {
   effectiveEnd: '',
 }
 
+type NotionDocumentRow = {
+  id: string
+  标题?: string
+  Name?: string
+  类型?: string
+  状态?: string
+  文档类型?: string
+  来源?: string
+  发文机关?: string
+  发文部门?: string
+  '生效/发布日期'?: string
+  发布日期?: string
+  生效日期?: string
+  摘要?: string
+  '关键要点/适用情景'?: string
+  '关键要点/适用情景 '?: string
+  适用范围?: string
+}
+
 function toggleInArray<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]
 }
@@ -118,42 +136,7 @@ function highlightText(text: string, keyword: string) {
   )
 }
 
-function normalizePolicyStatus(item: PolicyProcessItem): Timeliness {
-  if (item.status === 'archived') return '已废止'
-  if (item.status === 'inactive') return '修订中'
-  if (item.status === 'draft') return '草案'
-
-  const ts = item.effectiveDate ? new Date(item.effectiveDate).getTime() : Number.NaN
-  if (!Number.isNaN(ts) && ts > Date.now()) return '尚未生效'
-  return '编码有效'
-}
-
-function normalizeProcessStatus(item: ProcessLibraryItem): Timeliness {
-  if (item.status === 'archived') return '已废止'
-  if (item.status === 'inactive') return '修订中'
-  if (item.status === 'draft' || item.status === 'pending') return '草案'
-  return '编码有效'
-}
-
-function normalizeKnowledgeStatus(item: ReferenceKnowledgeItem): Timeliness {
-  const s = String(item.status ?? '')
-  if (s.includes('废止')) return '已废止'
-  if (s.includes('草案') || s.includes('拟稿')) return '草案'
-  if (s.includes('未生效')) return '尚未生效'
-  if (s.includes('仅参考')) return '修订中'
-  const ts = item.publishDate ? new Date(item.publishDate).getTime() : Number.NaN
-  if (!Number.isNaN(ts) && ts > Date.now()) return '尚未生效'
-  return '编码有效'
-}
-
-function normalizeKnowledgeCategory(item: ReferenceKnowledgeItem): Exclude<LibraryCategory, '全部'> {
-  if (item.materialType === '图书') return '图书'
-  if (item.materialType === '论文') return '论文'
-  if (item.materialType === '监管报告') return '法律法规'
-  return '其他'
-}
-
-function safeText(value: string | undefined | null): string {
+function safeText(value: unknown): string {
   return String(value ?? '').trim()
 }
 
@@ -161,14 +144,39 @@ function parseFileNameTitle(name: string): string {
   return name.replace(/\.[^/.]+$/, '').trim()
 }
 
+function normalizeNotionCategory(typeValue: string): Exclude<LibraryCategory, '全部'> {
+  const raw = typeValue.trim()
+  const normalized = raw.toLowerCase()
+
+  if (!raw) return '其他'
+  if (raw.includes('法律') || raw.includes('法规') || raw.includes('监管') || normalized.includes('law')) return '法律法规'
+  if (raw.includes('制度') || raw.includes('规定') || raw.includes('办法')) return '内控制度'
+  if (raw.includes('图书') || raw === '书' || raw.includes('书籍')) return '图书'
+  if (raw.includes('论文') || raw.includes('研究')) return '论文'
+  if (raw.includes('流程')) return '流程'
+  return '其他'
+}
+
+function normalizeNotionTimeliness(statusValue: string, dateValue: string): Timeliness {
+  const status = statusValue.trim()
+  if (status.includes('废止') || status.includes('失效')) return '已废止'
+  if (status.includes('修订') || status.includes('更新')) return '修订中'
+  if (status.includes('草案') || status.includes('拟稿') || status.includes('草稿')) return '草案'
+  if (status.includes('未生效') || status.includes('尚未生效')) return '尚未生效'
+
+  const ts = dateValue ? new Date(dateValue).getTime() : Number.NaN
+  if (!Number.isNaN(ts) && ts > Date.now()) return '尚未生效'
+  if (status.includes('有效') || status === '生效' || status.includes('现行')) return '编码有效'
+  return '编码有效'
+}
+
 export function PolicyModule() {
   const navigate = useNavigate()
 
-  const policies = useAMLData<PolicyProcessItem[]>('policy', 'query')
-  const processes = useAMLData<ProcessLibraryItem[]>('policyProcess', 'query')
-  const knowledge = useAMLData<ReferenceKnowledgeItem[]>('policyKnowledge', 'query')
-
   const [localDocs, setLocalDocs] = useState<LibraryDoc[]>([])
+  const [notionDocs, setNotionDocs] = useState<LibraryDoc[]>([])
+  const [notionLoading, setNotionLoading] = useState(false)
+  const [notionError, setNotionError] = useState<string | null>(null)
 
   const [category, setCategory] = useState<LibraryCategory>('全部')
   const [timeliness, setTimeliness] = useState<Timeliness[]>([])
@@ -247,82 +255,63 @@ export function PolicyModule() {
     throw new Error('不支持的文件类型')
   }
 
-  const remoteDocs = useMemo(() => {
-    const list: LibraryDoc[] = []
+  useEffect(() => {
+    const run = async () => {
+      setNotionLoading(true)
+      setNotionError(null)
+      try {
+        const rows = (await queryDatabase('documents')) as unknown as NotionDocumentRow[]
+        const mapped: LibraryDoc[] = rows.map((row) => {
+          const title = safeText(row.标题 ?? row.Name) || '未命名资料'
+          const typeRaw = safeText(row.类型 ?? row.文档类型)
+          const statusRaw = safeText(row.状态)
+          const dept = safeText(row.来源 ?? row.发文机关 ?? row.发文部门)
+          const publishDate = safeText(row['生效/发布日期'] ?? row.发布日期)
+          const effectiveDate = safeText(row.生效日期 ?? row['生效/发布日期'])
+          const summary = safeText(row.摘要)
+          const keyPoints = safeText((row as any)['关键要点/适用情景'] ?? (row as any)['关键要点/适用情景 '] ?? '')
+          const scope = safeText(row.适用范围)
+          const content = [summary, keyPoints, scope].filter(Boolean).join('\n')
 
-    ;(policies.data ?? []).forEach((item) => {
-      const category = item.category === '流程' ? '流程' : '内控制度'
-      list.push({
-        id: item.id,
-        source: 'policy',
-        category,
-        timeliness: normalizePolicyStatus(item),
-        title: item.name,
-        docNo: safeText(item.documentNo || item.code),
-        dept: safeText(item.issuingUnit),
-        publishDate: safeText(item.issueDate),
-        effectiveDate: safeText(item.effectiveDate),
-        summary: safeText(item.summary),
-        content: safeText(item.fullText),
-        sourceLevel: safeText(item.sourceLevel),
-      })
-    })
+          return {
+            id: row.id,
+            source: 'notion',
+            category: normalizeNotionCategory(typeRaw),
+            timeliness: normalizeNotionTimeliness(statusRaw, effectiveDate || publishDate),
+            title,
+            docNo: '',
+            dept,
+            publishDate,
+            effectiveDate,
+            summary,
+            content,
+            sourceLevel: '',
+          }
+        })
+        setNotionDocs(mapped)
+      } catch (e) {
+        setNotionError(e instanceof Error ? e.message : String(e))
+        setNotionDocs([])
+      } finally {
+        setNotionLoading(false)
+      }
+    }
 
-    ;(processes.data ?? []).forEach((item) => {
-      list.push({
-        id: item.id,
-        source: 'process',
-        category: '流程',
-        timeliness: normalizeProcessStatus(item),
-        title: item.processName,
-        docNo: safeText(item.processCode),
-        dept: safeText(item.businessDomain),
-        publishDate: safeText(item.updatedAt?.slice(0, 10)),
-        effectiveDate: '',
-        summary: safeText(item.steps?.[0]?.triggerCondition ?? ''),
-        content: safeText(
-          [
-            item.processName,
-            '',
-            ...(item.steps ?? []).map((step) => `${step.index}. ${step.name}\n${step.triggerCondition}`),
-          ].join('\n'),
-        ),
-        sourceLevel: '',
-      })
-    })
+    void run()
+  }, [])
 
-    ;(knowledge.data ?? []).forEach((item) => {
-      list.push({
-        id: item.id,
-        source: 'knowledge',
-        category: normalizeKnowledgeCategory(item),
-        timeliness: normalizeKnowledgeStatus(item),
-        title: item.title,
-        docNo: '',
-        dept: safeText(item.sourceOrg),
-        publishDate: safeText(item.publishDate),
-        effectiveDate: '',
-        summary: safeText(item.summary),
-        content: safeText([item.summary, item.keyPoints, item.scope].filter(Boolean).join('\n')),
-        sourceLevel: '',
-      })
-    })
+  const docs = useMemo(() => [...localDocs, ...notionDocs], [localDocs, notionDocs])
 
-    return list
-  }, [knowledge.data, policies.data, processes.data])
-
-  const docs = useMemo(() => [...localDocs, ...remoteDocs], [localDocs, remoteDocs])
-
-  const loading = policies.loading || processes.loading || knowledge.loading
-  const error = policies.error || processes.error || knowledge.error
+  const loading = notionLoading
+  const error = notionError
 
   const stats = useMemo(() => {
     const total = docs.length
     const active = docs.filter((d) => d.timeliness === '编码有效').length
     const archived = docs.filter((d) => d.timeliness === '已废止').length
     const revising = docs.filter((d) => d.timeliness === '修订中').length
-    const draft = docs.filter((d) => d.timeliness === '草案').length
-    return { total, active, archived, revising, draft }
+    const thesis = docs.filter((d) => d.category === '论文').length
+    return { total, active, archived, revising, thesis }
   }, [docs])
 
   const departments = useMemo(() => Array.from(new Set(docs.map((d) => d.dept).filter(Boolean))).sort(), [docs])
@@ -418,9 +407,9 @@ export function PolicyModule() {
           <p className="text-xs text-orange-700">修订中数</p>
           <p className="mt-2 text-2xl font-semibold text-orange-800">{stats.revising}</p>
         </div>
-        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-          <p className="text-xs text-blue-700">草案数</p>
-          <p className="mt-2 text-2xl font-semibold text-blue-800">{stats.draft}</p>
+        <div className="rounded-xl border border-violet-200 bg-violet-50 p-4">
+          <p className="text-xs text-violet-700">论文数</p>
+          <p className="mt-2 text-2xl font-semibold text-violet-800">{stats.thesis}</p>
         </div>
       </div>
 
@@ -1085,4 +1074,3 @@ export function PolicyModule() {
     </section>
   )
 }
-
