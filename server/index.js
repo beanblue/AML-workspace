@@ -19,15 +19,31 @@ const toHyphenId = (idOrPath) => {
   return `${raw.slice(0, 8)}-${raw.slice(8, 12)}-${raw.slice(12, 16)}-${raw.slice(16, 20)}-${raw.slice(20)}`
 }
 
+const isNotionId = (id) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id ?? '').trim())
+
 const resolveDatabaseId = (databaseId) => {
-  const map = {
-    documents: process.env.NOTION_DB_DOCUMENTS,
-    org: process.env.NOTION_DB_ORG,
-    kpi: process.env.NOTION_DB_KPI,
-    self_eval: process.env.NOTION_DB_SELF_EVAL,
-    suspicious: process.env.NOTION_DB_SUSPICIOUS,
+  const envKeyMap = {
+    documents: 'NOTION_DB_DOCUMENTS',
+    org: 'NOTION_DB_ORG',
+    kpi: 'NOTION_DB_KPI',
+    self_eval: 'NOTION_DB_SELF_EVAL',
+    suspicious: 'NOTION_DB_SUSPICIOUS',
   }
-  return toHyphenId(map[databaseId] ?? databaseId)
+
+  const key = String(databaseId ?? '').trim()
+  const envKey = envKeyMap[key]
+  const value = envKey ? process.env[envKey] : key
+  const resolved = toHyphenId(value)
+
+  if (envKey) {
+    if (!value) throw new Error(`未配置 ${envKey}，无法解析数据库 ID。`)
+    if (!isNotionId(resolved)) throw new Error(`${envKey} 不是有效的 Notion 数据库 ID。`)
+    return resolved
+  }
+
+  if (!isNotionId(resolved)) throw new Error('databaseId 不是有效的 Notion 数据库 ID。')
+  return resolved
 }
 
 const readJson = async (req) =>
@@ -284,7 +300,8 @@ const server = http.createServer(async (req, res) => {
       res.end(text)
       return
     } catch (error) {
-      sendJson(res, 400, { message: error instanceof Error ? error.message : '请求体解析失败' })
+      const message = error instanceof Error ? error.message : '请求体解析失败'
+      sendJson(res, message.includes('未配置') || message.includes('不是有效的 Notion 数据库 ID') ? 500 : 400, { message })
       return
     }
   }
