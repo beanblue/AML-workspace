@@ -120,135 +120,115 @@ function getContent(row: NotionDocumentRow | null): string {
   return [summary, points].filter(Boolean).join('\n\n')
 }
 
-type Clause = {
-  id: string
-  no: string
-  lead: string
-  body: string
-}
+type SectionType = 'chapter' | 'section' | 'article'
 
-type Chapter = {
+type SectionNode = {
   id: string
+  type: SectionType
   title: string
-  clauses: Clause[]
+  content: string
+  parentId?: string
 }
 
-const CHAPTER_REGEX = /^###\s*(第[一二三四五六七八九十百零\d]+[章节].*)/gm
-const CLAUSE_REGEX = /\*\*(第[一二三四五六七八九十百零\d]+条)\*\*\s*(.*)/g
+const CHAPTER_LINE_REGEX = /^第[一二三四五六七八九十百千\d]+章[\s　]+(.+)/
+const SECTION_LINE_REGEX = /^第[一二三四五六七八九十百千\d]+节[\s　]+(.+)/
+const ARTICLE_LINE_REGEX = /^第[一二三四五六七八九十百千\d]+条[\s　]+(.+)/
 
-function parsePolicyMarkdown(content: string): Chapter[] {
+function parseSections(content: string): SectionNode[] {
   const text = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim()
-  if (!text) {
-    return [
-      {
-        id: 'chapter-full',
-        title: '全文',
-        clauses: [
-          {
-            id: 'fulltext',
-            no: '全文',
-            lead: '',
-            body: '暂无正文内容（待接入全文解析）。',
-          },
-        ],
-      },
-    ]
+  if (!text) return []
+
+  const lines = text.split('\n')
+  const nodes: SectionNode[] = []
+  let foundStructure = false
+
+  let chapterCount = 0
+  let sectionCount = 0
+  let articleCount = 0
+
+  let currentChapterId: string | undefined
+  let currentSectionId: string | undefined
+  let currentNodeId: string | undefined
+
+  const appendToCurrent = (line: string) => {
+    if (!currentNodeId) return
+    const node = nodes.find((n) => n.id === currentNodeId)
+    if (!node) return
+    node.content = node.content ? `${node.content}\n${line}` : line
   }
 
-  const chapters: Array<{ index: number; title: string }> = []
-  for (const match of text.matchAll(CHAPTER_REGEX)) {
-    chapters.push({ index: match.index ?? 0, title: String(match[1] ?? '').trim() })
-  }
-  chapters.sort((a, b) => a.index - b.index)
+  const startNode = (type: SectionType, title: string, initialContent: string, parentId?: string) => {
+    if (type === 'chapter') chapterCount += 1
+    if (type === 'section') sectionCount += 1
+    if (type === 'article') articleCount += 1
+    const id =
+      type === 'chapter'
+        ? `chapter-${chapterCount}`
+        : type === 'section'
+          ? `section-${sectionCount}`
+          : `article-${articleCount}`
 
-  const clauses: Array<{ index: number; end: number; no: string; first: string }> = []
-  for (const match of text.matchAll(CLAUSE_REGEX)) {
-    const idx = match.index ?? 0
-    const no = String(match[1] ?? '').trim()
-    const first = String(match[2] ?? '').trim()
-    clauses.push({ index: idx, end: idx + String(match[0] ?? '').length, no, first })
-  }
-  clauses.sort((a, b) => a.index - b.index)
-
-  if (clauses.length === 0) {
-    return [
-      {
-        id: 'chapter-full',
-        title: '全文',
-        clauses: [
-          {
-            id: 'fulltext',
-            no: '全文',
-            lead: '',
-            body: text,
-          },
-        ],
-      },
-    ]
-  }
-
-  const chapterAt = (pos: number): { index: number; title: string } | null => {
-    let last: { index: number; title: string } | null = null
-    for (const c of chapters) {
-      if (c.index <= pos) last = c
-      else break
-    }
-    return last
-  }
-
-  const nextChapterIndexAfter = (pos: number): number => {
-    for (const c of chapters) {
-      if (c.index > pos) return c.index
-    }
-    return Number.POSITIVE_INFINITY
-  }
-
-  const groups = new Map<string, Chapter>()
-  const ensureChapter = (title: string): Chapter => {
-    const key = title || '未分章'
-    const existing = groups.get(key)
-    if (existing) return existing
-    const chapter: Chapter = { id: `chapter-${groups.size + 1}`, title: key, clauses: [] }
-    groups.set(key, chapter)
-    return chapter
-  }
-
-  clauses.forEach((clause, idx) => {
-    const nextClauseStart = clauses[idx + 1]?.index ?? Number.POSITIVE_INFINITY
-    const nextChapterStart = nextChapterIndexAfter(clause.index)
-    const end = Math.min(nextClauseStart, nextChapterStart, text.length)
-    const tail = text.slice(clause.end, end).trim()
-    const body = [clause.first, tail].filter(Boolean).join('\n').trim()
-    const lead = clause.first || body.split('\n').map((x) => x.trim()).find(Boolean) || ''
-
-    const chapter = chapterAt(clause.index)
-    const chapterTitle = chapter?.title ?? '未分章'
-    const group = ensureChapter(chapterTitle)
-    group.clauses.push({
-      id: `clause-${group.clauses.length + 1}-${group.id}`,
-      no: clause.no,
-      lead,
-      body: body || '—',
+    nodes.push({
+      id,
+      type,
+      title,
+      content: initialContent,
+      ...(parentId ? { parentId } : {}),
     })
-  })
+    currentNodeId = id
+    if (type === 'chapter') {
+      currentChapterId = id
+      currentSectionId = undefined
+    }
+    if (type === 'section') {
+      currentSectionId = id
+    }
+  }
 
-  const ordered: Chapter[] = []
-  for (const entry of groups.values()) ordered.push(entry)
-  return ordered
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\s+$/g, '').trim()
+    if (!line) continue
+
+    const chapterMatch = line.match(CHAPTER_LINE_REGEX)
+    if (chapterMatch) {
+      foundStructure = true
+      startNode('chapter', line, '')
+      continue
+    }
+
+    const sectionMatch = line.match(SECTION_LINE_REGEX)
+    if (sectionMatch) {
+      foundStructure = true
+      startNode('section', line, '', currentChapterId)
+      continue
+    }
+
+    const articleMatch = line.match(ARTICLE_LINE_REGEX)
+    if (articleMatch) {
+      foundStructure = true
+      const parentId = currentSectionId ?? currentChapterId
+      startNode('article', line, articleMatch[1]?.trim() ?? '', parentId)
+      continue
+    }
+
+    appendToCurrent(line)
+  }
+
+  if (!foundStructure) return []
+  return nodes
 }
 
-function renderClauseBody(body: string) {
-  const lines = body.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
-
+function renderSectionContent(text: string) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
   return (
     <div className="mt-3 space-y-2 text-sm leading-7 text-slate-800">
       {lines.map((line, idx) => {
         const trimmed = line.replace(/\s+$/g, '')
         if (!trimmed.trim()) return <div key={`blank-${idx}`} className="h-3" />
         const indent =
-          /^（[一二三四五六七八九十百零\d]+）/.test(trimmed)
+          /^（[一二三四五六七八九十百千零\d]+）/.test(trimmed)
             ? 'pl-6'
-            : /^[一二三四五六七八九十百零\d]+、/.test(trimmed) || /^\d+\./.test(trimmed)
+            : /^[一二三四五六七八九十百千零\d]+、/.test(trimmed) || /^\d+\./.test(trimmed)
               ? 'pl-4'
               : 'pl-0'
         return (
@@ -322,6 +302,7 @@ export default function PolicyDetail() {
   const [search, setSearch] = useState('')
   const [openClauseId, setOpenClauseId] = useState<string | null>(null)
   const [activeTocId, setActiveTocId] = useState<string>('fulltext')
+  const [collapsedTocIds, setCollapsedTocIds] = useState<string[]>([])
   const contentRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -341,8 +322,6 @@ export default function PolicyDetail() {
   }, [])
 
   const doc = useMemo(() => allDocs.find((item) => item.id === id) ?? null, [allDocs, id])
-  const content = (doc as unknown as { content?: unknown } | null)?.content
-  console.log('[DEBUG content]', (typeof content === 'string' ? content : JSON.stringify(content ?? '')).slice(0, 300))
   const title = getTitle(doc)
   const timeliness = normalizeTimeliness(String(doc?.状态 ?? ''))
   const statusClass = STATUS_STYLE[timeliness] ?? 'bg-slate-100 text-slate-700'
@@ -355,16 +334,55 @@ export default function PolicyDetail() {
   const keyPoints = String(doc?.['关键要点/适用情景'] ?? '').trim()
   const topics = useMemo(() => normalizeTextList(doc?.主题标签), [doc?.主题标签])
 
-  const contentText = useMemo(() => (typeof content === 'string' && content.trim() ? content : getContent(doc)), [content, doc])
-  const chapters = useMemo(() => parsePolicyMarkdown(contentText), [contentText])
-  const allClauses = useMemo(() => chapters.flatMap((chapter) => chapter.clauses), [chapters])
-  const clauseChapterMap = useMemo(() => {
-    const map = new Map<string, string>()
-    chapters.forEach((chapter) => {
-      chapter.clauses.forEach((clause) => map.set(clause.id, chapter.id))
+  const contentText = useMemo(() => getContent(doc), [doc])
+  const sections = useMemo(() => parseSections(contentText), [contentText])
+  const hasSectionLevel = useMemo(() => sections.some((s) => s.type === 'section'), [sections])
+
+  const childrenMap = useMemo(() => {
+    const map = new Map<string, string[]>()
+    sections.forEach((node) => {
+      if (!node.parentId) return
+      const list = map.get(node.parentId) ?? []
+      list.push(node.id)
+      map.set(node.parentId, list)
     })
     return map
-  }, [chapters])
+  }, [sections])
+
+  const parentMap = useMemo(() => new Map(sections.map((s) => [s.id, s.parentId])), [sections])
+
+  const firstArticleIdMap = useMemo(() => {
+    const byId = new Map(sections.map((s) => [s.id, s]))
+
+    const findFirstArticle = (nodeId: string): string | null => {
+      const node = byId.get(nodeId)
+      if (!node) return null
+      if (node.type === 'article') return node.id
+      const children = childrenMap.get(node.id) ?? []
+      for (const cid of children) {
+        const found = findFirstArticle(cid)
+        if (found) return found
+      }
+      return null
+    }
+
+    const map = new Map<string, string>()
+    sections.forEach((s) => {
+      const found = findFirstArticle(s.id)
+      if (found) map.set(s.id, found)
+    })
+    return map
+  }, [childrenMap, sections])
+
+  const activeAncestorIds = useMemo(() => {
+    const set = new Set<string>()
+    let cursor: string | undefined = activeTocId
+    while (cursor) {
+      set.add(cursor)
+      cursor = parentMap.get(cursor)
+    }
+    return set
+  }, [activeTocId, parentMap])
 
   const relatedDocs = useMemo(() => {
     const topic = topics[0]
@@ -375,24 +393,41 @@ export default function PolicyDetail() {
       .slice(0, 6)
   }, [allDocs, doc?.id, topics])
 
-  const filteredClauses = useMemo(() => {
+  const visibleSections = useMemo(() => {
+    if (sections.length === 0) return []
     const kw = search.trim().toLowerCase()
-    if (!kw) return allClauses
-    return allClauses.filter((clause) => {
-      const combined = `${clause.no} ${clause.lead} ${clause.body}`.toLowerCase()
-      return combined.includes(kw)
+    if (!kw) return sections
+
+    const included = new Set<string>()
+    const byId = new Map(sections.map((s) => [s.id, s]))
+    const addAncestors = (node: SectionNode) => {
+      if (!node.parentId) return
+      const parent = byId.get(node.parentId)
+      if (!parent) return
+      included.add(parent.id)
+      addAncestors(parent)
+    }
+
+    sections.forEach((node) => {
+      if (node.type !== 'article') return
+      const combined = `${node.title}\n${node.content}`.toLowerCase()
+      if (!combined.includes(kw)) return
+      included.add(node.id)
+      addAncestors(node)
     })
-  }, [allClauses, search])
 
-  const activeChapterId = clauseChapterMap.get(activeTocId) ?? chapters[0]?.id ?? 'chapter-full'
-
-  useEffect(() => {
-    if (filteredClauses.length === 0) return
-    setActiveTocId(filteredClauses[0]?.id ?? 'fulltext')
-  }, [filteredClauses])
+    if (included.size === 0) return []
+    return sections.filter((node) => included.has(node.id))
+  }, [search, sections])
 
   useEffect(() => {
-    const ids = filteredClauses.map((item) => item.id)
+    if (visibleSections.length === 0) return
+    const firstArticle = visibleSections.find((s) => s.type === 'article')
+    setActiveTocId(firstArticle?.id ?? visibleSections[0]?.id ?? 'fulltext')
+  }, [visibleSections])
+
+  useEffect(() => {
+    const ids = visibleSections.filter((item) => item.type === 'article').map((item) => item.id)
     if (ids.length === 0) return
 
     const observer = new IntersectionObserver(
@@ -412,7 +447,7 @@ export default function PolicyDetail() {
     })
 
     return () => observer.disconnect()
-  }, [filteredClauses])
+  }, [visibleSections])
 
   const counts = useMemo(() => {
     const n = relatedDocs.length
@@ -485,44 +520,96 @@ export default function PolicyDetail() {
 
           {collapsed ? null : (
             <div className="max-h-[75vh] overflow-auto p-2">
-              {chapters.map((chapter) => {
-                const firstClauseId = chapter.clauses[0]?.id
-                return (
-                  <div key={chapter.id} className="mb-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!firstClauseId) return
-                        const el = document.getElementById(firstClauseId)
-                        el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                      }}
-                      className={`w-full rounded px-2 py-2 text-left text-sm font-semibold ${
-                        activeChapterId === chapter.id ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200/70'
-                      }`}
-                    >
-                      {chapter.title}
-                    </button>
+              {sections.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    document.getElementById('fulltext')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    setActiveTocId('fulltext')
+                  }}
+                  className={`w-full rounded px-2 py-2 text-left text-sm font-semibold ${
+                    activeTocId === 'fulltext' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200/70'
+                  }`}
+                >
+                  全文
+                </button>
+              ) : (
+                <div className="space-y-1">
+                  {sections.map((node) => {
+                    const children = childrenMap.get(node.id) ?? []
+                    const hasChildren = children.length > 0
+                    const isCollapsed = collapsedTocIds.includes(node.id)
+                    const parentId = parentMap.get(node.id)
+                    const parentCollapsed = parentId ? collapsedTocIds.includes(parentId) : false
+                    const grandParentId = parentId ? parentMap.get(parentId) : undefined
+                    const grandParentCollapsed = grandParentId ? collapsedTocIds.includes(grandParentId) : false
+                    if (node.type === 'section' && parentCollapsed) return null
+                    if (node.type === 'article' && (parentCollapsed || grandParentCollapsed)) return null
 
-                    <div className="mt-1 space-y-1">
-                      {chapter.clauses.map((clause) => (
+                    const indentClass =
+                      node.type === 'chapter'
+                        ? 'pl-2'
+                        : node.type === 'section'
+                          ? 'pl-5'
+                          : hasSectionLevel
+                            ? 'pl-8'
+                            : 'pl-5'
+
+                    const baseTitle =
+                      node.type === 'article'
+                        ? node.title.length > 18
+                          ? `${node.title.slice(0, 18)}...`
+                          : node.title
+                        : node.title
+
+                    const active = activeAncestorIds.has(node.id)
+
+                    return (
+                      <div key={node.id} className="flex items-center gap-1">
+                        {node.type === 'article' ? <span className="w-6" /> : null}
+                        {node.type !== 'article' ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!hasChildren) return
+                              setCollapsedTocIds((prev) =>
+                                prev.includes(node.id) ? prev.filter((x) => x !== node.id) : [...prev, node.id],
+                              )
+                            }}
+                            className={`rounded p-1 text-slate-500 hover:bg-slate-100 ${hasChildren ? '' : 'opacity-30'}`}
+                          >
+                            <ChevronRight className={`h-4 w-4 transition ${isCollapsed ? '' : 'rotate-90'}`} />
+                          </button>
+                        ) : null}
+
                         <button
-                          key={clause.id}
                           type="button"
                           onClick={() => {
-                            const el = document.getElementById(clause.id)
-                            el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                            const targetId = node.type === 'article' ? node.id : firstArticleIdMap.get(node.id) ?? node.id
+                            document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                            setActiveTocId(targetId)
                           }}
-                          className={`w-full rounded px-2 py-1.5 text-left text-sm ${
-                            activeTocId === clause.id ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'
+                          className={`w-full rounded px-2 py-2 text-left text-sm ${indentClass} ${
+                            node.type === 'chapter'
+                              ? active
+                                ? 'bg-blue-50 font-semibold text-blue-700'
+                                : 'bg-slate-100 font-semibold text-slate-700 hover:bg-slate-200/70'
+                              : node.type === 'section'
+                                ? active
+                                  ? 'bg-blue-50 font-medium text-blue-700'
+                                  : 'bg-white font-medium text-slate-700 hover:bg-slate-50'
+                                : active
+                                  ? 'bg-blue-50 text-blue-700'
+                                  : 'bg-white text-slate-700 hover:bg-slate-50'
                           }`}
                         >
-                          {clause.no}
+                          {baseTitle}
                         </button>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
         </aside>
@@ -644,27 +731,72 @@ export default function PolicyDetail() {
 
           <article className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="space-y-4">
-              {filteredClauses.map((item) => (
-                <div key={item.id} id={item.id} className="rounded-lg border border-slate-200 bg-white p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{item.no}</span>
-                        <span className="text-sm font-semibold text-slate-900">{item.lead || (item.no === '全文' ? '正文' : '—')}</span>
-                      </div>
-                      {renderClauseBody(item.body)}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setOpenClauseId((prev) => (prev === item.id ? null : item.id))}
-                      className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-                    >
-                      {openClauseId === item.id ? '收起要点' : '展开要点'}
-                    </button>
+              {sections.length === 0 ? (
+                <div id="fulltext" className="rounded-lg border border-slate-200 bg-white p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">全文</span>
+                    <span className="text-sm font-semibold text-slate-900">正文</span>
                   </div>
-                  <ClauseInsight clauseId={item.id} open={openClauseId === item.id} onToggle={() => setOpenClauseId((prev) => (prev === item.id ? null : item.id))} />
+                  {renderSectionContent(contentText)}
                 </div>
-              ))}
+              ) : visibleSections.length === 0 ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">无匹配条款</div>
+              ) : (
+                visibleSections.map((node) => {
+                  if (node.type === 'chapter') {
+                    return (
+                      <div key={node.id} id={node.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-sm font-semibold text-slate-900">{node.title}</p>
+                        {node.content ? renderSectionContent(node.content) : null}
+                      </div>
+                    )
+                  }
+
+                  if (node.type === 'section') {
+                    return (
+                      <div key={node.id} id={node.id} className="rounded-lg border border-slate-200 bg-white p-4">
+                        <p className="text-sm font-semibold text-slate-900">{node.title}</p>
+                        {node.content ? renderSectionContent(node.content) : null}
+                      </div>
+                    )
+                  }
+
+                  const noMatch = node.title.match(/^(第[一二三四五六七八九十百千\d]+条)/)
+                  const no = noMatch?.[1] ?? '条款'
+                  const lead = node.title.replace(no, '').trim()
+                  const active = activeTocId === node.id
+
+                  return (
+                    <div
+                      key={node.id}
+                      id={node.id}
+                      className={`rounded-lg border border-slate-200 bg-white p-4 ${active ? 'ring-1 ring-blue-200' : ''}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className={`flex flex-wrap items-center gap-2 rounded ${active ? 'bg-blue-50 px-2 py-1' : ''}`}>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{no}</span>
+                            <span className="text-sm font-semibold text-slate-900">{lead || '—'}</span>
+                          </div>
+                          {renderSectionContent(node.content)}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setOpenClauseId((prev) => (prev === node.id ? null : node.id))}
+                          className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                        >
+                          {openClauseId === node.id ? '收起要点' : '展开要点'}
+                        </button>
+                      </div>
+                      <ClauseInsight
+                        clauseId={node.id}
+                        open={openClauseId === node.id}
+                        onToggle={() => setOpenClauseId((prev) => (prev === node.id ? null : node.id))}
+                      />
+                    </div>
+                  )
+                })
+              )}
             </div>
           </article>
         </main>
