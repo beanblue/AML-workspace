@@ -390,7 +390,8 @@ function ClauseInsight({ clauseId }: { clauseId: string }) {
 }
 
 export default function PolicyDetail() {
-  const { id } = useParams()
+  const { policyId, id } = useParams()
+  const pageId = policyId ?? id
   const navigate = useNavigate()
 
   const [collapsed, setCollapsed] = useState(false)
@@ -445,7 +446,7 @@ export default function PolicyDetail() {
     void run()
   }, [])
 
-  const doc = useMemo(() => allDocs.find((item) => item.id === id) ?? null, [allDocs, id])
+  const doc = useMemo(() => allDocs.find((item) => item.id === pageId) ?? null, [allDocs, pageId])
   const title = getTitle(doc)
   const timeliness = normalizeTimeliness(String(doc?.状态 ?? ''))
   const statusClass = STATUS_STYLE[timeliness] ?? 'bg-slate-100 text-slate-700'
