@@ -8,6 +8,8 @@ import {
   Network,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Printer,
   Search,
   Share2,
@@ -298,6 +300,7 @@ export default function PolicyDetail() {
   const navigate = useNavigate()
 
   const [collapsed, setCollapsed] = useState(false)
+  const [rightCollapsed, setRightCollapsed] = useState(false)
   const [aiCollapsed, setAiCollapsed] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -528,8 +531,10 @@ export default function PolicyDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[220px_1fr_280px]">
-        <aside className={`rounded-xl border border-slate-200 bg-white ${collapsed ? 'xl:w-14' : 'xl:w-[220px]'}`}>
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-stretch">
+        <aside
+          className={`rounded-xl border border-slate-200 bg-white ${collapsed ? 'xl:w-14' : 'xl:w-[260px]'} flex min-h-0 flex-col`}
+        >
           <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
             <div className="flex items-center gap-2">
               <BookOpenText className="h-4 w-4 text-slate-600" />
@@ -545,7 +550,7 @@ export default function PolicyDetail() {
           </div>
 
           {collapsed ? null : (
-            <div className="max-h-[75vh] overflow-auto p-2">
+            <div className="min-h-0 flex-1 overflow-auto p-2">
               {sections.length === 0 ? (
                 <button
                   type="button"
@@ -554,13 +559,13 @@ export default function PolicyDetail() {
                     setActiveTocId('fulltext')
                   }}
                   className={`w-full rounded px-2 py-2 text-left text-sm font-semibold ${
-                    activeTocId === 'fulltext' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200/70'
+                    activeTocId === 'fulltext' ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-700 hover:bg-slate-200/70'
                   }`}
                 >
                   全文
                 </button>
               ) : (
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {sections.map((node) => {
                     const children = childrenMap.get(node.id) ?? []
                     const hasChildren = children.length > 0
@@ -583,8 +588,8 @@ export default function PolicyDetail() {
 
                     const baseTitle =
                       node.type === 'article'
-                        ? node.title.length > 18
-                          ? `${node.title.slice(0, 18)}...`
+                        ? node.title.length > 32
+                          ? `${node.title.slice(0, 32)}...`
                           : node.title
                         : node.title
 
@@ -619,7 +624,7 @@ export default function PolicyDetail() {
                             node.type === 'chapter'
                               ? active
                                 ? 'bg-blue-50 font-semibold text-blue-700'
-                                : 'bg-slate-100 font-semibold text-slate-700 hover:bg-slate-200/70'
+                                : 'bg-slate-50 font-semibold text-slate-700 hover:bg-slate-200/70'
                               : node.type === 'section'
                                 ? active
                                   ? 'bg-blue-50 font-medium text-blue-700'
@@ -640,7 +645,7 @@ export default function PolicyDetail() {
           )}
         </aside>
 
-        <main ref={contentRef} className="space-y-3">
+        <main ref={contentRef} className="min-w-0 flex-1 space-y-3 px-2 xl:px-6">
           {pageContentLoading ? (
             <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">正文加载中...</div>
           ) : null}
@@ -830,92 +835,117 @@ export default function PolicyDetail() {
           </article>
         </main>
 
-        <aside className="space-y-3">
-          <article className="rounded-xl border border-slate-200 bg-white p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-900">制度图谱</p>
-              <Network className="h-4 w-4 text-slate-500" />
-            </div>
-            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <svg viewBox="0 0 240 140" className="h-36 w-full">
-                <circle cx="40" cy="70" r="16" fill="#93c5fd" />
-                <circle cx="120" cy="35" r="16" fill="#a7f3d0" />
-                <circle cx="120" cy="105" r="16" fill="#fde68a" />
-                <circle cx="200" cy="70" r="16" fill="#cbd5e1" />
-                <line x1="56" y1="70" x2="104" y2="42" stroke="#94a3b8" strokeWidth="2" />
-                <line x1="56" y1="70" x2="104" y2="98" stroke="#94a3b8" strokeWidth="2" />
-                <line x1="136" y1="35" x2="184" y2="70" stroke="#94a3b8" strokeWidth="2" />
-                <line x1="136" y1="105" x2="184" y2="70" stroke="#94a3b8" strokeWidth="2" />
-              </svg>
-            </div>
-          </article>
-
-          <article className="rounded-xl border border-slate-200 bg-white p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-900">关联流程</p>
-              <Link2 className="h-4 w-4 text-slate-500" />
-            </div>
-            <div className="mt-3 space-y-2">
-              {counts.flows === 0 ? <p className="text-sm text-slate-500">暂无关联流程</p> : null}
-              {Array.from({ length: counts.flows }).map((_, idx) => (
-                <button
-                  key={`flow-${idx}`}
-                  type="button"
-                  onClick={() => navigate('/org/library')}
-                  className="flex w-full items-center justify-between rounded border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <span className="truncate">流程示例 {idx + 1}</span>
-                  <ChevronRight className="h-4 w-4 text-slate-400" />
-                </button>
-              ))}
-            </div>
-          </article>
-
-          <article className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-sm font-semibold text-slate-900">监管依据</p>
-            <div className="mt-3 space-y-2">
-              {counts.basis === 0 ? <p className="text-sm text-slate-500">暂无监管依据</p> : null}
-              {Array.from({ length: counts.basis }).map((_, idx) => (
-                <div key={`basis-${idx}`} className="rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                  监管依据示例 {idx + 1}
-                </div>
-              ))}
-            </div>
-          </article>
-
-          <article className="rounded-xl border border-slate-200 bg-white p-4">
-            <p className="text-sm font-semibold text-slate-900">相关制度</p>
-            <div className="mt-3 space-y-2">
-              {relatedDocs.length === 0 ? <p className="text-sm text-slate-500">暂无相关制度</p> : null}
-              {relatedDocs.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => navigate(`/library/${item.id}`)}
-                  className="flex w-full items-center justify-between rounded border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50"
-                >
-                  <span className="truncate text-sm text-slate-700">{getTitle(item) || '未命名文档'}</span>
-                  <ChevronRight className="h-4 w-4 text-slate-400" />
-                </button>
-              ))}
-            </div>
-          </article>
-
-          {topics.length > 0 ? (
-            <article className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-sm font-semibold text-slate-900">主题标签</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {topics.map((t, idx) => (
-                  <span
-                    key={t}
-                    className={`rounded-full px-3 py-1 text-xs ${idx % 2 === 0 ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}
-                  >
-                    {t}
-                  </span>
-                ))}
+        <aside
+          className={`rounded-xl border border-slate-200 bg-white ${rightCollapsed ? 'xl:w-10' : 'xl:w-72 xl:max-w-[320px]'} flex min-h-0 flex-col`}
+        >
+          <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
+            {rightCollapsed ? (
+              <div className="flex flex-1 items-center justify-center">
+                <span className="text-xs font-medium text-slate-600" style={{ writingMode: 'vertical-rl' }}>
+                  信息
+                </span>
               </div>
-            </article>
-          ) : null}
+            ) : (
+              <span className="text-sm font-medium text-slate-800">信息</span>
+            )}
+            <button
+              type="button"
+              onClick={() => setRightCollapsed((prev) => !prev)}
+              className="rounded border border-slate-200 bg-white p-1 text-slate-600 hover:bg-slate-50"
+            >
+              {rightCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
+            </button>
+          </div>
+
+          {rightCollapsed ? null : (
+            <div className="min-h-0 flex-1 space-y-3 overflow-auto p-3">
+              <article className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-slate-900">制度图谱</p>
+                  <Network className="h-4 w-4 text-slate-500" />
+                </div>
+                <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <svg viewBox="0 0 240 140" className="h-36 w-full">
+                    <circle cx="40" cy="70" r="16" fill="#93c5fd" />
+                    <circle cx="120" cy="35" r="16" fill="#a7f3d0" />
+                    <circle cx="120" cy="105" r="16" fill="#fde68a" />
+                    <circle cx="200" cy="70" r="16" fill="#cbd5e1" />
+                    <line x1="56" y1="70" x2="104" y2="42" stroke="#94a3b8" strokeWidth="2" />
+                    <line x1="56" y1="70" x2="104" y2="98" stroke="#94a3b8" strokeWidth="2" />
+                    <line x1="136" y1="35" x2="184" y2="70" stroke="#94a3b8" strokeWidth="2" />
+                    <line x1="136" y1="105" x2="184" y2="70" stroke="#94a3b8" strokeWidth="2" />
+                  </svg>
+                </div>
+              </article>
+
+              <article className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-slate-900">关联流程</p>
+                  <Link2 className="h-4 w-4 text-slate-500" />
+                </div>
+                <div className="mt-3 space-y-2">
+                  {counts.flows === 0 ? <p className="text-sm text-slate-500">暂无关联流程</p> : null}
+                  {Array.from({ length: counts.flows }).map((_, idx) => (
+                    <button
+                      key={`flow-${idx}`}
+                      type="button"
+                      onClick={() => navigate('/org/library')}
+                      className="flex w-full items-center justify-between rounded border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <span className="truncate">流程示例 {idx + 1}</span>
+                      <ChevronRight className="h-4 w-4 text-slate-400" />
+                    </button>
+                  ))}
+                </div>
+              </article>
+
+              <article className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-900">监管依据</p>
+                <div className="mt-3 space-y-2">
+                  {counts.basis === 0 ? <p className="text-sm text-slate-500">暂无监管依据</p> : null}
+                  {Array.from({ length: counts.basis }).map((_, idx) => (
+                    <div key={`basis-${idx}`} className="rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                      监管依据示例 {idx + 1}
+                    </div>
+                  ))}
+                </div>
+              </article>
+
+              <article className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-sm font-semibold text-slate-900">相关制度</p>
+                <div className="mt-3 space-y-2">
+                  {relatedDocs.length === 0 ? <p className="text-sm text-slate-500">暂无相关制度</p> : null}
+                  {relatedDocs.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => navigate(`/library/${item.id}`)}
+                      className="flex w-full items-center justify-between rounded border border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50"
+                    >
+                      <span className="truncate text-sm text-slate-700">{getTitle(item) || '未命名文档'}</span>
+                      <ChevronRight className="h-4 w-4 text-slate-400" />
+                    </button>
+                  ))}
+                </div>
+              </article>
+
+              {topics.length > 0 ? (
+                <article className="rounded-xl border border-slate-200 bg-white p-4">
+                  <p className="text-sm font-semibold text-slate-900">主题标签</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {topics.map((t, idx) => (
+                      <span
+                        key={t}
+                        className={`rounded-full px-3 py-1 text-xs ${idx % 2 === 0 ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+              ) : null}
+            </div>
+          )}
         </aside>
       </div>
     </section>
