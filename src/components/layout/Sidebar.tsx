@@ -1,6 +1,5 @@
 import {
   BarChart3,
-  BookOpen,
   Briefcase,
   FolderOpen,
   ClipboardList,
@@ -62,15 +61,9 @@ const NAV_GROUPS: SidebarGroup[] = [
     modules: [
       {
         module: 'policy',
-        label: '文件库',
-        features: ['制度文件', '操作流程', '流程图示'],
+        label: '资料库',
+        features: ['统一列表', '高级搜索', '导入导出'],
         icon: FolderOpen,
-      },
-      {
-        module: 'policyKnowledge',
-        label: '知识库',
-        features: ['法规解读', '监管动态', '问答FAQ', '学习资料'],
-        icon: BookOpen,
       },
       {
         module: 'responsibility',
