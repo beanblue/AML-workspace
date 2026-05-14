@@ -238,6 +238,15 @@ function getContent(row: NotionDocumentRow | null): string {
   return [summary, points].filter(Boolean).join('\n\n')
 }
 
+function toHyphenId(idOrPath: string): string {
+  const raw = String(idOrPath ?? '')
+    .replace(/^collection:\/\//, '')
+    .replace(/-/g, '')
+    .trim()
+  if (raw.length !== 32) return String(idOrPath ?? '').replace(/^collection:\/\//, '').trim()
+  return `${raw.slice(0, 8)}-${raw.slice(8, 12)}-${raw.slice(12, 16)}-${raw.slice(16, 20)}-${raw.slice(20)}`
+}
+
 type SectionType = 'chapter' | 'section' | 'article'
 
 type SectionNode = {
@@ -392,6 +401,7 @@ function ClauseInsight({ clauseId }: { clauseId: string }) {
 export default function PolicyDetail() {
   const { policyId, id } = useParams()
   const pageId = policyId ?? id
+  const pageIdNormalized = useMemo(() => (pageId ? toHyphenId(pageId) : ''), [pageId])
   const navigate = useNavigate()
 
   const [collapsed, setCollapsed] = useState(false)
@@ -446,7 +456,10 @@ export default function PolicyDetail() {
     void run()
   }, [])
 
-  const doc = useMemo(() => allDocs.find((item) => item.id === pageId) ?? null, [allDocs, pageId])
+  const doc = useMemo(() => {
+    if (!pageIdNormalized) return null
+    return allDocs.find((item) => item.id === pageIdNormalized) ?? null
+  }, [allDocs, pageIdNormalized])
   const title = getTitle(doc)
   const timeliness = normalizeTimeliness(String(doc?.状态 ?? ''))
   const statusClass = STATUS_STYLE[timeliness] ?? 'bg-slate-100 text-slate-700'
@@ -462,11 +475,11 @@ export default function PolicyDetail() {
   const contentText = useMemo(() => getContent(doc), [doc])
 
   useEffect(() => {
-    if (!doc?.id) return
+    if (!pageIdNormalized) return
     setPageContentLoading(true)
     setPageContent('')
 
-    fetch(`/api/notion/page/${doc.id}`)
+    fetch(`/api/notion/page/${pageIdNormalized}`)
       .then(async (res) => {
         if (!res.ok) throw new Error(String(res.status))
         return res.json()
@@ -477,7 +490,7 @@ export default function PolicyDetail() {
       })
       .catch(() => setPageContent(''))
       .finally(() => setPageContentLoading(false))
-  }, [doc?.id])
+  }, [pageIdNormalized])
 
   const parseSourceText = useMemo(() => (pageContent.trim() ? pageContent : contentText), [contentText, pageContent])
   const sections = useMemo(() => parseSections(parseSourceText), [parseSourceText])
