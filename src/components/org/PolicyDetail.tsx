@@ -1052,23 +1052,31 @@ export default function PolicyDetail() {
                         type="button"
                         onClick={async () => {
                           setExportOpen(false)
-                          const filename = `${title || '制度正文'}.md`
+                          const base = title || '制度正文'
+                          const filename = `${base}.md`
                           const text =
                             effectivePrintRange === 'selection'
                               ? selectedText.trim()
                               : (() => {
                                   const lines: string[] = []
                                   if (title) lines.push(`# ${title}`, '')
-                                  if (dept || docNo || publish) {
+                                  if (dept || docNo || publish || effective) {
                                     if (dept) lines.push(`- 发文机关：${dept}`)
                                     if (docNo) lines.push(`- 文号：${docNo}`)
                                     if (publish) lines.push(`- 发布日期：${publish}`)
+                                    if (effective) lines.push(`- 生效日期：${effective}`)
                                     lines.push('')
                                   }
                                   printableForRange.forEach((node) => {
-                                    if (node.type === 'chapter') lines.push(`## ${node.title}`, '')
-                                    else if (node.type === 'section') lines.push(`### ${node.title}`, '')
-                                    else {
+                                    if (node.type === 'chapter') {
+                                      lines.push(`## ${node.title}`)
+                                      if (node.content) lines.push(node.content)
+                                      lines.push('')
+                                    } else if (node.type === 'section') {
+                                      lines.push(`### ${node.title}`)
+                                      if (node.content) lines.push(node.content)
+                                      lines.push('')
+                                    } else {
                                       lines.push(node.title)
                                       if (node.content) lines.push(node.content)
                                       lines.push('')
@@ -1082,6 +1090,48 @@ export default function PolicyDetail() {
                       >
                         <span>导出为 Markdown</span>
                         <span className="text-xs text-slate-400">.md</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setExportOpen(false)
+                          const base = title || '制度正文'
+                          const filename = `${base}.txt`
+                          const text =
+                            effectivePrintRange === 'selection'
+                              ? selectedText.trim()
+                              : (() => {
+                                  const lines: string[] = []
+                                  if (title) lines.push(title, '')
+                                  if (dept || docNo || publish || effective) {
+                                    lines.push(
+                                      `发文机关：${dept || '-'} | 文号：${docNo || '-'} | 发布日期：${publish || '-'} | 生效日期：${effective || '-'}`,
+                                      '',
+                                    )
+                                  }
+                                  printableForRange.forEach((node) => {
+                                    if (node.type === 'chapter') {
+                                      lines.push(node.title)
+                                      if (node.content) lines.push(node.content)
+                                      lines.push('')
+                                    } else if (node.type === 'section') {
+                                      lines.push(node.title)
+                                      if (node.content) lines.push(node.content)
+                                      lines.push('')
+                                    } else {
+                                      lines.push(node.title)
+                                      if (node.content) lines.push(node.content)
+                                      lines.push('')
+                                    }
+                                  })
+                                  return lines.join('\n')
+                                })()
+                          downloadBlob(new Blob([text], { type: 'text/plain;charset=utf-8' }), filename)
+                        }}
+                        className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        <span>导出为 TXT</span>
+                        <span className="text-xs text-slate-400">.txt</span>
                       </button>
                       <button
                         type="button"
@@ -1150,21 +1200,20 @@ export default function PolicyDetail() {
                         type="button"
                         onClick={async () => {
                           setExportOpen(false)
-                          const mod = await import('pptxgenjs')
-                          const PptxGenJS = (mod as any).default ?? (mod as any)
-                          const pptx = new PptxGenJS()
-
-                          const addSlide = (slideTitle: string, body: string) => {
-                            const slide = pptx.addSlide()
-                            slide.addText(slideTitle, { x: 0.5, y: 0.3, w: 12.3, h: 0.6, fontSize: 24, bold: true })
-                            slide.addText(body, { x: 0.6, y: 1.1, w: 12.2, h: 5.8, fontSize: 14, color: '333333' })
-                          }
+                          const base = title || '制度正文'
+                          const XLSX = await import('xlsx')
+                          const rows: Array<Record<string, string>> = []
 
                           if (effectivePrintRange === 'selection') {
-                            addSlide(title || '制度正文', selectedText.trim().slice(0, 2000))
+                            selectedText
+                              .split('\n')
+                              .map((x) => x.trim())
+                              .filter(Boolean)
+                              .forEach((line) => {
+                                rows.push({ 文档名称: base, 章节: '', 条文编号: '', 条文内容: line })
+                              })
                           } else {
                             const byId = new Map(printableForRange.map((n) => [n.id, n]))
-                            const chapterIds = printableForRange.filter((n) => n.type === 'chapter').map((n) => n.id)
                             const chapterOf = (node: any) => {
                               let pid = node.parentId
                               while (pid) {
@@ -1175,34 +1224,54 @@ export default function PolicyDetail() {
                               }
                               return null
                             }
+                            const sectionOf = (node: any) => {
+                              let pid = node.parentId
+                              while (pid) {
+                                const parent = byId.get(pid)
+                                if (!parent) break
+                                if (parent.type === 'section') return parent
+                                pid = parent.parentId
+                              }
+                              return null
+                            }
 
-                            const chapterMap = new Map<string, { title: string; lines: string[] }>()
                             printableForRange.forEach((node) => {
-                              if (node.type !== 'article') return
-                              const chapter = chapterOf(node)
-                              const chapterId = chapter?.id ?? 'chapter'
-                              const chapterTitle = chapter?.title ?? '正文'
-                              const existing = chapterMap.get(chapterId) ?? { title: chapterTitle, lines: [] }
-                              existing.lines.push(node.title)
-                              if (node.content) existing.lines.push(node.content)
-                              chapterMap.set(chapterId, existing)
-                            })
+                              const chapterTitle = chapterOf(node)?.title ?? ''
+                              const sectionTitle = sectionOf(node)?.title ?? ''
+                              const chapter = [chapterTitle, sectionTitle].filter(Boolean).join(' / ')
 
-                            const orderedKeys = chapterIds.length > 0 ? chapterIds : Array.from(chapterMap.keys())
-                            orderedKeys.forEach((key) => {
-                              const block = chapterMap.get(key)
-                              if (!block) return
-                              addSlide(block.title, block.lines.join('\n').slice(0, 3500))
+                              if (node.type === 'article') {
+                                const articleNo = node.title.match(/^第[一二三四五六七八九十百千\d]+条/)?.[0] ?? ''
+                                const content = [node.title, node.content].filter(Boolean).join('\n').trim()
+                                rows.push({ 文档名称: base, 章节: chapter, 条文编号: articleNo, 条文内容: content })
+                                return
+                              }
+
+                              if ((node.type === 'chapter' || node.type === 'section') && node.content.trim()) {
+                                node.content
+                                  .split('\n')
+                                  .map((x) => x.trim())
+                                  .filter(Boolean)
+                                  .forEach((line) => {
+                                    rows.push({ 文档名称: base, 章节: node.type === 'chapter' ? node.title : chapter, 条文编号: '', 条文内容: line })
+                                  })
+                              }
                             })
                           }
 
-                          addSlide('封底', `${title || '制度正文'}\n${dept ? `发文机关：${dept}` : ''}`.trim())
-                          await pptx.writeFile({ fileName: `${title || '制度正文'}.pptx` })
+                          const ws = XLSX.utils.json_to_sheet(rows)
+                          const wb = XLSX.utils.book_new()
+                          XLSX.utils.book_append_sheet(wb, ws, '条目')
+                          const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+                          downloadBlob(
+                            new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+                            `${base}_条目.xlsx`,
+                          )
                         }}
                         className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                       >
-                        <span>导出为 PPT</span>
-                        <span className="text-xs text-slate-400">实验性</span>
+                        <span>导出为 Excel（按条目）</span>
+                        <span className="text-xs text-slate-400">.xlsx</span>
                       </button>
                     </div>
                   ) : null}

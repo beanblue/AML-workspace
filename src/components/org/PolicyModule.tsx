@@ -64,6 +64,102 @@ const TIMELINESS_CLASS: Record<Timeliness, string> = {
   尚未生效: 'bg-indigo-100 text-indigo-700',
 }
 
+type PrintPaperSize = 'A4' | 'A3' | 'Letter'
+type PrintOrientation = 'portrait' | 'landscape'
+type PrintFont = '宋体' | '黑体' | '楷体' | '仿宋'
+type PrintFontSize = '10pt' | '11pt' | '12pt' | '13pt'
+type PrintLineHeight = '1.5' | '1.8' | '2.0' | '2.5'
+type PrintIndent = '0' | '1' | '2'
+type PrintParagraphSpacing = '4pt' | '6pt' | '8pt'
+type PrintMargin = 'standard' | 'loose' | 'compact'
+
+type PrintSettings = {
+  paperSize: PrintPaperSize
+  orientation: PrintOrientation
+  bodyFont: PrintFont
+  bodyFontSize: PrintFontSize
+  titleFontMode: 'auto' | 'manual'
+  titleFontSize: string
+  lineHeight: PrintLineHeight
+  indent: PrintIndent
+  paragraphSpacing: PrintParagraphSpacing
+  margin: PrintMargin
+  showHeader: boolean
+  showPageNumber: boolean
+}
+
+const DEFAULT_PRINT_SETTINGS: PrintSettings = {
+  paperSize: 'A4',
+  orientation: 'portrait',
+  bodyFont: '宋体',
+  bodyFontSize: '12pt',
+  titleFontMode: 'auto',
+  titleFontSize: '',
+  lineHeight: '1.8',
+  indent: '2',
+  paragraphSpacing: '4pt',
+  margin: 'standard',
+  showHeader: true,
+  showPageNumber: true,
+}
+
+function getPrintComputed(settings: PrintSettings) {
+  const fontFamilyMap: Record<PrintFont, string> = {
+    宋体: '"SimSun","宋体",serif',
+    黑体: '"SimHei","黑体",sans-serif',
+    楷体: '"KaiTi","楷体",serif',
+    仿宋: '"FangSong","仿宋",serif',
+  }
+
+  const marginMap: Record<PrintMargin, string> = {
+    standard: '2.5cm 2cm',
+    loose: '3cm 2.5cm',
+    compact: '2cm 1.5cm',
+  }
+
+  const bodySizeValue = Number.parseFloat(settings.bodyFontSize.replace('pt', ''))
+  const titleSize =
+    settings.titleFontMode === 'manual' && settings.titleFontSize.trim()
+      ? settings.titleFontSize.trim()
+      : `${Math.max(10, bodySizeValue + 2)}pt`
+
+  const indentValue = settings.indent === '0' ? '0' : settings.indent === '1' ? '1em' : '2em'
+  const pageSizeValue = settings.paperSize === 'Letter' ? 'Letter' : settings.paperSize
+  const orientationValue = settings.orientation === 'landscape' ? 'landscape' : 'portrait'
+
+  return {
+    fontFamily: fontFamilyMap[settings.bodyFont],
+    fontSize: settings.bodyFontSize,
+    titleSize,
+    lineHeight: settings.lineHeight,
+    indent: indentValue,
+    paragraphMargin: settings.paragraphSpacing,
+    pageMargin: marginMap[settings.margin],
+    pageSize: pageSizeValue,
+    orientation: orientationValue,
+  }
+}
+
+function applyPrintOverride(settings: PrintSettings, docTitle: string) {
+  const computed = getPrintComputed(settings)
+  const headerContent = settings.showHeader ? 'attr(data-doc-title)' : '""'
+  const footerContent = settings.showPageNumber ? 'counter(page) "/" counter(pages)' : '""'
+
+  const css = `:root{--print-font-family:${computed.fontFamily};--print-font-size:${computed.fontSize};--print-title-size:${computed.titleSize};--print-line-height:${computed.lineHeight};--print-indent:${computed.indent};--print-paragraph-margin:${computed.paragraphMargin};--print-page-margin:${computed.pageMargin};--print-page-size:${computed.pageSize};--print-page-orientation:${computed.orientation};}
+@media print{body{font-family:var(--print-font-family)!important;font-size:var(--print-font-size)!important;color:#000;}h1{font-size:var(--print-title-size)!important;text-align:center!important;margin-bottom:20pt!important;}p{line-height:var(--print-line-height)!important;text-indent:var(--print-indent)!important;margin:var(--print-paragraph-margin) 0!important;}p.print-meta{text-indent:0!important;font-size:10pt!important;line-height:1.6!important;margin:2pt 0!important;}@page{size:var(--print-page-size) var(--print-page-orientation);margin:var(--print-page-margin);@top-center{content:${headerContent};font-size:10pt;color:#666;}@bottom-right{content:${footerContent};font-size:10pt;}}}
+`
+
+  const styleId = 'print-override'
+  let style = document.getElementById(styleId) as HTMLStyleElement | null
+  if (!style) {
+    style = document.createElement('style')
+    style.id = styleId
+    document.head.appendChild(style)
+  }
+  style.textContent = css
+  document.documentElement.setAttribute('data-doc-title', docTitle)
+}
+
 type AdvancedFilters = {
   scopes: SearchScope[]
   sourceLevels: string[]
@@ -140,6 +236,31 @@ function safeText(value: unknown): string {
   return String(value ?? '').trim()
 }
 
+function toHyphenId(idOrPath: string): string {
+  const raw = String(idOrPath ?? '')
+    .replace(/^collection:\/\//, '')
+    .replace(/-/g, '')
+    .trim()
+  if (raw.length !== 32) return String(idOrPath ?? '').replace(/^collection:\/\//, '').trim()
+  return `${raw.slice(0, 8)}-${raw.slice(8, 12)}-${raw.slice(12, 16)}-${raw.slice(16, 20)}-${raw.slice(20)}`
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+function formatBatchFilename(count: number) {
+  const date = new Date().toISOString().slice(0, 10)
+  return `批量导出_${date}_${count}篇`
+}
+
 function parseFileNameTitle(name: string): string {
   return name.replace(/\.[^/.]+$/, '').trim()
 }
@@ -197,6 +318,22 @@ export function PolicyModule() {
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [pasteOpen, setPasteOpen] = useState(false)
+  const [printOpen, setPrintOpen] = useState(false)
+  const [mergePrint, setMergePrint] = useState(true)
+  const [printSettings, setPrintSettings] = useState<PrintSettings>(() => {
+    try {
+      const raw = localStorage.getItem('aml-print-settings')
+      if (!raw) return DEFAULT_PRINT_SETTINGS
+      const parsed = JSON.parse(raw) as Partial<PrintSettings>
+      return { ...DEFAULT_PRINT_SETTINGS, ...parsed }
+    } catch {
+      return DEFAULT_PRINT_SETTINGS
+    }
+  })
+  const [pendingPrint, setPendingPrint] = useState(false)
+  const [printDocs, setPrintDocs] = useState<LibraryDoc[]>([])
+  const [separatePrint, setSeparatePrint] = useState(false)
+  const [printIndex, setPrintIndex] = useState(0)
 
   const [importLoading, setImportLoading] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
@@ -216,6 +353,10 @@ export function PolicyModule() {
 
   const newMenuRef = useRef<HTMLDivElement | null>(null)
   const exportMenuRef = useRef<HTMLDivElement | null>(null)
+  const beforePrintTitleRef = useRef<string>('')
+
+  const [pageContentCache, setPageContentCache] = useState<Record<string, string>>({})
+  const [printBodyById, setPrintBodyById] = useState<Record<string, string>>({})
 
   const parseFile = async (file: File): Promise<string> => {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
@@ -424,6 +565,349 @@ export function PolicyModule() {
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
   const canBatch = selectedIds.length > 0
+
+  const selectedDocs = useMemo(() => {
+    const map = new Map<string, LibraryDoc>()
+    ;[...docsForStats, ...docsForFilter].forEach((d) => map.set(d.id, d))
+    return selectedIds.map((id) => map.get(id)).filter(Boolean) as LibraryDoc[]
+  }, [docsForFilter, docsForStats, selectedIds])
+
+  const getDocMarkdown = async (doc: LibraryDoc) => {
+    if (doc.source === 'local') return doc.content
+    const cached = pageContentCache[doc.id]
+    if (cached !== undefined) return cached
+    try {
+      const res = await fetch(`/api/notion/page/${encodeURIComponent(toHyphenId(doc.id))}`)
+      if (!res.ok) throw new Error(String(res.status))
+      const data = await res.json()
+      const text = String(data?.content ?? data?.body ?? data?.text ?? data?.markdown ?? '').trim()
+      const resolved = text || doc.content
+      setPageContentCache((prev) => ({ ...prev, [doc.id]: resolved }))
+      return resolved
+    } catch {
+      const resolved = doc.content
+      setPageContentCache((prev) => ({ ...prev, [doc.id]: resolved }))
+      return resolved
+    }
+  }
+
+  const buildMergedMarkdown = async (docs: LibraryDoc[]) => {
+    const parts: string[] = []
+    for (const doc of docs) {
+      const body = await getDocMarkdown(doc)
+      const meta: string[] = []
+      meta.push(`# ${doc.title}`)
+      meta.push('')
+      meta.push(`发文机关：${doc.dept || '-'} | 发布日期：${doc.publishDate || '-'} | 生效日期：${doc.effectiveDate || '-'}`)
+      meta.push(`分类：${doc.category} | 时效状态：${doc.timeliness}`)
+      meta.push('')
+      parts.push([...meta, body].join('\n'))
+    }
+    return parts.join('\n\n---\n\n').trim()
+  }
+
+  const buildMergedTxt = async (docs: LibraryDoc[]) => {
+    const parts: string[] = []
+    for (const doc of docs) {
+      const body = await getDocMarkdown(doc)
+      const meta = `【${doc.title}】\n发文机关：${doc.dept || '-'} | 发布日期：${doc.publishDate || '-'} | 生效日期：${doc.effectiveDate || '-'}\n分类：${doc.category} | 时效状态：${doc.timeliness}\n`
+      parts.push(`${meta}\n${body}`)
+    }
+    return parts.join('\n\n' + '-'.repeat(30) + '\n\n').trim()
+  }
+
+  const exportDocs = async (format: 'md' | 'txt') => {
+    if (selectedDocs.length === 0) return
+    const base = selectedDocs.length === 1 ? selectedDocs[0].title : formatBatchFilename(selectedDocs.length)
+    const text = format === 'md' ? await buildMergedMarkdown(selectedDocs) : await buildMergedTxt(selectedDocs)
+    const type = format === 'md' ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8'
+    downloadBlob(new Blob([text], { type }), `${base}.${format}`)
+  }
+
+  const exportDocListCsv = async () => {
+    if (selectedDocs.length === 0) return
+    const base = selectedDocs.length === 1 ? selectedDocs[0].title : formatBatchFilename(selectedDocs.length)
+    const header = ['文档名称', '分类', '发文机关', '发布日期', '生效日期', '时效状态', '摘要']
+    const escape = (v: string) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const rows = selectedDocs.map((d) =>
+      [
+        d.title,
+        d.category,
+        d.dept,
+        d.publishDate,
+        d.effectiveDate,
+        d.timeliness,
+        d.summary,
+      ].map(escape).join(','),
+    )
+    const csv = [header.map(escape).join(','), ...rows].join('\n')
+    downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${base}_文档清单.csv`)
+  }
+
+  const exportDocListXlsx = async () => {
+    if (selectedDocs.length === 0) return
+    const base = selectedDocs.length === 1 ? selectedDocs[0].title : formatBatchFilename(selectedDocs.length)
+    const XLSX = await import('xlsx')
+    const rows = selectedDocs.map((d) => ({
+      文档名称: d.title,
+      分类: d.category,
+      发文机关: d.dept,
+      发布日期: d.publishDate,
+      生效日期: d.effectiveDate,
+      时效状态: d.timeliness,
+      摘要: d.summary,
+    }))
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '文档清单')
+    const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    downloadBlob(
+      new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+      `${base}_文档清单.xlsx`,
+    )
+  }
+
+  const CHAPTER_LINE_REGEX = /^#{1,2}\s*第[一二三四五六七八九十百千\d]+章[\s　]*(.*)/
+  const SECTION_LINE_REGEX = /^#{1,3}\s*第[一二三四五六七八九十百千\d]+节[\s　]*(.*)/
+  const ARTICLE_LINE_REGEX = /^第[一二三四五六七八九十百千\d]+条[\s　]+(.*)/
+  const HEADING_H2_REGEX = /^##\s+(.+)$/
+  const HEADING_H3_REGEX = /^###\s+(.+)$/
+
+  const exportClausesXlsx = async () => {
+    if (selectedDocs.length === 0) return
+    const base = selectedDocs.length === 1 ? selectedDocs[0].title : formatBatchFilename(selectedDocs.length)
+    const XLSX = await import('xlsx')
+    const rows: Array<Record<string, string>> = []
+
+    for (const doc of selectedDocs) {
+      const body = await getDocMarkdown(doc)
+      const text = body.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+      const lines = text.split('\n')
+
+      let chapterTitle = ''
+      let sectionTitle = ''
+      let currentArticleNo = ''
+      let currentArticleText = ''
+      let hasClause = false
+      let hasHeading = false
+
+      const flushArticle = () => {
+        if (!currentArticleText.trim()) return
+        rows.push({
+          文档名称: doc.title,
+          章节: [chapterTitle, sectionTitle].filter(Boolean).join(' / '),
+          条文编号: currentArticleNo,
+          条文内容: currentArticleText.trim(),
+        })
+        currentArticleNo = ''
+        currentArticleText = ''
+      }
+
+      for (const raw of lines) {
+        const line = raw.replace(/\s+$/g, '')
+        const trimmed = line.trim()
+        if (!trimmed) continue
+
+        const h2 = trimmed.match(HEADING_H2_REGEX)
+        if (h2) {
+          hasHeading = true
+          flushArticle()
+          chapterTitle = h2[1].trim()
+          sectionTitle = ''
+          continue
+        }
+        const h3 = trimmed.match(HEADING_H3_REGEX)
+        if (h3) {
+          hasHeading = true
+          flushArticle()
+          sectionTitle = h3[1].trim()
+          continue
+        }
+
+        const chapter = trimmed.match(CHAPTER_LINE_REGEX)
+        if (chapter) {
+          hasClause = true
+          flushArticle()
+          chapterTitle = trimmed.replace(/^#{1,2}\s*/, '').trim()
+          sectionTitle = ''
+          continue
+        }
+        const section = trimmed.match(SECTION_LINE_REGEX)
+        if (section) {
+          hasClause = true
+          flushArticle()
+          sectionTitle = trimmed.replace(/^#{1,3}\s*/, '').trim()
+          continue
+        }
+
+        const article = trimmed.match(ARTICLE_LINE_REGEX)
+        if (article) {
+          hasClause = true
+          flushArticle()
+          currentArticleNo = trimmed.split(/\s+/)[0]
+          currentArticleText = trimmed
+          continue
+        }
+
+        if (trimmed.startsWith('#')) continue
+
+        if (hasClause) {
+          currentArticleText = currentArticleText ? `${currentArticleText}\n${line}` : line
+        } else if (hasHeading) {
+          rows.push({
+            文档名称: doc.title,
+            章节: [chapterTitle, sectionTitle].filter(Boolean).join(' / '),
+            条文编号: '',
+            条文内容: trimmed,
+          })
+        } else {
+          rows.push({
+            文档名称: doc.title,
+            章节: '',
+            条文编号: '',
+            条文内容: trimmed,
+          })
+        }
+      }
+
+      flushArticle()
+    }
+
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '条目')
+    const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    downloadBlob(
+      new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+      `${base}_条目.xlsx`,
+    )
+  }
+
+  const exportDocx = async () => {
+    if (selectedDocs.length === 0) return
+    const base = selectedDocs.length === 1 ? selectedDocs[0].title : formatBatchFilename(selectedDocs.length)
+    const mod = await import('docx')
+    const { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun } = mod as unknown as typeof import('docx')
+
+    const sections = await Promise.all(
+      selectedDocs.map(async (doc) => {
+        const body = await getDocMarkdown(doc)
+        const children: any[] = []
+        children.push(
+          new Paragraph({
+            text: doc.title,
+            heading: HeadingLevel.TITLE,
+            alignment: AlignmentType.CENTER,
+          }),
+        )
+        children.push(new Paragraph({ children: [new TextRun({ text: `发文机关：${doc.dept || '-'}` })] }))
+        children.push(new Paragraph({ children: [new TextRun({ text: `发布日期：${doc.publishDate || '-'}  生效日期：${doc.effectiveDate || '-'}` })] }))
+        children.push(new Paragraph({ children: [new TextRun({ text: `分类：${doc.category}  时效状态：${doc.timeliness}` })] }))
+        children.push(new Paragraph({ text: '' }))
+
+        body
+          .replace(/\r\n/g, '\n')
+          .replace(/\r/g, '\n')
+          .split('\n')
+          .map((x) => x.trim())
+          .filter(Boolean)
+          .forEach((line) => {
+            const h1 = line.match(/^#\s+(.+)$/)
+            const h2 = line.match(/^##\s+(.+)$/)
+            const h3 = line.match(/^###\s+(.+)$/)
+            if (h1) children.push(new Paragraph({ text: h1[1].trim(), heading: HeadingLevel.HEADING_1 }))
+            else if (h2) children.push(new Paragraph({ text: h2[1].trim(), heading: HeadingLevel.HEADING_2 }))
+            else if (h3) children.push(new Paragraph({ text: h3[1].trim(), heading: HeadingLevel.HEADING_3 }))
+            else children.push(new Paragraph({ children: [new TextRun(line)] }))
+          })
+
+        return { children }
+      }),
+    )
+
+    const docx = new Document({ sections })
+    const blob = await Packer.toBlob(docx)
+    downloadBlob(blob, `${base}.docx`)
+  }
+
+  const startPrint = async (docs: LibraryDoc[], mode: 'merge' | 'separate') => {
+    if (docs.length === 0) return
+    const pairs = await Promise.all(docs.map(async (d) => [d.id, await getDocMarkdown(d)] as const))
+    const map: Record<string, string> = {}
+    pairs.forEach(([id, body]) => {
+      map[id] = body
+    })
+    setPrintBodyById(map)
+    setPrintDocs(docs)
+    setSeparatePrint(mode === 'separate')
+    setPrintIndex(0)
+    setPendingPrint(true)
+  }
+
+  const triggerPrint = () => {
+    if (printDocs.length === 0) return
+    const currentDocs = separatePrint ? [printDocs[printIndex]].filter(Boolean) : printDocs
+    if (currentDocs.length === 0) return
+    const base = currentDocs.length === 1 ? currentDocs[0].title : formatBatchFilename(currentDocs.length)
+    localStorage.setItem('aml-print-settings', JSON.stringify(printSettings))
+    applyPrintOverride(printSettings, base)
+    beforePrintTitleRef.current = document.title
+    document.title = base
+
+    const cleanup = () => {
+      document.title = beforePrintTitleRef.current
+      document.documentElement.removeAttribute('data-doc-title')
+    }
+
+    window.addEventListener(
+      'afterprint',
+      () => {
+        cleanup()
+        if (separatePrint) setPrintIndex((prev) => prev + 1)
+      },
+      { once: true },
+    )
+    window.print()
+  }
+
+  useEffect(() => {
+    if (!pendingPrint) return
+    setPendingPrint(false)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => triggerPrint())
+    })
+  }, [pendingPrint])
+
+  useEffect(() => {
+    if (!printOpen) return
+    applyPrintOverride(printSettings, printDocs.length === 1 ? printDocs[0]?.title ?? '资料库' : formatBatchFilename(printDocs.length || 1))
+    return () => {
+      document.documentElement.removeAttribute('data-doc-title')
+    }
+  }, [printOpen, printDocs, printSettings])
+
+  useEffect(() => {
+    if (!separatePrint) return
+    if (printIndex <= 0) return
+    if (printIndex >= printDocs.length) {
+      setSeparatePrint(false)
+      setPrintOpen(false)
+      return
+    }
+    setPendingPrint(true)
+  }, [printDocs.length, printIndex, separatePrint])
+
+  const previewComputed = useMemo(() => getPrintComputed(printSettings), [printSettings])
+  const previewLines = useMemo(() => {
+    const doc = printDocs[0]
+    if (!doc) return []
+    const text = (printBodyById[doc.id] ?? doc.content).replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    return text
+      .split('\n')
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .slice(0, 3)
+  }, [printBodyById, printDocs])
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
@@ -655,17 +1139,87 @@ export function PolicyModule() {
               <ChevronDown className={`h-4 w-4 transition ${exportMenuOpen ? 'rotate-180' : ''}`} />
             </button>
             {exportMenuOpen && canBatch ? (
-              <div className="absolute left-0 top-[calc(100%+8px)] z-30 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+              <div className="absolute left-0 top-[calc(100%+8px)] z-30 w-72 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+                <div className="px-4 py-2 text-xs font-semibold text-slate-500">正文内容导出</div>
                 <button
                   type="button"
                   onClick={() => {
                     setExportMenuOpen(false)
-                    window.alert('Mock：导出选中内容')
+                    void startPrint(selectedDocs, 'merge')
                   }}
                   className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  <span>导出</span>
-                  <span className="text-xs text-slate-400">Mock</span>
+                  <span>导出为 PDF</span>
+                  <span className="text-xs text-slate-400">打印另存为</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setExportMenuOpen(false)
+                    await exportDocx()
+                  }}
+                  className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <span>导出为 Word</span>
+                  <span className="text-xs text-slate-400">.docx</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setExportMenuOpen(false)
+                    await exportDocs('md')
+                  }}
+                  className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <span>导出为 Markdown</span>
+                  <span className="text-xs text-slate-400">.md</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setExportMenuOpen(false)
+                    await exportDocs('txt')
+                  }}
+                  className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <span>导出为 TXT</span>
+                  <span className="text-xs text-slate-400">.txt</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setExportMenuOpen(false)
+                    await exportClausesXlsx()
+                  }}
+                  className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <span>导出为 Excel（按条目）</span>
+                  <span className="text-xs text-slate-400">.xlsx</span>
+                </button>
+
+                <div className="my-1 h-px bg-slate-100" />
+                <div className="px-4 py-2 text-xs font-semibold text-slate-500">文档信息清单导出</div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setExportMenuOpen(false)
+                    await exportDocListXlsx()
+                  }}
+                  className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <span>导出文档清单为 Excel</span>
+                  <span className="text-xs text-slate-400">.xlsx</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setExportMenuOpen(false)
+                    await exportDocListCsv()
+                  }}
+                  className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <span>导出文档清单为 CSV</span>
+                  <span className="text-xs text-slate-400">.csv</span>
                 </button>
               </div>
             ) : null}
@@ -673,7 +1227,13 @@ export function PolicyModule() {
 
           <button
             type="button"
-            onClick={() => window.alert('Mock：打印选中内容')}
+            onClick={() => {
+              setPrintDocs(selectedDocs)
+              setPrintIndex(0)
+              setSeparatePrint(false)
+              setMergePrint(true)
+              setPrintOpen(true)
+            }}
             className={`inline-flex items-center gap-2 rounded border bg-white px-3 py-2 text-sm ${
               canBatch ? 'border-slate-200 text-slate-700 hover:bg-slate-50' : 'cursor-not-allowed border-slate-200 text-slate-400'
             }`}
@@ -785,14 +1345,24 @@ export function PolicyModule() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => window.alert('Mock：导出')}
+                      onClick={() => {
+                        setSelectedIds([doc.id])
+                        setExportMenuOpen(true)
+                      }}
                       className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
                     >
                       导出
                     </button>
                     <button
                       type="button"
-                      onClick={() => window.alert('Mock：打印')}
+                      onClick={() => {
+                        setSelectedIds([doc.id])
+                        setPrintDocs([doc])
+                        setPrintIndex(0)
+                        setSeparatePrint(false)
+                        setMergePrint(true)
+                        setPrintOpen(true)
+                      }}
                       className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
                     >
                       打印
@@ -810,6 +1380,36 @@ export function PolicyModule() {
             </article>
           )
         })}
+      </div>
+
+      <div className="print-content hidden">
+        {(() => {
+          const printingDocs = separatePrint ? [printDocs[printIndex]].filter(Boolean) : printDocs
+          return printingDocs.map((doc, idx) => {
+            const body = (printBodyById[doc.id] ?? doc.content).replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+            const lines = body.split('\n').map((x) => x.trim()).filter(Boolean)
+            return (
+              <div
+                key={`${doc.id}-${idx}`}
+                style={
+                  idx < printingDocs.length - 1
+                    ? { breakAfter: 'page', pageBreakAfter: 'always', paddingBottom: '24pt' }
+                    : { paddingBottom: '24pt' }
+                }
+              >
+                <p className="print-meta">{'─'.repeat(32)}</p>
+                <h1>{doc.title}</h1>
+                <p className="print-meta">
+                  发文机关：{doc.dept || '-'} | 发布日期：{doc.publishDate || '-'} | 生效日期：{doc.effectiveDate || '-'}
+                </p>
+                <p className="print-meta">{'─'.repeat(32)}</p>
+                {lines.map((line, lineIdx) => (
+                  <p key={`${doc.id}-${lineIdx}`}>{line.replace(/^#{1,6}\s+/, '')}</p>
+                ))}
+              </div>
+            )
+          })
+        })()}
       </div>
 
       <Modal
@@ -945,6 +1545,318 @@ export function PolicyModule() {
           </div>
         </div>
       </Modal>
+
+      {printOpen ? (
+        <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+          <div className="w-full max-w-[900px] overflow-hidden rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <h3 className="text-lg font-semibold text-slate-900">打印设置</h3>
+              <button
+                type="button"
+                onClick={() => setPrintOpen(false)}
+                className="rounded border border-slate-200 p-1 text-slate-600 hover:bg-slate-50"
+              >
+                关闭
+              </button>
+            </div>
+
+            <div className="flex h-[70vh]">
+              <div className="w-[360px] overflow-y-auto border-r border-slate-200 p-5 text-sm text-slate-700">
+                <div className="space-y-6">
+                  {printDocs.length > 1 ? (
+                    <div>
+                      <p className="text-xs font-semibold tracking-wide text-slate-500">多篇打印</p>
+                      <div className="mt-3 space-y-2">
+                        <label className="flex items-center gap-2">
+                          <input type="radio" checked={mergePrint} onChange={() => setMergePrint(true)} />
+                          合并为一份文件打印（默认）
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input type="radio" checked={!mergePrint} onChange={() => setMergePrint(false)} />
+                          分别打印
+                        </label>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <p className="text-xs font-semibold tracking-wide text-slate-500">基本信息</p>
+                    <div className="mt-3 space-y-4">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">纸张尺寸</p>
+                        <div className="flex flex-wrap gap-2">
+                          {(['A4', 'A3', 'Letter'] as const).map((v) => (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => setPrintSettings((prev) => ({ ...prev, paperSize: v }))}
+                              className={`rounded border px-3 py-1.5 text-sm ${
+                                printSettings.paperSize === v ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              {v}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">打印方向</p>
+                        <div className="flex flex-wrap gap-2">
+                          {([
+                            { key: 'portrait', label: '纵向' },
+                            { key: 'landscape', label: '横向' },
+                          ] as const).map((v) => (
+                            <button
+                              key={v.key}
+                              type="button"
+                              onClick={() => setPrintSettings((prev) => ({ ...prev, orientation: v.key }))}
+                              className={`rounded border px-3 py-1.5 text-sm ${
+                                printSettings.orientation === v.key ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              {v.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold tracking-wide text-slate-500">字体设置</p>
+                    <div className="mt-3 space-y-4">
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700">正文字体</span>
+                        <select
+                          value={printSettings.bodyFont}
+                          onChange={(e) => setPrintSettings((prev) => ({ ...prev, bodyFont: e.target.value as PrintFont }))}
+                          className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
+                        >
+                          {(['宋体', '黑体', '楷体', '仿宋'] as const).map((v) => (
+                            <option key={v} value={v}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700">正文字号</span>
+                        <select
+                          value={printSettings.bodyFontSize}
+                          onChange={(e) => setPrintSettings((prev) => ({ ...prev, bodyFontSize: e.target.value as PrintFontSize }))}
+                          className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
+                        >
+                          {(['10pt', '11pt', '12pt', '13pt'] as const).map((v) => (
+                            <option key={v} value={v}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">标题字号</p>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPrintSettings((prev) => ({ ...prev, titleFontMode: 'auto', titleFontSize: '' }))}
+                            className={`rounded border px-3 py-1.5 text-sm ${
+                              printSettings.titleFontMode === 'auto' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            自动（正文+2pt）
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPrintSettings((prev) => ({ ...prev, titleFontMode: 'manual' }))}
+                            className={`rounded border px-3 py-1.5 text-sm ${
+                              printSettings.titleFontMode === 'manual' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            手动输入
+                          </button>
+                        </div>
+                        {printSettings.titleFontMode === 'manual' ? (
+                          <input
+                            value={printSettings.titleFontSize}
+                            onChange={(e) => setPrintSettings((prev) => ({ ...prev, titleFontSize: e.target.value }))}
+                            placeholder="例如 16pt"
+                            className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold tracking-wide text-slate-500">段落设置</p>
+                    <div className="mt-3 space-y-4">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">行间距</p>
+                        <div className="flex flex-wrap gap-2">
+                          {(['1.5', '1.8', '2.0', '2.5'] as const).map((v) => (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => setPrintSettings((prev) => ({ ...prev, lineHeight: v }))}
+                              className={`rounded border px-3 py-1.5 text-sm ${
+                                printSettings.lineHeight === v ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              {v}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">首行缩进</p>
+                        <div className="flex flex-wrap gap-2">
+                          {([
+                            { key: '0', label: '无' },
+                            { key: '1', label: '1字' },
+                            { key: '2', label: '2字' },
+                          ] as const).map((v) => (
+                            <button
+                              key={v.key}
+                              type="button"
+                              onClick={() => setPrintSettings((prev) => ({ ...prev, indent: v.key }))}
+                              className={`rounded border px-3 py-1.5 text-sm ${
+                                printSettings.indent === v.key ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              {v.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700">段前间距</span>
+                        <select
+                          value={printSettings.paragraphSpacing}
+                          onChange={(e) => setPrintSettings((prev) => ({ ...prev, paragraphSpacing: e.target.value as PrintParagraphSpacing }))}
+                          className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
+                        >
+                          {(['4pt', '6pt', '8pt'] as const).map((v) => (
+                            <option key={v} value={v}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold tracking-wide text-slate-500">页面设置</p>
+                    <div className="mt-3 space-y-4">
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700">页边距</span>
+                        <select
+                          value={printSettings.margin}
+                          onChange={(e) => setPrintSettings((prev) => ({ ...prev, margin: e.target.value as PrintMargin }))}
+                          className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
+                        >
+                          <option value="standard">标准（2.5cm）</option>
+                          <option value="loose">宽松（3cm）</option>
+                          <option value="compact">紧凑（2cm）</option>
+                        </select>
+                      </label>
+
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">显示页眉（文件名）</p>
+                        <div className="flex gap-2">
+                          {[{ v: true, label: '开' }, { v: false, label: '关' }].map((item) => (
+                            <button
+                              key={String(item.v)}
+                              type="button"
+                              onClick={() => setPrintSettings((prev) => ({ ...prev, showHeader: item.v }))}
+                              className={`rounded border px-3 py-1.5 text-sm ${
+                                printSettings.showHeader === item.v ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">显示页码</p>
+                        <div className="flex gap-2">
+                          {[{ v: true, label: '开' }, { v: false, label: '关' }].map((item) => (
+                            <button
+                              key={String(item.v)}
+                              type="button"
+                              onClick={() => setPrintSettings((prev) => ({ ...prev, showPageNumber: item.v }))}
+                              className={`rounded border px-3 py-1.5 text-sm ${
+                                printSettings.showPageNumber === item.v ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-5">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                  预览仅展示前3段落，实际打印按选中结果输出
+                </div>
+                <div className="mt-3 rounded-lg border border-slate-200 bg-white p-5">
+                  <div style={{ fontFamily: previewComputed.fontFamily, fontSize: previewComputed.fontSize, lineHeight: previewComputed.lineHeight, color: '#000' }}>
+                    <div style={{ fontSize: previewComputed.titleSize, fontWeight: 700, textAlign: 'center', marginBottom: '20pt' }}>
+                      {printDocs[0]?.title ?? '资料库'}
+                    </div>
+                    {previewLines.map((line, idx) => (
+                      <div key={idx} style={{ textIndent: previewComputed.indent, margin: `${previewComputed.paragraphMargin} 0` }}>
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-5 py-3">
+              <button
+                type="button"
+                onClick={() => setPrintSettings(DEFAULT_PRINT_SETTINGS)}
+                className="text-sm text-slate-500 hover:text-slate-700"
+              >
+                恢复默认
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPrintOpen(false)}
+                  className="rounded border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem('aml-print-settings', JSON.stringify(printSettings))
+                    setPrintOpen(false)
+                    void startPrint(printDocs, printDocs.length > 1 && !mergePrint ? 'separate' : 'merge')
+                  }}
+                  className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  预览 & 打印
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <Modal
         open={importOpen}
