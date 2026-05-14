@@ -1,3 +1,6 @@
+const fs = require('node:fs')
+const path = require('node:path')
+
 const NOTION_VERSION = '2022-06-28'
 
 const toText = (richText) => (Array.isArray(richText) ? richText.map((t) => t?.plain_text ?? '').join('') : '')
@@ -47,9 +50,13 @@ const main = async () => {
   const token = process.env.NOTION_TOKEN
 
   if (!token) {
-    process.stderr.write('缺少 NOTION_TOKEN，请通过环境变量传入（例如 --env-file .env）。\n')
+    process.stderr.write('缺少 NOTION_TOKEN，请通过环境变量传入（例如 --env-file /zspace/aml/.env）。\n')
     process.exit(1)
   }
+
+  const argv = process.argv.slice(2)
+  const shouldWriteEnv = argv.includes('--write-env')
+  const envPath = process.env.AML_ENV_PATH ? String(process.env.AML_ENV_PATH) : '/zspace/aml/.env'
 
   const targets = [
     { keyword: '反洗钱资料库', envKey: 'NOTION_DB_DOCUMENTS' },
@@ -87,6 +94,25 @@ const main = async () => {
 
   for (const item of matched) {
     process.stdout.write(`${item.envKey}=${item.id ?? ''}\n`)
+  }
+
+  if (shouldWriteEnv) {
+    try {
+      const abs = path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath)
+      const existing = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : ''
+      const filtered = existing
+        .split(/\r?\n/)
+        .filter((line) => !targets.some((t) => line.startsWith(`${t.envKey}=`)))
+        .filter((line) => line.trim() !== '')
+      const appended = matched.map((item) => `${item.envKey}=${item.id ?? ''}`)
+      const next = [...filtered, ...appended, ''].join('\n')
+      fs.mkdirSync(path.dirname(abs), { recursive: true })
+      fs.writeFileSync(abs, next, 'utf8')
+      process.stderr.write(`已写入 ${abs}\n`)
+    } catch (error) {
+      process.stderr.write(`写入 env 失败：${error instanceof Error ? error.message : String(error)}\n`)
+      process.exit(1)
+    }
   }
 
   if (missing.length > 0) process.exit(1)
