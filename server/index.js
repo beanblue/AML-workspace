@@ -81,6 +81,85 @@ const serveFile = async (res, filePath) => {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
 
+  if (url.pathname.startsWith('/api/notion/page/')) {
+    if (req.method !== 'GET') {
+      sendJson(res, 405, { message: 'Method Not Allowed' })
+      return
+    }
+
+    const token = process.env.NOTION_TOKEN ?? ''
+    if (!token) {
+      sendJson(res, 500, { message: 'Notion 中转未配置 NOTION_TOKEN。' })
+      return
+    }
+
+    const pageIdRaw = url.pathname.replace('/api/notion/page/', '').split('/')[0] ?? ''
+    const pageId = toHyphenId(pageIdRaw)
+    if (!pageId) {
+      sendJson(res, 400, { message: '缺少页面 ID。' })
+      return
+    }
+
+    const toText = (richText) =>
+      Array.isArray(richText) ? richText.map((item) => item?.plain_text ?? '').join('') : ''
+
+    const toLine = (block) => {
+      const type = block?.type
+      if (type === 'heading_1') return `# ${toText(block.heading_1?.rich_text)}\n`
+      if (type === 'heading_2') return `## ${toText(block.heading_2?.rich_text)}\n`
+      if (type === 'heading_3') return `### ${toText(block.heading_3?.rich_text)}\n`
+      if (type === 'paragraph') return `${toText(block.paragraph?.rich_text)}\n`
+      if (type === 'divider') return `---\n`
+      if (type === 'bulleted_list_item') return `- ${toText(block.bulleted_list_item?.rich_text)}\n`
+      if (type === 'numbered_list_item') return `1. ${toText(block.numbered_list_item?.rich_text)}\n`
+      return ''
+    }
+
+    try {
+      const lines = []
+      let cursor = undefined
+
+      while (lines.length < 20000) {
+        const endpoint = new URL(`https://api.notion.com/v1/blocks/${pageId}/children`)
+        endpoint.searchParams.set('page_size', '100')
+        if (cursor) endpoint.searchParams.set('start_cursor', cursor)
+
+        const response = await fetch(endpoint.toString(), {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Notion-Version': NOTION_VERSION,
+          },
+        })
+
+        if (!response.ok) {
+          const text = await response.text()
+          res.statusCode = response.status
+          res.setHeader('Content-Type', 'application/json')
+          res.end(text || JSON.stringify({ message: 'Notion 获取页面内容失败。' }))
+          return
+        }
+
+        const data = await response.json()
+        const results = Array.isArray(data?.results) ? data.results : []
+        for (const block of results) {
+          const line = toLine(block)
+          if (line) lines.push(line)
+        }
+
+        if (!data?.has_more) break
+        cursor = data?.next_cursor ?? undefined
+        if (!cursor) break
+      }
+
+      sendJson(res, 200, { content: lines.join('') })
+      return
+    } catch (error) {
+      sendJson(res, 500, { message: error instanceof Error ? error.message : 'Notion 获取页面内容失败。' })
+      return
+    }
+  }
+
   if (url.pathname === '/api/notion/query') {
     if (req.method !== 'POST') {
       sendJson(res, 405, { message: 'Method Not Allowed' })
@@ -167,4 +246,3 @@ const server = http.createServer(async (req, res) => {
 server.listen(port, () => {
   process.stdout.write(`Server listening on :${port}\n`)
 })
-

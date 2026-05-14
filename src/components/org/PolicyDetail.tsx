@@ -302,6 +302,8 @@ export default function PolicyDetail() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [allDocs, setAllDocs] = useState<NotionDocumentRow[]>([])
+  const [pageContent, setPageContent] = useState<string>('')
+  const [pageContentLoading, setPageContentLoading] = useState(false)
   const [favorites, setFavorites] = useState<string[]>([])
   const [search, setSearch] = useState('')
   const [openClauseId, setOpenClauseId] = useState<string | null>(null)
@@ -339,7 +341,27 @@ export default function PolicyDetail() {
   const topics = useMemo(() => normalizeTextList(doc?.主题标签), [doc?.主题标签])
 
   const contentText = useMemo(() => getContent(doc), [doc])
-  const sections = useMemo(() => parseSections(contentText), [contentText])
+
+  useEffect(() => {
+    if (!doc?.id) return
+    setPageContentLoading(true)
+    setPageContent('')
+
+    fetch(`/api/notion/page/${doc.id}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(String(res.status))
+        return res.json()
+      })
+      .then((data) => {
+        const text = String(data?.content ?? data?.body ?? data?.text ?? data?.markdown ?? '').trim()
+        setPageContent(text)
+      })
+      .catch(() => setPageContent(''))
+      .finally(() => setPageContentLoading(false))
+  }, [doc?.id])
+
+  const parseSourceText = useMemo(() => (pageContent.trim() ? pageContent : contentText), [contentText, pageContent])
+  const sections = useMemo(() => parseSections(parseSourceText), [parseSourceText])
   const hasSectionLevel = useMemo(() => sections.some((s) => s.type === 'section'), [sections])
 
   const childrenMap = useMemo(() => {
@@ -619,6 +641,9 @@ export default function PolicyDetail() {
         </aside>
 
         <main ref={contentRef} className="space-y-3">
+          {pageContentLoading ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">正文加载中...</div>
+          ) : null}
           <article className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
@@ -741,7 +766,7 @@ export default function PolicyDetail() {
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">全文</span>
                     <span className="text-sm font-semibold text-slate-900">正文</span>
                   </div>
-                  {renderSectionContent(contentText)}
+                  {renderSectionContent(parseSourceText)}
                 </div>
               ) : visibleSections.length === 0 ? (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">无匹配条款</div>

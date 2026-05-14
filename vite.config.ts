@@ -101,6 +101,88 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
           res.end(JSON.stringify({ message: error instanceof Error ? error.message : '请求体解析失败' }))
         }
       })
+
+      server.middlewares.use('/api/notion/page', async (req, res, next) => {
+        if (req.method !== 'GET') {
+          next()
+          return
+        }
+
+        if (!token) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: 'Notion 中转未配置 NOTION_TOKEN。' }))
+          return
+        }
+
+        const rawUrl = String(req.url ?? '')
+        const pageIdRaw = rawUrl.replace(/^\//, '').split(/[/?#]/)[0] ?? ''
+        if (!pageIdRaw) {
+          res.statusCode = 400
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: '缺少页面 ID。' }))
+          return
+        }
+
+        const toText = (list?: Array<{ plain_text?: string }>): string => list?.map((t) => t.plain_text ?? '').join('') ?? ''
+        const toLine = (block: any): string => {
+          const type = block?.type
+          if (type === 'heading_1') return `# ${toText(block.heading_1?.rich_text)}\n`
+          if (type === 'heading_2') return `## ${toText(block.heading_2?.rich_text)}\n`
+          if (type === 'heading_3') return `### ${toText(block.heading_3?.rich_text)}\n`
+          if (type === 'paragraph') return `${toText(block.paragraph?.rich_text)}\n`
+          if (type === 'divider') return `---\n`
+          if (type === 'bulleted_list_item') return `- ${toText(block.bulleted_list_item?.rich_text)}\n`
+          if (type === 'numbered_list_item') return `1. ${toText(block.numbered_list_item?.rich_text)}\n`
+          return ''
+        }
+
+        try {
+          const lines: string[] = []
+          let cursor: string | undefined
+
+          while (lines.length < 20000) {
+            const endpoint = new URL(`https://api.notion.com/v1/blocks/${toHyphenId(pageIdRaw)}/children`)
+            endpoint.searchParams.set('page_size', '100')
+            if (cursor) endpoint.searchParams.set('start_cursor', cursor)
+
+            const response = await fetch(endpoint.toString(), {
+              method: 'GET',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Notion-Version': NOTION_VERSION,
+              },
+            })
+
+            const text = await response.text()
+            if (!response.ok) {
+              res.statusCode = response.status
+              res.setHeader('Content-Type', 'application/json')
+              res.end(text)
+              return
+            }
+
+            const data = JSON.parse(text) as any
+            const results = Array.isArray(data?.results) ? data.results : []
+            for (const block of results) {
+              const line = toLine(block)
+              if (line) lines.push(line)
+            }
+
+            if (!data?.has_more) break
+            cursor = data?.next_cursor ?? undefined
+            if (!cursor) break
+          }
+
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ content: lines.join('') }))
+        } catch (error) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: error instanceof Error ? error.message : 'Notion 获取页面内容失败。' }))
+        }
+      })
     },
   }
 }
