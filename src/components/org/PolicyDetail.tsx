@@ -349,7 +349,25 @@ function parseSections(content: string): SectionNode[] {
   return nodes
 }
 
-function renderSectionContent(text: string) {
+function renderHighlightedText(text: string, keyword: string) {
+  const kw = keyword.trim()
+  if (!kw) return text
+  const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${escaped})`, 'gi')
+  const parts = text.split(regex)
+  const kwLower = kw.toLowerCase()
+  return parts.map((part, idx) =>
+    part.toLowerCase() === kwLower ? (
+      <mark key={`${part}-${idx}`} className="rounded bg-yellow-200 px-0.5 text-gray-900">
+        {part}
+      </mark>
+    ) : (
+      <span key={`${part}-${idx}`}>{part}</span>
+    ),
+  )
+}
+
+function renderSectionContent(text: string, keyword: string) {
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
   return (
     <div className="mt-3 space-y-2 text-sm leading-7 text-slate-800">
@@ -364,7 +382,7 @@ function renderSectionContent(text: string) {
               : 'pl-0'
         return (
           <p key={`line-${idx}`} className={`whitespace-pre-wrap ${indent}`}>
-            {trimmed}
+            {renderHighlightedText(trimmed, keyword)}
           </p>
         )
       })}
@@ -1213,7 +1231,7 @@ export default function PolicyDetail() {
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">全文</span>
                     <span className="text-sm font-semibold text-slate-900">正文</span>
                   </div>
-                  {renderSectionContent(parseSourceText)}
+                  {renderSectionContent(parseSourceText, search)}
                 </div>
               ) : visibleSections.length === 0 ? (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">无匹配条款</div>
@@ -1223,7 +1241,7 @@ export default function PolicyDetail() {
                     return (
                       <div key={node.id} id={node.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                         <p className="text-sm font-semibold text-slate-900">{node.title}</p>
-                        {node.content ? renderSectionContent(node.content) : null}
+                        {node.content ? renderSectionContent(node.content, search) : null}
                       </div>
                     )
                   }
@@ -1232,7 +1250,7 @@ export default function PolicyDetail() {
                     return (
                       <div key={node.id} id={node.id} className="rounded-lg border border-slate-200 bg-white p-4">
                         <p className="text-sm font-semibold text-slate-900">{node.title}</p>
-                        {node.content ? renderSectionContent(node.content) : null}
+                        {node.content ? renderSectionContent(node.content, search) : null}
                       </div>
                     )
                   }
@@ -1253,7 +1271,7 @@ export default function PolicyDetail() {
                           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{no}</span>
                           <span className="text-sm font-semibold text-slate-900">{lead || '—'}</span>
                         </div>
-                        {renderSectionContent(node.content)}
+                        {renderSectionContent(node.content, search)}
                       </div>
                       <ClauseInsight clauseId={node.id} />
                     </div>

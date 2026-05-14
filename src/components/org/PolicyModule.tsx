@@ -175,6 +175,9 @@ export function PolicyModule() {
 
   const [localDocs, setLocalDocs] = useState<LibraryDoc[]>([])
   const [notionDocs, setNotionDocs] = useState<LibraryDoc[]>([])
+  const [notionSearchDocs, setNotionSearchDocs] = useState<LibraryDoc[]>([])
+  const [notionSearchLoading, setNotionSearchLoading] = useState(false)
+  const [notionSearchError, setNotionSearchError] = useState<string | null>(null)
   const [notionLoading, setNotionLoading] = useState(false)
   const [notionError, setNotionError] = useState<string | null>(null)
 
@@ -255,40 +258,41 @@ export function PolicyModule() {
     throw new Error('不支持的文件类型')
   }
 
+  const mapNotionRowToDoc = (row: NotionDocumentRow): LibraryDoc => {
+    const title = safeText(row.标题 ?? row.Name) || '未命名资料'
+    const typeRaw = safeText(row.类型 ?? row.文档类型)
+    const statusRaw = safeText(row.状态)
+    const dept = safeText(row.来源 ?? row.发文机关 ?? row.发文部门)
+    const publishDate = safeText(row['生效/发布日期'] ?? row.发布日期)
+    const effectiveDate = safeText(row.生效日期 ?? row['生效/发布日期'])
+    const summary = safeText(row.摘要)
+    const keyPoints = safeText((row as any)['关键要点/适用情景'] ?? (row as any)['关键要点/适用情景 '] ?? '')
+    const scope = safeText(row.适用范围)
+    const content = [summary, keyPoints, scope].filter(Boolean).join('\n')
+
+    return {
+      id: row.id,
+      source: 'notion',
+      category: normalizeNotionCategory(typeRaw),
+      timeliness: normalizeNotionTimeliness(statusRaw, effectiveDate || publishDate),
+      title,
+      docNo: '',
+      dept,
+      publishDate,
+      effectiveDate,
+      summary,
+      content,
+      sourceLevel: '',
+    }
+  }
+
   useEffect(() => {
     const run = async () => {
       setNotionLoading(true)
       setNotionError(null)
       try {
         const rows = (await queryDatabase('documents')) as unknown as NotionDocumentRow[]
-        const mapped: LibraryDoc[] = rows.map((row) => {
-          const title = safeText(row.标题 ?? row.Name) || '未命名资料'
-          const typeRaw = safeText(row.类型 ?? row.文档类型)
-          const statusRaw = safeText(row.状态)
-          const dept = safeText(row.来源 ?? row.发文机关 ?? row.发文部门)
-          const publishDate = safeText(row['生效/发布日期'] ?? row.发布日期)
-          const effectiveDate = safeText(row.生效日期 ?? row['生效/发布日期'])
-          const summary = safeText(row.摘要)
-          const keyPoints = safeText((row as any)['关键要点/适用情景'] ?? (row as any)['关键要点/适用情景 '] ?? '')
-          const scope = safeText(row.适用范围)
-          const content = [summary, keyPoints, scope].filter(Boolean).join('\n')
-
-          return {
-            id: row.id,
-            source: 'notion',
-            category: normalizeNotionCategory(typeRaw),
-            timeliness: normalizeNotionTimeliness(statusRaw, effectiveDate || publishDate),
-            title,
-            docNo: '',
-            dept,
-            publishDate,
-            effectiveDate,
-            summary,
-            content,
-            sourceLevel: '',
-          }
-        })
-        setNotionDocs(mapped)
+        setNotionDocs(rows.map(mapNotionRowToDoc))
       } catch (e) {
         setNotionError(e instanceof Error ? e.message : String(e))
         setNotionDocs([])
@@ -300,28 +304,76 @@ export function PolicyModule() {
     void run()
   }, [])
 
-  const docs = useMemo(() => [...localDocs, ...notionDocs], [localDocs, notionDocs])
+  useEffect(() => {
+    const q = keyword.trim()
+    if (!q) {
+      setNotionSearchDocs([])
+      setNotionSearchError(null)
+      setNotionSearchLoading(false)
+      return
+    }
 
-  const loading = notionLoading
-  const error = notionError
+    setNotionSearchLoading(true)
+    setNotionSearchError(null)
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      fetch(`/api/notion/search?q=${encodeURIComponent(q)}`, { signal: controller.signal })
+        .then(async (res) => {
+          if (!res.ok) throw new Error(String(res.status))
+          return res.json()
+        })
+        .then((data) => {
+          const rows = Array.isArray(data?.results) ? (data.results as NotionDocumentRow[]) : []
+          setNotionSearchDocs(rows.map(mapNotionRowToDoc))
+        })
+        .catch((err) => {
+          if (err instanceof DOMException && err.name === 'AbortError') return
+          setNotionSearchDocs([])
+          setNotionSearchError(err instanceof Error ? err.message : String(err))
+        })
+        .finally(() => setNotionSearchLoading(false))
+    }, 300)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, [keyword])
+
+  const localSearchDocs = useMemo(() => {
+    const q = keyword.trim().toLowerCase()
+    if (!q) return localDocs
+    return localDocs.filter((d) => `${d.title}\n${d.summary}\n${d.content}`.toLowerCase().includes(q))
+  }, [keyword, localDocs])
+
+  const docsForFilter = useMemo(() => {
+    const q = keyword.trim()
+    if (!q) return [...localDocs, ...notionDocs]
+    return [...localSearchDocs, ...notionSearchDocs]
+  }, [keyword, localDocs, localSearchDocs, notionDocs, notionSearchDocs])
+
+  const docsForStats = useMemo(() => [...localDocs, ...notionDocs], [localDocs, notionDocs])
+
+  const loading = notionLoading || (keyword.trim() ? notionSearchLoading : false)
+  const error = notionError || notionSearchError
 
   const stats = useMemo(() => {
-    const total = docs.length
-    const law = docs.filter((d) => d.category === '法律法规').length
-    const internal = docs.filter((d) => d.category === '内控制度').length
-    const process = docs.filter((d) => d.category === '流程').length
-    const book = docs.filter((d) => d.category === '图书').length
-    const thesis = docs.filter((d) => d.category === '论文').length
+    const total = docsForStats.length
+    const law = docsForStats.filter((d) => d.category === '法律法规').length
+    const internal = docsForStats.filter((d) => d.category === '内控制度').length
+    const process = docsForStats.filter((d) => d.category === '流程').length
+    const book = docsForStats.filter((d) => d.category === '图书').length
+    const thesis = docsForStats.filter((d) => d.category === '论文').length
     return { total, law, internal, process, book, thesis }
-  }, [docs])
+  }, [docsForStats])
 
-  const departments = useMemo(() => Array.from(new Set(docs.map((d) => d.dept).filter(Boolean))).sort(), [docs])
+  const departments = useMemo(() => Array.from(new Set(docsForStats.map((d) => d.dept).filter(Boolean))).sort(), [docsForStats])
 
   const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase()
     const scopes = new Set(advanced.scopes)
 
-    const rows = docs
+    const rows = docsForFilter
       .filter((d) => (category === '全部' ? true : d.category === category))
       .filter((d) => (timeliness.length === 0 ? true : timeliness.includes(d.timeliness)))
       .filter((d) => (advanced.sourceLevels.length === 0 ? true : advanced.sourceLevels.includes(d.sourceLevel)))
@@ -331,6 +383,7 @@ export function PolicyModule() {
       .filter((d) => inDateRange(d.effectiveDate, advanced.effectiveStart, advanced.effectiveEnd))
       .filter((d) => {
         if (!kw) return true
+        if (d.source === 'notion') return true
         const parts: string[] = []
         if (scopes.has('title')) parts.push(d.title)
         if (scopes.has('summary')) parts.push(d.summary)
@@ -362,7 +415,7 @@ export function PolicyModule() {
     })
 
     return sorted
-  }, [advanced, category, docs, keyword, sortBy, timeliness])
+  }, [advanced, category, docsForFilter, keyword, sortBy, timeliness])
 
   const pageRows = useMemo(() => {
     if (pageSize === 'all') return filtered
