@@ -1,4 +1,6 @@
 @media print {
+  * { border: none !important; box-shadow: none !important; outline: none !important; }
+
   /* 隐藏所有非正文区域 */
   nav, aside, header, footer,
   .sidebar, .filter-panel, .action-bar,
@@ -25,4 +27,3 @@
     @bottom-right { content: counter(page) "/" counter(pages); font-size: 10pt; }
   }
 }
-

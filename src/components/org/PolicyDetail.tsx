@@ -66,7 +66,7 @@ type PrintLineHeight = '1.5' | '1.8' | '2.0' | '2.5'
 type PrintIndent = '0' | '1' | '2'
 type PrintParagraphSpacing = '4pt' | '6pt' | '8pt'
 type PrintMargin = 'standard' | 'loose' | 'compact'
-type PrintRange = 'full' | 'body' | 'custom'
+type PrintRange = 'full' | 'selection' | 'custom'
 
 type PrintSettings = {
   paperSize: PrintPaperSize
@@ -83,7 +83,7 @@ type PrintSettings = {
   showPageNumber: boolean
   range: PrintRange
   includeCover: boolean
-  customChapters: string[]
+  customOutlineIds: string[]
 }
 
 const DEFAULT_PRINT_SETTINGS: PrintSettings = {
@@ -101,10 +101,10 @@ const DEFAULT_PRINT_SETTINGS: PrintSettings = {
   showPageNumber: true,
   range: 'full',
   includeCover: true,
-  customChapters: [],
+  customOutlineIds: [],
 }
 
-function applyPrintOverride(settings: PrintSettings, docTitle: string) {
+function getPrintComputed(settings: PrintSettings) {
   const fontFamilyMap: Record<PrintFont, string> = {
     宋体: '"SimSun","宋体",serif',
     黑体: '"SimHei","黑体",sans-serif',
@@ -127,10 +127,26 @@ function applyPrintOverride(settings: PrintSettings, docTitle: string) {
   const indentValue = settings.indent === '0' ? '0' : settings.indent === '1' ? '1em' : '2em'
   const pageSizeValue = settings.paperSize === 'Letter' ? 'Letter' : settings.paperSize
   const orientationValue = settings.orientation === 'landscape' ? 'landscape' : 'portrait'
+
+  return {
+    fontFamily: fontFamilyMap[settings.bodyFont],
+    fontSize: settings.bodyFontSize,
+    titleSize,
+    lineHeight: settings.lineHeight,
+    indent: indentValue,
+    paragraphMargin: settings.paragraphSpacing,
+    pageMargin: marginMap[settings.margin],
+    pageSize: pageSizeValue,
+    orientation: orientationValue,
+  }
+}
+
+function applyPrintOverride(settings: PrintSettings, docTitle: string) {
+  const computed = getPrintComputed(settings)
   const headerContent = settings.showHeader ? 'attr(data-doc-title)' : '""'
   const footerContent = settings.showPageNumber ? 'counter(page) "/" counter(pages)' : '""'
 
-  const css = `:root{--print-font-family:${fontFamilyMap[settings.bodyFont]};--print-font-size:${settings.bodyFontSize};--print-title-size:${titleSize};--print-line-height:${settings.lineHeight};--print-indent:${indentValue};--print-paragraph-margin:${settings.paragraphSpacing};--print-page-margin:${marginMap[settings.margin]};--print-page-size:${pageSizeValue};--print-page-orientation:${orientationValue};}
+  const css = `:root{--print-font-family:${computed.fontFamily};--print-font-size:${computed.fontSize};--print-title-size:${computed.titleSize};--print-line-height:${computed.lineHeight};--print-indent:${computed.indent};--print-paragraph-margin:${computed.paragraphMargin};--print-page-margin:${computed.pageMargin};--print-page-size:${computed.pageSize};--print-page-orientation:${computed.orientation};}
 @media print{body{font-family:var(--print-font-family)!important;font-size:var(--print-font-size)!important;color:#000;}h1{font-size:var(--print-title-size)!important;text-align:center!important;margin-bottom:20pt!important;}p{line-height:var(--print-line-height)!important;text-indent:var(--print-indent)!important;margin:var(--print-paragraph-margin) 0!important;}p.print-meta{text-indent:0!important;font-size:10pt!important;line-height:1.6!important;margin:2pt 0!important;}@page{size:var(--print-page-size) var(--print-page-orientation);margin:var(--print-page-margin);@top-center{content:${headerContent};font-size:10pt;color:#666;}@bottom-right{content:${footerContent};font-size:10pt;}}}
 `
 
@@ -144,6 +160,17 @@ function applyPrintOverride(settings: PrintSettings, docTitle: string) {
   style.textContent = css
 
   document.documentElement.setAttribute('data-doc-title', docTitle)
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
 }
 
 function normalizeTextList(raw: unknown): string[] {
@@ -380,17 +407,27 @@ export default function PolicyDetail() {
   const [collapsedTocIds, setCollapsedTocIds] = useState<string[]>([])
   const [printOpen, setPrintOpen] = useState(false)
   const [pendingPrint, setPendingPrint] = useState(false)
+  const [selectedText, setSelectedText] = useState('')
+  const [exportOpen, setExportOpen] = useState(false)
   const [printSettings, setPrintSettings] = useState<PrintSettings>(() => {
     const raw = localStorage.getItem('aml-print-settings')
     if (!raw) return DEFAULT_PRINT_SETTINGS
     try {
-      return { ...DEFAULT_PRINT_SETTINGS, ...(JSON.parse(raw) as Partial<PrintSettings>) }
+      const parsed = JSON.parse(raw) as Partial<PrintSettings> & { customChapters?: string[] }
+      const customOutlineIds =
+        Array.isArray(parsed.customOutlineIds) && parsed.customOutlineIds.length > 0
+          ? parsed.customOutlineIds
+          : Array.isArray(parsed.customChapters)
+            ? parsed.customChapters
+            : []
+      return { ...DEFAULT_PRINT_SETTINGS, ...parsed, customOutlineIds }
     } catch {
       return DEFAULT_PRINT_SETTINGS
     }
   })
   const contentRef = useRef<HTMLDivElement | null>(null)
   const beforePrintTitleRef = useRef<string>('')
+  const exportRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const run = async () => {
@@ -491,35 +528,73 @@ export default function PolicyDetail() {
     return set
   }, [activeTocId, parentMap])
 
-  const printChapterOptions = useMemo(
-    () => sections.filter((node) => node.type === 'chapter').map((node) => ({ id: node.id, title: node.title })),
-    [sections],
-  )
+  const printOutlineOptions = useMemo(() => {
+    const byId = new Map(sections.map((s) => [s.id, s]))
+    return sections
+      .filter((node) => node.type === 'chapter' || node.type === 'section')
+      .map((node) => ({
+        id: node.id,
+        title: node.title,
+        type: node.type,
+        parentId: node.parentId,
+        depth: node.type === 'section' ? 1 : 0,
+        parentTitle: node.parentId ? byId.get(node.parentId)?.title ?? '' : '',
+      }))
+  }, [sections])
 
   const printableSections = useMemo(() => {
     if (printSettings.range !== 'custom') return sections
-    if (printSettings.customChapters.length === 0) return []
-    const selected = new Set(printSettings.customChapters)
+    if (printSettings.customOutlineIds.length === 0) return []
+
+    const selected = new Set(printSettings.customOutlineIds)
     const included = new Set<string>()
     const byId = new Map(sections.map((s) => [s.id, s]))
 
     const addNode = (node: SectionNode | undefined) => {
       if (!node) return
       included.add(node.id)
-      if (node.type === 'chapter' || node.type === 'section') {
-        const children = childrenMap.get(node.id) ?? []
-        children.forEach((cid) => addNode(byId.get(cid)))
-      }
+      const children = childrenMap.get(node.id) ?? []
+      children.forEach((cid) => addNode(byId.get(cid)))
     }
 
     sections.forEach((node) => {
-      if (node.type !== 'chapter') return
+      if (node.type !== 'chapter' && node.type !== 'section') return
       if (!selected.has(node.id)) return
       addNode(node)
     })
 
     return sections.filter((node) => included.has(node.id))
-  }, [childrenMap, printSettings.customChapters, printSettings.range, sections])
+  }, [childrenMap, printSettings.customOutlineIds, printSettings.range, sections])
+
+  const effectivePrintRange = useMemo(() => {
+    if (printSettings.range !== 'selection') return printSettings.range
+    return selectedText.trim() ? 'selection' : 'full'
+  }, [printSettings.range, selectedText])
+
+  const printableForRange = useMemo(() => {
+    if (effectivePrintRange === 'custom') return printableSections
+    return sections
+  }, [effectivePrintRange, printableSections, sections])
+
+  const previewArticles = useMemo(() => {
+    if (effectivePrintRange === 'selection') {
+      return selectedText
+        .split('\n')
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .slice(0, 3)
+        .map((line, idx) => ({ id: `sel-${idx}`, title: '', lines: [line] }))
+    }
+
+    const articles = printableForRange.filter((n) => n.type === 'article').slice(0, 3)
+    return articles.map((a) => ({
+      id: a.id,
+      title: a.title,
+      lines: [a.title, ...(a.content ? a.content.split('\n') : [])].map((x) => x.trim()).filter(Boolean),
+    }))
+  }, [effectivePrintRange, printableForRange, selectedText])
+
+  const previewComputed = useMemo(() => getPrintComputed(printSettings), [printSettings])
 
   const triggerPrint = () => {
     if (!doc) return
@@ -540,12 +615,55 @@ export default function PolicyDetail() {
   }
 
   useEffect(() => {
+    if (!printOpen) return
+    applyPrintOverride(printSettings, title || '文档标题')
+    return () => {
+      document.documentElement.removeAttribute('data-doc-title')
+    }
+  }, [printOpen, printSettings, title])
+
+  useEffect(() => {
     if (!pendingPrint) return
     setPendingPrint(false)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => triggerPrint())
     })
   }, [pendingPrint])
+
+  useEffect(() => {
+    const handler = () => {
+      const sel = window.getSelection()
+      const text = sel?.toString() ?? ''
+      if (!text.trim()) {
+        setSelectedText('')
+        return
+      }
+      const anchor = sel?.anchorNode
+      const focus = sel?.focusNode
+      const container = contentRef.current
+      if (!container) return
+      if ((anchor && container.contains(anchor)) || (focus && container.contains(focus))) {
+        setSelectedText(text)
+        return
+      }
+      setSelectedText('')
+    }
+
+    document.addEventListener('selectionchange', handler)
+    return () => document.removeEventListener('selectionchange', handler)
+  }, [])
+
+  useEffect(() => {
+    if (!exportOpen) return
+    const handler = (event: MouseEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+      if (exportRef.current?.contains(target)) return
+      setExportOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [exportOpen])
 
   const relatedDocs = useMemo(() => {
     const topic = topics[0]
@@ -801,14 +919,189 @@ export default function PolicyDetail() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => window.alert('Mock：导出')}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <Download className="h-4 w-4" />
-                  导出
-                </button>
+                <div ref={exportRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setExportOpen((prev) => !prev)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <Download className="h-4 w-4" />
+                    导出
+                    <ChevronDown className={`h-4 w-4 text-slate-500 transition ${exportOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {exportOpen ? (
+                    <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-60 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExportOpen(false)
+                          triggerPrint()
+                        }}
+                        className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        <span>导出为 PDF</span>
+                        <span className="text-xs text-slate-400">打印另存为</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setExportOpen(false)
+                          const filename = `${title || '制度正文'}.md`
+                          const text =
+                            effectivePrintRange === 'selection'
+                              ? selectedText.trim()
+                              : (() => {
+                                  const lines: string[] = []
+                                  if (title) lines.push(`# ${title}`, '')
+                                  if (dept || docNo || publish) {
+                                    if (dept) lines.push(`- 发文机关：${dept}`)
+                                    if (docNo) lines.push(`- 文号：${docNo}`)
+                                    if (publish) lines.push(`- 发布日期：${publish}`)
+                                    lines.push('')
+                                  }
+                                  printableForRange.forEach((node) => {
+                                    if (node.type === 'chapter') lines.push(`## ${node.title}`, '')
+                                    else if (node.type === 'section') lines.push(`### ${node.title}`, '')
+                                    else {
+                                      lines.push(node.title)
+                                      if (node.content) lines.push(node.content)
+                                      lines.push('')
+                                    }
+                                  })
+                                  return lines.join('\n')
+                                })()
+                          downloadBlob(new Blob([text], { type: 'text/markdown;charset=utf-8' }), filename)
+                        }}
+                        className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        <span>导出为 Markdown</span>
+                        <span className="text-xs text-slate-400">.md</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setExportOpen(false)
+                          const mod = await import('docx')
+                          const {
+                            AlignmentType,
+                            Document,
+                            HeadingLevel,
+                            Packer,
+                            Paragraph,
+                            TextRun,
+                          } = mod as unknown as typeof import('docx')
+
+                          const children: any[] = []
+                          children.push(
+                            new Paragraph({
+                              text: title || '制度正文',
+                              heading: HeadingLevel.TITLE,
+                              alignment: AlignmentType.CENTER,
+                            }),
+                          )
+                          if (dept || docNo || publish) {
+                            if (dept) children.push(new Paragraph({ children: [new TextRun({ text: `发文机关：${dept}` })] }))
+                            if (docNo) children.push(new Paragraph({ children: [new TextRun({ text: `文号：${docNo}` })] }))
+                            if (publish) children.push(new Paragraph({ children: [new TextRun({ text: `发布日期：${publish}` })] }))
+                            children.push(new Paragraph({ text: '' }))
+                          }
+
+                          const addLine = (text: string) => children.push(new Paragraph({ children: [new TextRun(text)] }))
+
+                          if (effectivePrintRange === 'selection') {
+                            selectedText
+                              .split('\n')
+                              .map((x) => x.trim())
+                              .filter(Boolean)
+                              .forEach(addLine)
+                          } else {
+                            printableForRange.forEach((node) => {
+                              if (node.type === 'chapter') {
+                                children.push(new Paragraph({ text: node.title, heading: HeadingLevel.HEADING_1 }))
+                                return
+                              }
+                              if (node.type === 'section') {
+                                children.push(new Paragraph({ text: node.title, heading: HeadingLevel.HEADING_2 }))
+                                return
+                              }
+                              const lines = [node.title, ...(node.content ? node.content.split('\n') : [])]
+                                .map((x) => x.trim())
+                                .filter(Boolean)
+                              lines.forEach(addLine)
+                            })
+                          }
+
+                          const docx = new Document({ sections: [{ children }] })
+                          const blob = await Packer.toBlob(docx)
+                          downloadBlob(blob, `${title || '制度正文'}.docx`)
+                        }}
+                        className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        <span>导出为 Word</span>
+                        <span className="text-xs text-slate-400">.docx</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setExportOpen(false)
+                          const mod = await import('pptxgenjs')
+                          const PptxGenJS = (mod as any).default ?? (mod as any)
+                          const pptx = new PptxGenJS()
+
+                          const addSlide = (slideTitle: string, body: string) => {
+                            const slide = pptx.addSlide()
+                            slide.addText(slideTitle, { x: 0.5, y: 0.3, w: 12.3, h: 0.6, fontSize: 24, bold: true })
+                            slide.addText(body, { x: 0.6, y: 1.1, w: 12.2, h: 5.8, fontSize: 14, color: '333333' })
+                          }
+
+                          if (effectivePrintRange === 'selection') {
+                            addSlide(title || '制度正文', selectedText.trim().slice(0, 2000))
+                          } else {
+                            const byId = new Map(printableForRange.map((n) => [n.id, n]))
+                            const chapterIds = printableForRange.filter((n) => n.type === 'chapter').map((n) => n.id)
+                            const chapterOf = (node: any) => {
+                              let pid = node.parentId
+                              while (pid) {
+                                const parent = byId.get(pid)
+                                if (!parent) break
+                                if (parent.type === 'chapter') return parent
+                                pid = parent.parentId
+                              }
+                              return null
+                            }
+
+                            const chapterMap = new Map<string, { title: string; lines: string[] }>()
+                            printableForRange.forEach((node) => {
+                              if (node.type !== 'article') return
+                              const chapter = chapterOf(node)
+                              const chapterId = chapter?.id ?? 'chapter'
+                              const chapterTitle = chapter?.title ?? '正文'
+                              const existing = chapterMap.get(chapterId) ?? { title: chapterTitle, lines: [] }
+                              existing.lines.push(node.title)
+                              if (node.content) existing.lines.push(node.content)
+                              chapterMap.set(chapterId, existing)
+                            })
+
+                            const orderedKeys = chapterIds.length > 0 ? chapterIds : Array.from(chapterMap.keys())
+                            orderedKeys.forEach((key) => {
+                              const block = chapterMap.get(key)
+                              if (!block) return
+                              addSlide(block.title, block.lines.join('\n').slice(0, 3500))
+                            })
+                          }
+
+                          addSlide('封底', `${title || '制度正文'}\n${dept ? `发文机关：${dept}` : ''}`.trim())
+                          await pptx.writeFile({ fileName: `${title || '制度正文'}.pptx` })
+                        }}
+                        className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        <span>导出为 PPT</span>
+                        <span className="text-xs text-slate-400">实验性</span>
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
                 <button
                   type="button"
                   onClick={() => setPrintOpen(true)}
@@ -1074,7 +1367,7 @@ export default function PolicyDetail() {
 
       <div className="print-content hidden">
         <h1>{title || '文档标题'}</h1>
-        {printSettings.includeCover && printSettings.range !== 'body' ? (
+        {printSettings.includeCover ? (
           <div className="mb-4">
             {dept ? <p className="print-meta">发文机关：{dept}</p> : null}
             {docNo ? <p className="print-meta">文号：{docNo}</p> : null}
@@ -1082,25 +1375,33 @@ export default function PolicyDetail() {
           </div>
         ) : null}
 
-        {(printSettings.range === 'custom' ? printableSections : sections)
-          .filter((node) => node.type !== 'article' || (node.type === 'article' && node.title.trim()))
-          .map((node) => {
-            if (node.type === 'chapter') return <h2 key={node.id}>{node.title}</h2>
-            if (node.type === 'section') return <h3 key={node.id}>{node.title}</h3>
-            const lines = [node.title, ...(node.content ? node.content.split('\n') : [])].map((x) => x.trim()).filter(Boolean)
-            return (
-              <div key={node.id}>
-                {lines.map((line, idx) => (
-                  <p key={`${node.id}-${idx}`}>{line}</p>
-                ))}
-              </div>
-            )
-          })}
+        {effectivePrintRange === 'selection' ? (
+          selectedText
+            .split('\n')
+            .map((x) => x.trim())
+            .filter(Boolean)
+            .map((line, idx) => <p key={`sel-${idx}`}>{line}</p>)
+        ) : (
+          printableForRange
+            .filter((node) => node.type !== 'article' || (node.type === 'article' && node.title.trim()))
+            .map((node) => {
+              if (node.type === 'chapter') return <h2 key={node.id}>{node.title}</h2>
+              if (node.type === 'section') return <h3 key={node.id}>{node.title}</h3>
+              const lines = [node.title, ...(node.content ? node.content.split('\n') : [])].map((x) => x.trim()).filter(Boolean)
+              return (
+                <div key={node.id}>
+                  {lines.map((line, idx) => (
+                    <p key={`${node.id}-${idx}`}>{line}</p>
+                  ))}
+                </div>
+              )
+            })
+        )}
       </div>
 
       {printOpen ? (
         <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-          <div className="w-full max-w-3xl rounded-xl bg-white shadow-xl">
+          <div className="w-full max-w-[900px] overflow-hidden rounded-xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <h3 className="text-lg font-semibold text-slate-900">打印设置</h3>
               <button
@@ -1112,277 +1413,328 @@ export default function PolicyDetail() {
               </button>
             </div>
 
-            <div className="max-h-[70vh] overflow-y-auto px-5 py-4 text-sm text-slate-700">
-              <div className="space-y-6">
-                <div>
-                  <p className="text-xs font-semibold tracking-wide text-slate-500">基本信息</p>
-                  <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-slate-700">纸张尺寸</p>
-                      <div className="flex flex-wrap gap-2">
-                        {(['A4', 'A3', 'Letter'] as const).map((v) => (
-                          <button
-                            key={v}
-                            type="button"
-                            onClick={() => setPrintSettings((prev) => ({ ...prev, paperSize: v }))}
-                            className={`rounded border px-3 py-1.5 text-sm ${
-                              printSettings.paperSize === v ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
-                            }`}
-                          >
-                            {v}
-                          </button>
-                        ))}
+            <div className="flex h-[70vh]">
+              <div className="w-[360px] overflow-y-auto border-r border-slate-200 p-5 text-sm text-slate-700">
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-xs font-semibold tracking-wide text-slate-500">基本信息</p>
+                    <div className="mt-3 space-y-4">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">纸张尺寸</p>
+                        <div className="flex flex-wrap gap-2">
+                          {(['A4', 'A3', 'Letter'] as const).map((v) => (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => setPrintSettings((prev) => ({ ...prev, paperSize: v }))}
+                              className={`rounded border px-3 py-1.5 text-sm ${
+                                printSettings.paperSize === v
+                                  ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                  : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              {v}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-slate-700">打印方向</p>
-                      <div className="flex flex-wrap gap-2">
-                        {([
-                          { key: 'portrait', label: '纵向' },
-                          { key: 'landscape', label: '横向' },
-                        ] as const).map((v) => (
-                          <button
-                            key={v.key}
-                            type="button"
-                            onClick={() => setPrintSettings((prev) => ({ ...prev, orientation: v.key }))}
-                            className={`rounded border px-3 py-1.5 text-sm ${
-                              printSettings.orientation === v.key ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
-                            }`}
-                          >
-                            {v.label}
-                          </button>
-                        ))}
+
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">打印方向</p>
+                        <div className="flex flex-wrap gap-2">
+                          {([
+                            { key: 'portrait', label: '纵向' },
+                            { key: 'landscape', label: '横向' },
+                          ] as const).map((v) => (
+                            <button
+                              key={v.key}
+                              type="button"
+                              onClick={() => setPrintSettings((prev) => ({ ...prev, orientation: v.key }))}
+                              className={`rounded border px-3 py-1.5 text-sm ${
+                                printSettings.orientation === v.key
+                                  ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                  : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              {v.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div>
-                  <p className="text-xs font-semibold tracking-wide text-slate-500">字体设置</p>
-                  <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <label className="space-y-2">
-                      <span className="text-sm font-medium text-slate-700">正文字体</span>
-                      <select
-                        value={printSettings.bodyFont}
-                        onChange={(e) => setPrintSettings((prev) => ({ ...prev, bodyFont: e.target.value as PrintFont }))}
-                        className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
-                      >
-                        {(['宋体', '黑体', '楷体', '仿宋'] as const).map((v) => (
-                          <option key={v} value={v}>
-                            {v}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="space-y-2">
-                      <span className="text-sm font-medium text-slate-700">正文字号</span>
-                      <select
-                        value={printSettings.bodyFontSize}
-                        onChange={(e) => setPrintSettings((prev) => ({ ...prev, bodyFontSize: e.target.value as PrintFontSize }))}
-                        className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
-                      >
-                        {(['10pt', '11pt', '12pt', '13pt'] as const).map((v) => (
-                          <option key={v} value={v}>
-                            {v}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-slate-700">标题字号</p>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setPrintSettings((prev) => ({ ...prev, titleFontMode: 'auto', titleFontSize: '' }))}
-                          className={`rounded border px-3 py-1.5 text-sm ${
-                            printSettings.titleFontMode === 'auto' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
-                          }`}
+                  <div>
+                    <p className="text-xs font-semibold tracking-wide text-slate-500">字体设置</p>
+                    <div className="mt-3 space-y-4">
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700">正文字体</span>
+                        <select
+                          value={printSettings.bodyFont}
+                          onChange={(e) => setPrintSettings((prev) => ({ ...prev, bodyFont: e.target.value as PrintFont }))}
+                          className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
                         >
-                          自动（正文+2pt）
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPrintSettings((prev) => ({ ...prev, titleFontMode: 'manual' }))}
-                          className={`rounded border px-3 py-1.5 text-sm ${
-                            printSettings.titleFontMode === 'manual' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
-                          }`}
+                          {(['宋体', '黑体', '楷体', '仿宋'] as const).map((v) => (
+                            <option key={v} value={v}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700">正文字号</span>
+                        <select
+                          value={printSettings.bodyFontSize}
+                          onChange={(e) =>
+                            setPrintSettings((prev) => ({ ...prev, bodyFontSize: e.target.value as PrintFontSize }))
+                          }
+                          className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
                         >
-                          手动输入
-                        </button>
-                      </div>
-                      {printSettings.titleFontMode === 'manual' ? (
-                        <input
-                          value={printSettings.titleFontSize}
-                          onChange={(e) => setPrintSettings((prev) => ({ ...prev, titleFontSize: e.target.value }))}
-                          placeholder="例如 16pt"
-                          className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
-                        />
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
+                          {(['10pt', '11pt', '12pt', '13pt'] as const).map((v) => (
+                            <option key={v} value={v}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
 
-                <div>
-                  <p className="text-xs font-semibold tracking-wide text-slate-500">段落设置</p>
-                  <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-slate-700">行间距</p>
-                      <div className="flex flex-wrap gap-2">
-                        {(['1.5', '1.8', '2.0', '2.5'] as const).map((v) => (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">标题字号</p>
+                        <div className="flex flex-wrap gap-2">
                           <button
-                            key={v}
                             type="button"
-                            onClick={() => setPrintSettings((prev) => ({ ...prev, lineHeight: v }))}
+                            onClick={() =>
+                              setPrintSettings((prev) => ({ ...prev, titleFontMode: 'auto', titleFontSize: '' }))
+                            }
                             className={`rounded border px-3 py-1.5 text-sm ${
-                              printSettings.lineHeight === v ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                              printSettings.titleFontMode === 'auto'
+                                ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                : 'border-slate-200 bg-white'
                             }`}
                           >
-                            {v}
+                            自动（正文+2pt）
                           </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-slate-700">首行缩进</p>
-                      <div className="flex flex-wrap gap-2">
-                        {([
-                          { key: '0', label: '无' },
-                          { key: '1', label: '1字' },
-                          { key: '2', label: '2字' },
-                        ] as const).map((v) => (
                           <button
-                            key={v.key}
                             type="button"
-                            onClick={() => setPrintSettings((prev) => ({ ...prev, indent: v.key }))}
+                            onClick={() => setPrintSettings((prev) => ({ ...prev, titleFontMode: 'manual' }))}
                             className={`rounded border px-3 py-1.5 text-sm ${
-                              printSettings.indent === v.key ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                              printSettings.titleFontMode === 'manual'
+                                ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                : 'border-slate-200 bg-white'
                             }`}
                           >
-                            {v.label}
+                            手动输入
                           </button>
-                        ))}
-                      </div>
-                    </div>
-                    <label className="space-y-2">
-                      <span className="text-sm font-medium text-slate-700">段前间距</span>
-                      <select
-                        value={printSettings.paragraphSpacing}
-                        onChange={(e) => setPrintSettings((prev) => ({ ...prev, paragraphSpacing: e.target.value as PrintParagraphSpacing }))}
-                        className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
-                      >
-                        {(['4pt', '6pt', '8pt'] as const).map((v) => (
-                          <option key={v} value={v}>
-                            {v}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-semibold tracking-wide text-slate-500">页面设置</p>
-                  <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <label className="space-y-2">
-                      <span className="text-sm font-medium text-slate-700">页边距</span>
-                      <select
-                        value={printSettings.margin}
-                        onChange={(e) => setPrintSettings((prev) => ({ ...prev, margin: e.target.value as PrintMargin }))}
-                        className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
-                      >
-                        <option value="standard">标准（2.5cm）</option>
-                        <option value="loose">宽松（3cm）</option>
-                        <option value="compact">紧凑（2cm）</option>
-                      </select>
-                    </label>
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-slate-700">显示页眉（文件名）</p>
-                      <div className="flex gap-2">
-                        {[{ v: true, label: '开' }, { v: false, label: '关' }].map((item) => (
-                          <button
-                            key={String(item.v)}
-                            type="button"
-                            onClick={() => setPrintSettings((prev) => ({ ...prev, showHeader: item.v }))}
-                            className={`rounded border px-3 py-1.5 text-sm ${
-                              printSettings.showHeader === item.v ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-slate-700">显示页码</p>
-                      <div className="flex gap-2">
-                        {[{ v: true, label: '开' }, { v: false, label: '关' }].map((item) => (
-                          <button
-                            key={String(item.v)}
-                            type="button"
-                            onClick={() => setPrintSettings((prev) => ({ ...prev, showPageNumber: item.v }))}
-                            className={`rounded border px-3 py-1.5 text-sm ${
-                              printSettings.showPageNumber === item.v ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
+                        </div>
+                        {printSettings.titleFontMode === 'manual' ? (
+                          <input
+                            value={printSettings.titleFontSize}
+                            onChange={(e) => setPrintSettings((prev) => ({ ...prev, titleFontSize: e.target.value }))}
+                            placeholder="例如 16pt"
+                            className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+                          />
+                        ) : null}
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div>
-                  <p className="text-xs font-semibold tracking-wide text-slate-500">内容选项</p>
-                  <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-slate-700">打印范围</p>
+                  <div>
+                    <p className="text-xs font-semibold tracking-wide text-slate-500">段落设置</p>
+                    <div className="mt-3 space-y-4">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">行间距</p>
+                        <div className="flex flex-wrap gap-2">
+                          {(['1.5', '1.8', '2.0', '2.5'] as const).map((v) => (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => setPrintSettings((prev) => ({ ...prev, lineHeight: v }))}
+                              className={`rounded border px-3 py-1.5 text-sm ${
+                                printSettings.lineHeight === v
+                                  ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                  : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              {v}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">首行缩进</p>
+                        <div className="flex flex-wrap gap-2">
+                          {([
+                            { key: '0', label: '无' },
+                            { key: '1', label: '1字' },
+                            { key: '2', label: '2字' },
+                          ] as const).map((v) => (
+                            <button
+                              key={v.key}
+                              type="button"
+                              onClick={() => setPrintSettings((prev) => ({ ...prev, indent: v.key }))}
+                              className={`rounded border px-3 py-1.5 text-sm ${
+                                printSettings.indent === v.key
+                                  ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                  : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              {v.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700">段前间距</span>
+                        <select
+                          value={printSettings.paragraphSpacing}
+                          onChange={(e) =>
+                            setPrintSettings((prev) => ({
+                              ...prev,
+                              paragraphSpacing: e.target.value as PrintParagraphSpacing,
+                            }))
+                          }
+                          className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
+                        >
+                          {(['4pt', '6pt', '8pt'] as const).map((v) => (
+                            <option key={v} value={v}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold tracking-wide text-slate-500">页面设置</p>
+                    <div className="mt-3 space-y-4">
+                      <label className="space-y-2">
+                        <span className="text-sm font-medium text-slate-700">页边距</span>
+                        <select
+                          value={printSettings.margin}
+                          onChange={(e) => setPrintSettings((prev) => ({ ...prev, margin: e.target.value as PrintMargin }))}
+                          className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
+                        >
+                          <option value="standard">标准（2.5cm）</option>
+                          <option value="loose">宽松（3cm）</option>
+                          <option value="compact">紧凑（2cm）</option>
+                        </select>
+                      </label>
+
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">显示页眉（文件名）</p>
+                        <div className="flex gap-2">
+                          {[{ v: true, label: '开' }, { v: false, label: '关' }].map((item) => (
+                            <button
+                              key={String(item.v)}
+                              type="button"
+                              onClick={() => setPrintSettings((prev) => ({ ...prev, showHeader: item.v }))}
+                              className={`rounded border px-3 py-1.5 text-sm ${
+                                printSettings.showHeader === item.v
+                                  ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                  : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">显示页码</p>
+                        <div className="flex gap-2">
+                          {[{ v: true, label: '开' }, { v: false, label: '关' }].map((item) => (
+                            <button
+                              key={String(item.v)}
+                              type="button"
+                              onClick={() => setPrintSettings((prev) => ({ ...prev, showPageNumber: item.v }))}
+                              className={`rounded border px-3 py-1.5 text-sm ${
+                                printSettings.showPageNumber === item.v
+                                  ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                  : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold tracking-wide text-slate-500">打印范围</p>
+                    <div className="mt-3 space-y-3">
                       <div className="flex flex-wrap gap-2">
                         {([
                           { key: 'full', label: '全文' },
-                          { key: 'body', label: '仅正文（不含元信息）' },
+                          { key: 'selection', label: '选中内容' },
                           { key: 'custom', label: '自定义章节' },
-                        ] as const).map((item) => (
-                          <button
-                            key={item.key}
-                            type="button"
-                            onClick={() => setPrintSettings((prev) => ({ ...prev, range: item.key }))}
-                            className={`rounded border px-3 py-1.5 text-sm ${
-                              printSettings.range === item.key ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
+                        ] as const).map((item) => {
+                          const selectionDisabled = item.key === 'selection' && !selectedText.trim()
+                          return (
+                            <button
+                              key={item.key}
+                              type="button"
+                              disabled={selectionDisabled}
+                              onClick={() => setPrintSettings((prev) => ({ ...prev, range: item.key }))}
+                              className={`rounded border px-3 py-1.5 text-sm ${
+                                selectionDisabled
+                                  ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400'
+                                  : printSettings.range === item.key
+                                    ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                    : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          )
+                        })}
                       </div>
+
                       {printSettings.range === 'custom' ? (
-                        <div className="mt-2 space-y-2 rounded border border-slate-200 bg-slate-50 p-3">
-                          {printChapterOptions.length === 0 ? (
-                            <p className="text-sm text-slate-500">未识别到章节标题，无法自定义章节。</p>
+                        <div className="space-y-2 rounded border border-slate-200 bg-slate-50 p-3">
+                          {printOutlineOptions.length === 0 ? (
+                            <p className="text-sm text-slate-500">未识别到章/节，无法自定义章节。</p>
                           ) : (
-                            printChapterOptions.map((c) => (
-                              <label key={c.id} className="flex items-start gap-2 text-sm text-slate-700">
+                            printOutlineOptions.map((node) => (
+                              <label
+                                key={node.id}
+                                className={`flex items-start gap-2 text-sm text-slate-700 ${node.depth === 1 ? 'pl-5' : ''}`}
+                              >
                                 <input
                                   type="checkbox"
-                                  checked={printSettings.customChapters.includes(c.id)}
+                                  checked={printSettings.customOutlineIds.includes(node.id)}
                                   onChange={() =>
                                     setPrintSettings((prev) => ({
                                       ...prev,
-                                      customChapters: prev.customChapters.includes(c.id)
-                                        ? prev.customChapters.filter((x) => x !== c.id)
-                                        : [...prev.customChapters, c.id],
+                                      customOutlineIds: prev.customOutlineIds.includes(node.id)
+                                        ? prev.customOutlineIds.filter((x) => x !== node.id)
+                                        : [...prev.customOutlineIds, node.id],
                                     }))
                                   }
                                 />
-                                <span className="flex-1">{c.title}</span>
+                                <span className="flex-1">
+                                  {node.depth === 1 && node.parentTitle ? (
+                                    <span className="text-xs text-slate-500">{node.parentTitle} · </span>
+                                  ) : null}
+                                  {node.title}
+                                </span>
                               </label>
                             ))
                           )}
                         </div>
                       ) : null}
                     </div>
+                  </div>
 
-                    <div className="space-y-2">
+                  <div>
+                    <p className="text-xs font-semibold tracking-wide text-slate-500">内容选项</p>
+                    <div className="mt-3 space-y-2">
                       <p className="text-sm font-medium text-slate-700">包含封面页（含标题+元信息）</p>
                       <div className="flex gap-2">
                         {[{ v: true, label: '开' }, { v: false, label: '关' }].map((item) => (
@@ -1391,7 +1743,9 @@ export default function PolicyDetail() {
                             type="button"
                             onClick={() => setPrintSettings((prev) => ({ ...prev, includeCover: item.v }))}
                             className={`rounded border px-3 py-1.5 text-sm ${
-                              printSettings.includeCover === item.v ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                              printSettings.includeCover === item.v
+                                ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                : 'border-slate-200 bg-white'
                             }`}
                           >
                             {item.label}
@@ -1402,10 +1756,61 @@ export default function PolicyDetail() {
                   </div>
                 </div>
               </div>
+
+              <div className="flex-1 overflow-y-auto p-5">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                  预览仅显示前3条，实际打印为全文 / 选中内容 / 自定义章节的结果
+                </div>
+                <div className="mt-3 rounded-lg border border-slate-200 bg-white p-5">
+                  <div
+                    style={{
+                      fontFamily: previewComputed.fontFamily,
+                      fontSize: previewComputed.fontSize,
+                      lineHeight: previewComputed.lineHeight,
+                      color: '#000',
+                    }}
+                  >
+                    <div style={{ fontSize: previewComputed.titleSize, fontWeight: 700, textAlign: 'center', marginBottom: '20pt' }}>
+                      {title || '文档标题'}
+                    </div>
+                    {printSettings.includeCover ? (
+                      <div style={{ marginBottom: '10pt' }}>
+                        {dept ? <div style={{ fontSize: '10pt', lineHeight: '1.6', margin: '2pt 0' }}>发文机关：{dept}</div> : null}
+                        {docNo ? <div style={{ fontSize: '10pt', lineHeight: '1.6', margin: '2pt 0' }}>文号：{docNo}</div> : null}
+                        {publish ? <div style={{ fontSize: '10pt', lineHeight: '1.6', margin: '2pt 0' }}>发布日期：{publish}</div> : null}
+                      </div>
+                    ) : null}
+
+                    {previewArticles.length === 0 ? (
+                      <div className="text-sm text-slate-500">暂无可预览内容</div>
+                    ) : (
+                      previewArticles.map((article) => (
+                        <div key={article.id} style={{ marginBottom: '10pt' }}>
+                          {article.lines.map((line, idx) => (
+                            <div
+                              key={`${article.id}-${idx}`}
+                              style={{
+                                textIndent: previewComputed.indent,
+                                margin: `${previewComputed.paragraphMargin} 0`,
+                              }}
+                            >
+                              {line}
+                            </div>
+                          ))}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-5 py-3">
-              <button type="button" onClick={() => setPrintSettings(DEFAULT_PRINT_SETTINGS)} className="text-sm text-slate-500 hover:text-slate-700">
+              <button
+                type="button"
+                onClick={() => setPrintSettings(DEFAULT_PRINT_SETTINGS)}
+                className="text-sm text-slate-500 hover:text-slate-700"
+              >
                 恢复默认
               </button>
               <div className="flex items-center gap-2">
