@@ -130,9 +130,9 @@ type SectionNode = {
   parentId?: string
 }
 
-const CHAPTER_LINE_REGEX = /^第[一二三四五六七八九十百千\d]+章[\s　]+(.+)/
-const SECTION_LINE_REGEX = /^第[一二三四五六七八九十百千\d]+节[\s　]+(.+)/
-const ARTICLE_LINE_REGEX = /^第[一二三四五六七八九十百千\d]+条[\s　]+(.+)/
+const CHAPTER_LINE_REGEX = /^#{1,2}\s*第[一二三四五六七八九十百千\d]+章[\s　]*(.*)/
+const SECTION_LINE_REGEX = /^#{1,3}\s*第[一二三四五六七八九十百千\d]+节[\s　]*(.*)/
+const ARTICLE_LINE_REGEX = /^第[一二三四五六七八九十百千\d]+条[\s　]+(.*)/
 
 function parseSections(content: string): SectionNode[] {
   const text = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim()
@@ -186,32 +186,36 @@ function parseSections(content: string): SectionNode[] {
   }
 
   for (const rawLine of lines) {
-    const line = rawLine.replace(/\s+$/g, '').trim()
-    if (!line) continue
+    const lineRaw = rawLine.replace(/\s+$/g, '')
+    const lineTrim = lineRaw.trim()
+    if (!lineTrim) continue
+    if (lineTrim === '---') continue
 
-    const chapterMatch = line.match(CHAPTER_LINE_REGEX)
+    const lineForMatch = lineRaw.trimStart()
+
+    const chapterMatch = lineForMatch.match(CHAPTER_LINE_REGEX)
     if (chapterMatch) {
       foundStructure = true
-      startNode('chapter', line, '')
+      startNode('chapter', lineForMatch.replace(/^#{1,6}\s*/, '').trim(), '')
       continue
     }
 
-    const sectionMatch = line.match(SECTION_LINE_REGEX)
+    const sectionMatch = lineForMatch.match(SECTION_LINE_REGEX)
     if (sectionMatch) {
       foundStructure = true
-      startNode('section', line, '', currentChapterId)
+      startNode('section', lineForMatch.replace(/^#{1,6}\s*/, '').trim(), '', currentChapterId)
       continue
     }
 
-    const articleMatch = line.match(ARTICLE_LINE_REGEX)
+    const articleMatch = !lineForMatch.startsWith('#') ? lineForMatch.match(ARTICLE_LINE_REGEX) : null
     if (articleMatch) {
       foundStructure = true
       const parentId = currentSectionId ?? currentChapterId
-      startNode('article', line, articleMatch[1]?.trim() ?? '', parentId)
+      startNode('article', lineTrim, '', parentId)
       continue
     }
 
-    appendToCurrent(line)
+    appendToCurrent(lineRaw)
   }
 
   if (!foundStructure) return []
