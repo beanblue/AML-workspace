@@ -247,50 +247,28 @@ function renderSectionContent(text: string) {
   )
 }
 
-function ClauseInsight({
-  clauseId,
-  open,
-  onToggle,
-}: {
-  clauseId: string
-  open: boolean
-  onToggle: () => void
-}) {
+function ClauseInsight({ clauseId }: { clauseId: string }) {
   const [tab, setTab] = useState<InsightTab>('引用文档')
 
-  useEffect(() => {
-    if (!open) setTab('引用文档')
-  }, [open])
-
   return (
-    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50">
-      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between px-3 py-2 text-left">
-        <span className="text-sm font-medium text-slate-800">要点</span>
-        <ChevronRight className={`h-4 w-4 text-slate-500 transition ${open ? 'rotate-90' : ''}`} />
-      </button>
-      {open ? (
-        <div className="border-t border-slate-200 px-3 pb-3">
-          <div className="mt-3 inline-flex rounded-lg border border-slate-200 bg-white p-1">
-            {(['引用文档', '修订沿革', '合规解读'] as const).map((item) => (
-              <button
-                key={`${clauseId}-${item}`}
-                type="button"
-                onClick={() => setTab(item)}
-                className={`rounded px-3 py-1.5 text-sm ${
-                  tab === item ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-          <div className="mt-3 rounded border border-slate-200 bg-white p-3 text-sm text-slate-700">
-            {tab === '引用文档' ? '暂无引用文档，接入关联库后自动展示。' : null}
-            {tab === '修订沿革' ? '暂无修订沿革，接入版本库后自动展示。' : null}
-            {tab === '合规解读' ? '暂无合规解读，接入解读库后自动展示。' : null}
-          </div>
-        </div>
-      ) : null}
+    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 pb-3 pt-3">
+      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+        {(['引用文档', '修订沿革', '合规解读'] as const).map((item) => (
+          <button
+            key={`${clauseId}-${item}`}
+            type="button"
+            onClick={() => setTab(item)}
+            className={`rounded px-3 py-1.5 text-sm ${tab === item ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+          >
+            {item}
+          </button>
+        ))}
+      </div>
+      <div className="mt-3 rounded border border-slate-200 bg-white p-3 text-sm text-slate-700">
+        {tab === '引用文档' ? '暂无引用文档，接入关联库后自动展示。' : null}
+        {tab === '修订沿革' ? '暂无修订沿革，接入版本库后自动展示。' : null}
+        {tab === '合规解读' ? '暂无合规解读，接入解读库后自动展示。' : null}
+      </div>
     </div>
   )
 }
@@ -309,7 +287,6 @@ export default function PolicyDetail() {
   const [pageContentLoading, setPageContentLoading] = useState(false)
   const [favorites, setFavorites] = useState<string[]>([])
   const [search, setSearch] = useState('')
-  const [openClauseId, setOpenClauseId] = useState<string | null>(null)
   const [activeTocId, setActiveTocId] = useState<string>('fulltext')
   const [collapsedTocIds, setCollapsedTocIds] = useState<string[]>([])
   const contentRef = useRef<HTMLDivElement | null>(null)
@@ -806,27 +783,14 @@ export default function PolicyDetail() {
                       id={node.id}
                       className={`rounded-lg border border-slate-200 bg-white p-4 ${active ? 'ring-1 ring-blue-200' : ''}`}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className={`flex flex-wrap items-center gap-2 rounded ${active ? 'bg-blue-50 px-2 py-1' : ''}`}>
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{no}</span>
-                            <span className="text-sm font-semibold text-slate-900">{lead || '—'}</span>
-                          </div>
-                          {renderSectionContent(node.content)}
+                      <div className="min-w-0">
+                        <div className={`flex flex-wrap items-center gap-2 rounded ${active ? 'bg-blue-50 px-2 py-1' : ''}`}>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{no}</span>
+                          <span className="text-sm font-semibold text-slate-900">{lead || '—'}</span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setOpenClauseId((prev) => (prev === node.id ? null : node.id))}
-                          className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-                        >
-                          {openClauseId === node.id ? '收起要点' : '展开要点'}
-                        </button>
+                        {renderSectionContent(node.content)}
                       </div>
-                      <ClauseInsight
-                        clauseId={node.id}
-                        open={openClauseId === node.id}
-                        onToggle={() => setOpenClauseId((prev) => (prev === node.id ? null : node.id))}
-                      />
+                      <ClauseInsight clauseId={node.id} />
                     </div>
                   )
                 })
