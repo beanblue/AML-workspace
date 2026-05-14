@@ -307,11 +307,12 @@ export function PolicyModule() {
 
   const stats = useMemo(() => {
     const total = docs.length
-    const active = docs.filter((d) => d.timeliness === '编码有效').length
-    const archived = docs.filter((d) => d.timeliness === '已废止').length
-    const revising = docs.filter((d) => d.timeliness === '修订中').length
+    const law = docs.filter((d) => d.category === '法律法规').length
+    const internal = docs.filter((d) => d.category === '内控制度').length
+    const process = docs.filter((d) => d.category === '流程').length
+    const book = docs.filter((d) => d.category === '图书').length
     const thesis = docs.filter((d) => d.category === '论文').length
-    return { total, active, archived, revising, thesis }
+    return { total, law, internal, process, book, thesis }
   }, [docs])
 
   const departments = useMemo(() => Array.from(new Set(docs.map((d) => d.dept).filter(Boolean))).sort(), [docs])
@@ -390,27 +391,78 @@ export function PolicyModule() {
         <h2 className="text-lg font-semibold text-slate-900">资料库</h2>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-xs text-slate-500">全部资料数</p>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
+        <button
+          type="button"
+          onClick={() => setCategory('全部')}
+          className={`rounded-xl border p-4 text-left transition hover:bg-slate-100 ${
+            category === '全部' ? 'border-slate-300 bg-slate-100' : 'border-slate-200 bg-slate-50'
+          }`}
+        >
+          <p className="text-xs text-slate-600">全部资料</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">{stats.total}</p>
-        </div>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <p className="text-xs text-emerald-700">编码有效数</p>
-          <p className="mt-2 text-2xl font-semibold text-emerald-800">{stats.active}</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs text-slate-600">已废止数</p>
-          <p className="mt-2 text-2xl font-semibold text-slate-800">{stats.archived}</p>
-        </div>
-        <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
-          <p className="text-xs text-orange-700">修订中数</p>
-          <p className="mt-2 text-2xl font-semibold text-orange-800">{stats.revising}</p>
-        </div>
-        <div className="rounded-xl border border-violet-200 bg-violet-50 p-4">
-          <p className="text-xs text-violet-700">论文数</p>
-          <p className="mt-2 text-2xl font-semibold text-violet-800">{stats.thesis}</p>
-        </div>
+          <p className="mt-2 text-xs text-slate-500">全部资料：包含其他类型</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setCategory('法律法规')}
+          className={`rounded-xl border p-4 text-left transition hover:bg-red-100 ${
+            category === '法律法规' ? 'border-red-300 bg-red-100' : 'border-red-200 bg-red-50'
+          }`}
+        >
+          <p className="text-xs text-red-700">法律法规</p>
+          <p className="mt-2 text-2xl font-semibold text-red-800">{stats.law}</p>
+          <p className="mt-2 text-xs text-red-600/80">法律法规：监管/人行/银保监文件</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setCategory('内控制度')}
+          className={`rounded-xl border p-4 text-left transition hover:bg-blue-100 ${
+            category === '内控制度' ? 'border-blue-300 bg-blue-100' : 'border-blue-200 bg-blue-50'
+          }`}
+        >
+          <p className="text-xs text-blue-700">内控制度</p>
+          <p className="mt-2 text-2xl font-semibold text-blue-800">{stats.internal}</p>
+          <p className="mt-2 text-xs text-blue-700/70">内控制度：制度/规定/办法</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setCategory('流程')}
+          className={`rounded-xl border p-4 text-left transition hover:bg-emerald-100 ${
+            category === '流程' ? 'border-emerald-300 bg-emerald-100' : 'border-emerald-200 bg-emerald-50'
+          }`}
+        >
+          <p className="text-xs text-emerald-700">操作流程</p>
+          <p className="mt-2 text-2xl font-semibold text-emerald-800">{stats.process}</p>
+          <p className="mt-2 text-xs text-emerald-700/70">操作流程：流程指引与规范</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setCategory('图书')}
+          className={`rounded-xl border p-4 text-left transition hover:bg-violet-100 ${
+            category === '图书' ? 'border-violet-300 bg-violet-100' : 'border-violet-200 bg-violet-50'
+          }`}
+        >
+          <p className="text-xs text-violet-700">图书专著</p>
+          <p className="mt-2 text-2xl font-semibold text-violet-800">{stats.book}</p>
+          <p className="mt-2 text-xs text-violet-700/70">图书专著：书籍/专著类资料</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setCategory('论文')}
+          className={`rounded-xl border p-4 text-left transition hover:bg-orange-100 ${
+            category === '论文' ? 'border-orange-300 bg-orange-100' : 'border-orange-200 bg-orange-50'
+          }`}
+        >
+          <p className="text-xs text-orange-700">学术论文</p>
+          <p className="mt-2 text-2xl font-semibold text-orange-800">{stats.thesis}</p>
+          <p className="mt-2 text-xs text-orange-700/70">学术论文：论文/研究类资料</p>
+        </button>
       </div>
 
       <div className="space-y-3">
