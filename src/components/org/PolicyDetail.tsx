@@ -349,6 +349,66 @@ function parseSections(content: string): SectionNode[] {
   return nodes
 }
 
+const HEADING_H2_REGEX = /^##\s+(.+)$/
+const HEADING_H3_REGEX = /^###\s+(.+)$/
+
+function parseHeadingSections(content: string): SectionNode[] {
+  const text = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim()
+  if (!text) return []
+
+  const lines = text.split('\n')
+  const nodes: SectionNode[] = []
+  let foundStructure = false
+
+  let chapterCount = 0
+  let sectionCount = 0
+  let currentChapterId: string | undefined
+  let currentNodeId: string | undefined
+
+  const appendToCurrent = (line: string) => {
+    if (!currentNodeId) return
+    const node = nodes.find((n) => n.id === currentNodeId)
+    if (!node) return
+    node.content = node.content ? `${node.content}\n${line}` : line
+  }
+
+  const startNode = (type: 'chapter' | 'section', title: string, parentId?: string) => {
+    if (type === 'chapter') chapterCount += 1
+    if (type === 'section') sectionCount += 1
+    const id = type === 'chapter' ? `chapter-${chapterCount}` : `section-${sectionCount}`
+    nodes.push({ id, type, title, content: '', ...(parentId ? { parentId } : {}) })
+    currentNodeId = id
+    if (type === 'chapter') currentChapterId = id
+  }
+
+  for (const rawLine of lines) {
+    const lineRaw = rawLine.replace(/\s+$/g, '')
+    const lineTrim = lineRaw.trim()
+    if (!lineTrim) continue
+    if (lineTrim === '---') continue
+
+    const h2 = lineTrim.match(HEADING_H2_REGEX)
+    if (h2) {
+      foundStructure = true
+      startNode('chapter', h2[1].trim())
+      continue
+    }
+
+    const h3 = lineTrim.match(HEADING_H3_REGEX)
+    if (h3) {
+      foundStructure = true
+      startNode('section', h3[1].trim(), currentChapterId)
+      continue
+    }
+
+    if (lineTrim.startsWith('#')) continue
+    appendToCurrent(lineRaw)
+  }
+
+  if (!foundStructure) return []
+  return nodes
+}
+
 function renderHighlightedText(text: string, keyword: string) {
   const kw = keyword.trim()
   if (!kw) return text
@@ -486,6 +546,14 @@ export default function PolicyDetail() {
   const publish = getPublishDate(doc)
   const effective = getEffectiveDate(doc)
   const type = String(doc?.文档类型 ?? doc?.类型 ?? '').trim()
+  const parseMode = useMemo(() => {
+    const raw = String(doc?.类型 ?? doc?.文档类型 ?? '').trim()
+    if (!raw) return 'clause' as const
+    if (raw.includes('图书') || raw.includes('论文') || raw.includes('专著') || raw.includes('学术') || raw.includes('其他')) {
+      return 'chapter' as const
+    }
+    return 'clause' as const
+  }, [doc?.类型, doc?.文档类型])
   const summary = String(doc?.摘要 ?? '').trim()
   const keyPoints = String(doc?.['关键要点/适用情景'] ?? '').trim()
   const topics = useMemo(() => normalizeTextList(doc?.主题标签), [doc?.主题标签])
@@ -511,7 +579,10 @@ export default function PolicyDetail() {
   }, [pageIdNormalized])
 
   const parseSourceText = useMemo(() => (pageContent.trim() ? pageContent : contentText), [contentText, pageContent])
-  const sections = useMemo(() => parseSections(parseSourceText), [parseSourceText])
+  const sections = useMemo(() => {
+    if (parseMode === 'chapter') return parseHeadingSections(parseSourceText)
+    return parseSections(parseSourceText)
+  }, [parseMode, parseSourceText])
   const hasSectionLevel = useMemo(() => sections.some((s) => s.type === 'section'), [sections])
 
   const childrenMap = useMemo(() => {
@@ -722,7 +793,6 @@ export default function PolicyDetail() {
     }
 
     sections.forEach((node) => {
-      if (node.type !== 'article') return
       const combined = `${node.title}\n${node.content}`.toLowerCase()
       if (!combined.includes(kw)) return
       included.add(node.id)
@@ -740,7 +810,10 @@ export default function PolicyDetail() {
   }, [visibleSections])
 
   useEffect(() => {
-    const ids = visibleSections.filter((item) => item.type === 'article').map((item) => item.id)
+    const ids =
+      parseMode === 'chapter'
+        ? visibleSections.map((item) => item.id)
+        : visibleSections.filter((item) => item.type === 'article').map((item) => item.id)
     if (ids.length === 0) return
 
     const observer = new IntersectionObserver(
@@ -760,7 +833,7 @@ export default function PolicyDetail() {
     })
 
     return () => observer.disconnect()
-  }, [visibleSections])
+  }, [parseMode, visibleSections])
 
   const counts = useMemo(() => {
     const n = relatedDocs.length
@@ -1240,7 +1313,9 @@ export default function PolicyDetail() {
                   if (node.type === 'chapter') {
                     return (
                       <div key={node.id} id={node.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                        <p className="text-sm font-semibold text-slate-900">{node.title}</p>
+                        <p className={`${parseMode === 'chapter' ? 'text-lg font-semibold' : 'text-sm font-semibold'} text-slate-900`}>
+                          {node.title}
+                        </p>
                         {node.content ? renderSectionContent(node.content, search) : null}
                       </div>
                     )
@@ -1249,7 +1324,9 @@ export default function PolicyDetail() {
                   if (node.type === 'section') {
                     return (
                       <div key={node.id} id={node.id} className="rounded-lg border border-slate-200 bg-white p-4">
-                        <p className="text-sm font-semibold text-slate-900">{node.title}</p>
+                        <p className={`${parseMode === 'chapter' ? 'text-base font-semibold' : 'text-sm font-semibold'} text-slate-900`}>
+                          {node.title}
+                        </p>
                         {node.content ? renderSectionContent(node.content, search) : null}
                       </div>
                     )
@@ -1417,8 +1494,28 @@ export default function PolicyDetail() {
           printableForRange
             .filter((node) => node.type !== 'article' || (node.type === 'article' && node.title.trim()))
             .map((node) => {
-              if (node.type === 'chapter') return <h2 key={node.id}>{node.title}</h2>
-              if (node.type === 'section') return <h3 key={node.id}>{node.title}</h3>
+              if (node.type === 'chapter') {
+                const lines = (node.content ? node.content.split('\n') : []).map((x) => x.trim()).filter(Boolean)
+                return (
+                  <div key={node.id}>
+                    <h2>{node.title}</h2>
+                    {lines.map((line, idx) => (
+                      <p key={`${node.id}-c-${idx}`}>{line}</p>
+                    ))}
+                  </div>
+                )
+              }
+              if (node.type === 'section') {
+                const lines = (node.content ? node.content.split('\n') : []).map((x) => x.trim()).filter(Boolean)
+                return (
+                  <div key={node.id}>
+                    <h3>{node.title}</h3>
+                    {lines.map((line, idx) => (
+                      <p key={`${node.id}-s-${idx}`}>{line}</p>
+                    ))}
+                  </div>
+                )
+              }
               const lines = [node.title, ...(node.content ? node.content.split('\n') : [])].map((x) => x.trim()).filter(Boolean)
               return (
                 <div key={node.id}>
