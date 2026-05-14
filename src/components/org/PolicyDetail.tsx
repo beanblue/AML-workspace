@@ -14,6 +14,7 @@ import {
   Search,
   Share2,
   Star,
+  X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -56,6 +57,94 @@ const STATUS_STYLE: Record<string, string> = {
 }
 
 const TYPE_CLASS = 'bg-slate-100 text-slate-700'
+
+type PrintPaperSize = 'A4' | 'A3' | 'Letter'
+type PrintOrientation = 'portrait' | 'landscape'
+type PrintFont = '宋体' | '黑体' | '楷体' | '仿宋'
+type PrintFontSize = '10pt' | '11pt' | '12pt' | '13pt'
+type PrintLineHeight = '1.5' | '1.8' | '2.0' | '2.5'
+type PrintIndent = '0' | '1' | '2'
+type PrintParagraphSpacing = '4pt' | '6pt' | '8pt'
+type PrintMargin = 'standard' | 'loose' | 'compact'
+type PrintRange = 'full' | 'body' | 'custom'
+
+type PrintSettings = {
+  paperSize: PrintPaperSize
+  orientation: PrintOrientation
+  bodyFont: PrintFont
+  bodyFontSize: PrintFontSize
+  titleFontMode: 'auto' | 'manual'
+  titleFontSize: string
+  lineHeight: PrintLineHeight
+  indent: PrintIndent
+  paragraphSpacing: PrintParagraphSpacing
+  margin: PrintMargin
+  showHeader: boolean
+  showPageNumber: boolean
+  range: PrintRange
+  includeCover: boolean
+  customChapters: string[]
+}
+
+const DEFAULT_PRINT_SETTINGS: PrintSettings = {
+  paperSize: 'A4',
+  orientation: 'portrait',
+  bodyFont: '宋体',
+  bodyFontSize: '12pt',
+  titleFontMode: 'auto',
+  titleFontSize: '',
+  lineHeight: '1.8',
+  indent: '2',
+  paragraphSpacing: '4pt',
+  margin: 'standard',
+  showHeader: true,
+  showPageNumber: true,
+  range: 'full',
+  includeCover: true,
+  customChapters: [],
+}
+
+function applyPrintOverride(settings: PrintSettings, docTitle: string) {
+  const fontFamilyMap: Record<PrintFont, string> = {
+    宋体: '"SimSun","宋体",serif',
+    黑体: '"SimHei","黑体",sans-serif',
+    楷体: '"KaiTi","楷体",serif',
+    仿宋: '"FangSong","仿宋",serif',
+  }
+
+  const marginMap: Record<PrintMargin, string> = {
+    standard: '2.5cm 2cm',
+    loose: '3cm 2.5cm',
+    compact: '2cm 1.5cm',
+  }
+
+  const bodySizeValue = Number.parseFloat(settings.bodyFontSize.replace('pt', ''))
+  const titleSize =
+    settings.titleFontMode === 'manual' && settings.titleFontSize.trim()
+      ? settings.titleFontSize.trim()
+      : `${Math.max(10, bodySizeValue + 2)}pt`
+
+  const indentValue = settings.indent === '0' ? '0' : settings.indent === '1' ? '1em' : '2em'
+  const pageSizeValue = settings.paperSize === 'Letter' ? 'Letter' : settings.paperSize
+  const orientationValue = settings.orientation === 'landscape' ? 'landscape' : 'portrait'
+  const headerContent = settings.showHeader ? 'attr(data-doc-title)' : '""'
+  const footerContent = settings.showPageNumber ? 'counter(page) "/" counter(pages)' : '""'
+
+  const css = `:root{--print-font-family:${fontFamilyMap[settings.bodyFont]};--print-font-size:${settings.bodyFontSize};--print-title-size:${titleSize};--print-line-height:${settings.lineHeight};--print-indent:${indentValue};--print-paragraph-margin:${settings.paragraphSpacing};--print-page-margin:${marginMap[settings.margin]};--print-page-size:${pageSizeValue};--print-page-orientation:${orientationValue};}
+@media print{body{font-family:var(--print-font-family)!important;font-size:var(--print-font-size)!important;color:#000;}h1{font-size:var(--print-title-size)!important;text-align:center!important;margin-bottom:20pt!important;}p{line-height:var(--print-line-height)!important;text-indent:var(--print-indent)!important;margin:var(--print-paragraph-margin) 0!important;}p.print-meta{text-indent:0!important;font-size:10pt!important;line-height:1.6!important;margin:2pt 0!important;}@page{size:var(--print-page-size) var(--print-page-orientation);margin:var(--print-page-margin);@top-center{content:${headerContent};font-size:10pt;color:#666;}@bottom-right{content:${footerContent};font-size:10pt;}}}
+`
+
+  const styleId = 'print-override'
+  let style = document.getElementById(styleId) as HTMLStyleElement | null
+  if (!style) {
+    style = document.createElement('style')
+    style.id = styleId
+    document.head.appendChild(style)
+  }
+  style.textContent = css
+
+  document.documentElement.setAttribute('data-doc-title', docTitle)
+}
 
 function normalizeTextList(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.map(String).map((v) => v.trim()).filter(Boolean)
@@ -289,7 +378,19 @@ export default function PolicyDetail() {
   const [search, setSearch] = useState('')
   const [activeTocId, setActiveTocId] = useState<string>('fulltext')
   const [collapsedTocIds, setCollapsedTocIds] = useState<string[]>([])
+  const [printOpen, setPrintOpen] = useState(false)
+  const [pendingPrint, setPendingPrint] = useState(false)
+  const [printSettings, setPrintSettings] = useState<PrintSettings>(() => {
+    const raw = localStorage.getItem('aml-print-settings')
+    if (!raw) return DEFAULT_PRINT_SETTINGS
+    try {
+      return { ...DEFAULT_PRINT_SETTINGS, ...(JSON.parse(raw) as Partial<PrintSettings>) }
+    } catch {
+      return DEFAULT_PRINT_SETTINGS
+    }
+  })
   const contentRef = useRef<HTMLDivElement | null>(null)
+  const beforePrintTitleRef = useRef<string>('')
 
   useEffect(() => {
     const run = async () => {
@@ -390,6 +491,62 @@ export default function PolicyDetail() {
     return set
   }, [activeTocId, parentMap])
 
+  const printChapterOptions = useMemo(
+    () => sections.filter((node) => node.type === 'chapter').map((node) => ({ id: node.id, title: node.title })),
+    [sections],
+  )
+
+  const printableSections = useMemo(() => {
+    if (printSettings.range !== 'custom') return sections
+    if (printSettings.customChapters.length === 0) return []
+    const selected = new Set(printSettings.customChapters)
+    const included = new Set<string>()
+    const byId = new Map(sections.map((s) => [s.id, s]))
+
+    const addNode = (node: SectionNode | undefined) => {
+      if (!node) return
+      included.add(node.id)
+      if (node.type === 'chapter' || node.type === 'section') {
+        const children = childrenMap.get(node.id) ?? []
+        children.forEach((cid) => addNode(byId.get(cid)))
+      }
+    }
+
+    sections.forEach((node) => {
+      if (node.type !== 'chapter') return
+      if (!selected.has(node.id)) return
+      addNode(node)
+    })
+
+    return sections.filter((node) => included.has(node.id))
+  }, [childrenMap, printSettings.customChapters, printSettings.range, sections])
+
+  const triggerPrint = () => {
+    if (!doc) return
+    localStorage.setItem('aml-print-settings', JSON.stringify(printSettings))
+    applyPrintOverride(printSettings, title || '文档标题')
+
+    const prevTitle = document.title
+    beforePrintTitleRef.current = prevTitle
+    document.title = title || '文档标题'
+
+    const cleanup = () => {
+      document.title = beforePrintTitleRef.current || prevTitle
+      document.documentElement.removeAttribute('data-doc-title')
+    }
+
+    window.addEventListener('afterprint', cleanup, { once: true })
+    window.print()
+  }
+
+  useEffect(() => {
+    if (!pendingPrint) return
+    setPendingPrint(false)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => triggerPrint())
+    })
+  }, [pendingPrint])
+
   const relatedDocs = useMemo(() => {
     const topic = topics[0]
     if (!topic) return []
@@ -488,6 +645,7 @@ export default function PolicyDetail() {
 
   return (
     <section className="space-y-3">
+      <div className="no-print space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
@@ -653,7 +811,7 @@ export default function PolicyDetail() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={() => setPrintOpen(true)}
                   className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
                   <Printer className="h-4 w-4" />
@@ -912,6 +1070,368 @@ export default function PolicyDetail() {
           )}
         </aside>
       </div>
+      </div>
+
+      <div className="print-content hidden">
+        <h1>{title || '文档标题'}</h1>
+        {printSettings.includeCover && printSettings.range !== 'body' ? (
+          <div className="mb-4">
+            {dept ? <p className="print-meta">发文机关：{dept}</p> : null}
+            {docNo ? <p className="print-meta">文号：{docNo}</p> : null}
+            {publish ? <p className="print-meta">发布日期：{publish}</p> : null}
+          </div>
+        ) : null}
+
+        {(printSettings.range === 'custom' ? printableSections : sections)
+          .filter((node) => node.type !== 'article' || (node.type === 'article' && node.title.trim()))
+          .map((node) => {
+            if (node.type === 'chapter') return <h2 key={node.id}>{node.title}</h2>
+            if (node.type === 'section') return <h3 key={node.id}>{node.title}</h3>
+            const lines = [node.title, ...(node.content ? node.content.split('\n') : [])].map((x) => x.trim()).filter(Boolean)
+            return (
+              <div key={node.id}>
+                {lines.map((line, idx) => (
+                  <p key={`${node.id}-${idx}`}>{line}</p>
+                ))}
+              </div>
+            )
+          })}
+      </div>
+
+      {printOpen ? (
+        <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+          <div className="w-full max-w-3xl rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <h3 className="text-lg font-semibold text-slate-900">打印设置</h3>
+              <button
+                type="button"
+                onClick={() => setPrintOpen(false)}
+                className="rounded border border-slate-200 p-1 text-slate-600 hover:bg-slate-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-y-auto px-5 py-4 text-sm text-slate-700">
+              <div className="space-y-6">
+                <div>
+                  <p className="text-xs font-semibold tracking-wide text-slate-500">基本信息</p>
+                  <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-slate-700">纸张尺寸</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(['A4', 'A3', 'Letter'] as const).map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => setPrintSettings((prev) => ({ ...prev, paperSize: v }))}
+                            className={`rounded border px-3 py-1.5 text-sm ${
+                              printSettings.paperSize === v ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-slate-700">打印方向</p>
+                      <div className="flex flex-wrap gap-2">
+                        {([
+                          { key: 'portrait', label: '纵向' },
+                          { key: 'landscape', label: '横向' },
+                        ] as const).map((v) => (
+                          <button
+                            key={v.key}
+                            type="button"
+                            onClick={() => setPrintSettings((prev) => ({ ...prev, orientation: v.key }))}
+                            className={`rounded border px-3 py-1.5 text-sm ${
+                              printSettings.orientation === v.key ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            {v.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold tracking-wide text-slate-500">字体设置</p>
+                  <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-slate-700">正文字体</span>
+                      <select
+                        value={printSettings.bodyFont}
+                        onChange={(e) => setPrintSettings((prev) => ({ ...prev, bodyFont: e.target.value as PrintFont }))}
+                        className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
+                      >
+                        {(['宋体', '黑体', '楷体', '仿宋'] as const).map((v) => (
+                          <option key={v} value={v}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-slate-700">正文字号</span>
+                      <select
+                        value={printSettings.bodyFontSize}
+                        onChange={(e) => setPrintSettings((prev) => ({ ...prev, bodyFontSize: e.target.value as PrintFontSize }))}
+                        className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
+                      >
+                        {(['10pt', '11pt', '12pt', '13pt'] as const).map((v) => (
+                          <option key={v} value={v}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-slate-700">标题字号</p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPrintSettings((prev) => ({ ...prev, titleFontMode: 'auto', titleFontSize: '' }))}
+                          className={`rounded border px-3 py-1.5 text-sm ${
+                            printSettings.titleFontMode === 'auto' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          自动（正文+2pt）
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPrintSettings((prev) => ({ ...prev, titleFontMode: 'manual' }))}
+                          className={`rounded border px-3 py-1.5 text-sm ${
+                            printSettings.titleFontMode === 'manual' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          手动输入
+                        </button>
+                      </div>
+                      {printSettings.titleFontMode === 'manual' ? (
+                        <input
+                          value={printSettings.titleFontSize}
+                          onChange={(e) => setPrintSettings((prev) => ({ ...prev, titleFontSize: e.target.value }))}
+                          placeholder="例如 16pt"
+                          className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold tracking-wide text-slate-500">段落设置</p>
+                  <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-slate-700">行间距</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(['1.5', '1.8', '2.0', '2.5'] as const).map((v) => (
+                          <button
+                            key={v}
+                            type="button"
+                            onClick={() => setPrintSettings((prev) => ({ ...prev, lineHeight: v }))}
+                            className={`rounded border px-3 py-1.5 text-sm ${
+                              printSettings.lineHeight === v ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-slate-700">首行缩进</p>
+                      <div className="flex flex-wrap gap-2">
+                        {([
+                          { key: '0', label: '无' },
+                          { key: '1', label: '1字' },
+                          { key: '2', label: '2字' },
+                        ] as const).map((v) => (
+                          <button
+                            key={v.key}
+                            type="button"
+                            onClick={() => setPrintSettings((prev) => ({ ...prev, indent: v.key }))}
+                            className={`rounded border px-3 py-1.5 text-sm ${
+                              printSettings.indent === v.key ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            {v.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-slate-700">段前间距</span>
+                      <select
+                        value={printSettings.paragraphSpacing}
+                        onChange={(e) => setPrintSettings((prev) => ({ ...prev, paragraphSpacing: e.target.value as PrintParagraphSpacing }))}
+                        className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
+                      >
+                        {(['4pt', '6pt', '8pt'] as const).map((v) => (
+                          <option key={v} value={v}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold tracking-wide text-slate-500">页面设置</p>
+                  <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <label className="space-y-2">
+                      <span className="text-sm font-medium text-slate-700">页边距</span>
+                      <select
+                        value={printSettings.margin}
+                        onChange={(e) => setPrintSettings((prev) => ({ ...prev, margin: e.target.value as PrintMargin }))}
+                        className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
+                      >
+                        <option value="standard">标准（2.5cm）</option>
+                        <option value="loose">宽松（3cm）</option>
+                        <option value="compact">紧凑（2cm）</option>
+                      </select>
+                    </label>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-slate-700">显示页眉（文件名）</p>
+                      <div className="flex gap-2">
+                        {[{ v: true, label: '开' }, { v: false, label: '关' }].map((item) => (
+                          <button
+                            key={String(item.v)}
+                            type="button"
+                            onClick={() => setPrintSettings((prev) => ({ ...prev, showHeader: item.v }))}
+                            className={`rounded border px-3 py-1.5 text-sm ${
+                              printSettings.showHeader === item.v ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-slate-700">显示页码</p>
+                      <div className="flex gap-2">
+                        {[{ v: true, label: '开' }, { v: false, label: '关' }].map((item) => (
+                          <button
+                            key={String(item.v)}
+                            type="button"
+                            onClick={() => setPrintSettings((prev) => ({ ...prev, showPageNumber: item.v }))}
+                            className={`rounded border px-3 py-1.5 text-sm ${
+                              printSettings.showPageNumber === item.v ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold tracking-wide text-slate-500">内容选项</p>
+                  <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-slate-700">打印范围</p>
+                      <div className="flex flex-wrap gap-2">
+                        {([
+                          { key: 'full', label: '全文' },
+                          { key: 'body', label: '仅正文（不含元信息）' },
+                          { key: 'custom', label: '自定义章节' },
+                        ] as const).map((item) => (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => setPrintSettings((prev) => ({ ...prev, range: item.key }))}
+                            className={`rounded border px-3 py-1.5 text-sm ${
+                              printSettings.range === item.key ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                      {printSettings.range === 'custom' ? (
+                        <div className="mt-2 space-y-2 rounded border border-slate-200 bg-slate-50 p-3">
+                          {printChapterOptions.length === 0 ? (
+                            <p className="text-sm text-slate-500">未识别到章节标题，无法自定义章节。</p>
+                          ) : (
+                            printChapterOptions.map((c) => (
+                              <label key={c.id} className="flex items-start gap-2 text-sm text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  checked={printSettings.customChapters.includes(c.id)}
+                                  onChange={() =>
+                                    setPrintSettings((prev) => ({
+                                      ...prev,
+                                      customChapters: prev.customChapters.includes(c.id)
+                                        ? prev.customChapters.filter((x) => x !== c.id)
+                                        : [...prev.customChapters, c.id],
+                                    }))
+                                  }
+                                />
+                                <span className="flex-1">{c.title}</span>
+                              </label>
+                            ))
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-slate-700">包含封面页（含标题+元信息）</p>
+                      <div className="flex gap-2">
+                        {[{ v: true, label: '开' }, { v: false, label: '关' }].map((item) => (
+                          <button
+                            key={String(item.v)}
+                            type="button"
+                            onClick={() => setPrintSettings((prev) => ({ ...prev, includeCover: item.v }))}
+                            className={`rounded border px-3 py-1.5 text-sm ${
+                              printSettings.includeCover === item.v ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-5 py-3">
+              <button type="button" onClick={() => setPrintSettings(DEFAULT_PRINT_SETTINGS)} className="text-sm text-slate-500 hover:text-slate-700">
+                恢复默认
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPrintOpen(false)}
+                  className="rounded border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem('aml-print-settings', JSON.stringify(printSettings))
+                    setPrintOpen(false)
+                    setPendingPrint(true)
+                  }}
+                  className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  预览 & 打印
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

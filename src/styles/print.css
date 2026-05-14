@@ -1,0 +1,28 @@
+@media print {
+  /* 隐藏所有非正文区域 */
+  nav, aside, header, footer,
+  .sidebar, .filter-panel, .action-bar,
+  .no-print, button, .tabs-bar { display: none !important; }
+  
+  /* 只显示正文区域 */
+  .print-content { display: block !important; }
+  
+  /* 正文排版 */
+  body { font-family: "SimSun", "宋体", serif; font-size: 12pt; color: #000; }
+  h1 { font-size: 16pt; font-weight: bold; text-align: center; margin-bottom: 20pt; }
+  h2 { font-size: 14pt; font-weight: bold; margin-top: 14pt; }
+  h3 { font-size: 13pt; font-weight: bold; margin-top: 10pt; }
+  p  { font-size: 12pt; line-height: 1.8; text-indent: 2em; margin: 4pt 0; }
+  
+  /* 分页控制 */
+  h2 { page-break-before: auto; }
+  p  { orphans: 3; widows: 3; }
+  
+  /* 页眉页脚（打印件显示文件名和页码）*/
+  @page {
+    margin: 2.5cm 2cm;
+    @top-center { content: attr(data-doc-title); font-size: 10pt; color: #666; }
+    @bottom-right { content: counter(page) "/" counter(pages); font-size: 10pt; }
+  }
+}
+
