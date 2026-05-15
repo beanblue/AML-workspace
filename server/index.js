@@ -347,6 +347,81 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (url.pathname === '/api/workunit/create') {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { message: 'Method Not Allowed' })
+      return
+    }
+
+    try {
+      const token = process.env.NOTION_TOKEN ?? ''
+      if (!token) {
+        sendJson(res, 500, { message: 'Notion 中转未配置 NOTION_TOKEN。' })
+        return
+      }
+
+      const databaseIdRaw = process.env.NOTION_DB_WORKUNIT ?? ''
+      const databaseId = toHyphenId(databaseIdRaw)
+      if (!databaseIdRaw) {
+        sendJson(res, 500, { message: '未配置 NOTION_DB_WORKUNIT，无法解析数据库 ID。' })
+        return
+      }
+      if (!isNotionId(databaseId)) {
+        sendJson(res, 500, { message: 'NOTION_DB_WORKUNIT 不是有效的 Notion 数据库 ID。' })
+        return
+      }
+
+      const body = await readJson(req)
+      const name = String(body?.name ?? '').trim()
+      const owner = String(body?.owner ?? '').trim()
+      const target = String(body?.target ?? '').trim()
+      const planEndDate = String(body?.planEndDate ?? '').trim()
+      if (!name) {
+        sendJson(res, 400, { message: '缺少 项目名称(name)。' })
+        return
+      }
+
+      const properties = {
+        项目名称: { title: [{ text: { content: name } }] },
+        项目类型: { select: { name: '培训' } },
+        当前阶段: { select: { name: '需求立项' } },
+        状态: { status: { name: '立项中' } },
+        ...(owner ? { 负责人: { rich_text: [{ text: { content: owner } }] } } : {}),
+        ...(target ? { '目标对象/参与范围': { rich_text: [{ text: { content: target } }] } } : {}),
+        ...(planEndDate ? { 计划完成日期: { date: { start: planEndDate } } } : {}),
+      }
+
+      const response = await fetch('https://api.notion.com/v1/pages', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Notion-Version': NOTION_VERSION,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          parent: { database_id: databaseId },
+          properties,
+        }),
+      })
+
+      const text = await response.text()
+      if (!response.ok) {
+        console.error('[workunit/create] create failed', { status: response.status, body: text, databaseId })
+        sendJson(res, 500, { error: 'Notion 创建失败。', status: response.status })
+        return
+      }
+
+      const data = JSON.parse(text)
+      sendJson(res, 200, { id: data?.id ?? null })
+      return
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('[workunit/create] error:', message, error instanceof Error ? error.stack : '')
+      sendJson(res, 500, { error: message })
+      return
+    }
+  }
+
   if (url.pathname === '/api/workunit/list') {
     if (req.method !== 'GET') {
       sendJson(res, 405, { message: 'Method Not Allowed' })

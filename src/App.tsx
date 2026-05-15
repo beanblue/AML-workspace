@@ -46,6 +46,7 @@ function getActiveModuleByPath(pathname: string, search: string): AMLModule {
     return 'policy'
   }
   if (pathname.startsWith('/org/policy')) return 'policy'
+  if (pathname.startsWith('/training')) return 'training'
 
   const matched = (Object.entries(MODULE_PATH_MAP) as Array<[AMLModule, string]>).find(([module, path]) => {
     if (module === 'policy') return pathname.startsWith('/org/library') || pathname.startsWith('/org/policy')
@@ -82,6 +83,8 @@ function App() {
         <Route path="/org/committee" element={<CommitteeModule />} />
         <Route path="/org/training" element={<TrainingModule />} />
         <Route path="/org/training/:id" element={<TrainingDetail />} />
+        <Route path="/training" element={<Navigate to="/org/training" replace />} />
+        <Route path="/training/:id" element={<TrainingDetail />} />
         <Route path="/org/publicity" element={<PublicityModule />} />
         <Route path="/org/assessment" element={<AssessmentModule />} />
 

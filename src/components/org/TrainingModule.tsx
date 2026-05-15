@@ -13,26 +13,33 @@ export function TrainingModule() {
   const [typeFilter, setTypeFilter] = useState<string>('全部')
   const [ownerFilter, setOwnerFilter] = useState<string>('全部')
   const [createOpen, setCreateOpen] = useState(false)
+  const [createSubmitting, setCreateSubmitting] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
 
   const [createName, setCreateName] = useState('')
   const [createOwner, setCreateOwner] = useState('')
   const [createPlanDate, setCreatePlanDate] = useState('')
+  const [createTarget, setCreateTarget] = useState('')
 
   const year = new Date().getFullYear()
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
-    fetch('/api/workunit/list?type=%E5%9F%B9%E8%AE%AD')
-      .then(async (res) => {
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch('/api/workunit/list?type=%E5%9F%B9%E8%AE%AD')
         if (!res.ok) throw new Error(String(res.status))
-        return res.json()
-      })
-      .then((data) =>
-        setRows((Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : []) as Array<Record<string, unknown>>),
-      )
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
-      .finally(() => setLoading(false))
+        const data = await res.json()
+        setRows((Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : []) as Array<Record<string, unknown>>)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    load()
   }, [])
 
   const safeText = (value: unknown) => String(value ?? '').trim()
@@ -107,6 +114,21 @@ export function TrainingModule() {
     if (list.length === 0) return 0
     return Math.round((list.reduce((a, b) => a + b, 0) / list.length) * 100) / 100
   }, [filteredRows])
+
+  const reloadRows = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/workunit/list?type=%E5%9F%B9%E8%AE%AD')
+      if (!res.ok) throw new Error(String(res.status))
+      const data = await res.json()
+      setRows((Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : []) as Array<Record<string, unknown>>)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <section className="space-y-4">
@@ -236,7 +258,10 @@ export function TrainingModule() {
                     return (
                       <div
                         key={r.id}
-                        className={`rounded-lg border bg-white p-3 ${active ? 'border-blue-500' : 'border-slate-200'}`}
+                        onClick={() => navigate(`/training/${r.id}`)}
+                        className={`cursor-pointer rounded-lg border bg-white p-3 transition-shadow hover:shadow-sm ${
+                          active ? 'border-blue-500' : 'border-slate-200'
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
@@ -263,14 +288,20 @@ export function TrainingModule() {
                           <div className="mt-3 flex flex-wrap gap-2">
                             <button
                               type="button"
-                              onClick={() => navigate(`/org/training/${r.id}`)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/training/${r.id}`)
+                              }}
                               className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
                             >
                               进入工作台 →
                             </button>
                             <button
                               type="button"
-                              onClick={() => navigate(`/org/training/${r.id}?tab=materials`)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/training/${r.id}?tab=materials`)
+                              }}
                               className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
                             >
                               查看材料
@@ -294,33 +325,54 @@ export function TrainingModule() {
       <Modal
         open={createOpen}
         title="发起培训"
-        onClose={() => setCreateOpen(false)}
+        onClose={() => (createSubmitting ? null : setCreateOpen(false))}
         footer={
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setCreateOpen(false)}
               className="rounded border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              disabled={createSubmitting}
             >
               取消
             </button>
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 const name = createName.trim()
                 if (!name) return
-                setCreateOpen(false)
-                setCreateName('')
-                setCreateOwner('')
-                setCreatePlanDate('')
-                window.alert('Mock：已发起培训（未写入 Notion）')
+                setCreateSubmitting(true)
+                setCreateError(null)
+                try {
+                  const res = await fetch('/api/workunit/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      name,
+                      owner: createOwner.trim(),
+                      target: createTarget.trim(),
+                      planEndDate: createPlanDate || '',
+                    }),
+                  })
+                  if (!res.ok) throw new Error(String(res.status))
+                  setCreateOpen(false)
+                  setCreateName('')
+                  setCreateOwner('')
+                  setCreatePlanDate('')
+                  setCreateTarget('')
+                  await reloadRows()
+                } catch (e) {
+                  setCreateError(e instanceof Error ? e.message : String(e))
+                } finally {
+                  setCreateSubmitting(false)
+                }
               }}
-              className={`rounded px-4 py-2 text-sm text-white ${
-                createName.trim() ? 'bg-red-600 hover:bg-red-700' : 'cursor-not-allowed bg-slate-300'
+              className={`rounded px-4 py-2 text-sm text-white ${createName.trim() ? 'bg-red-600 hover:bg-red-700' : 'bg-slate-300'} ${
+                createSubmitting ? 'cursor-not-allowed opacity-80' : ''
               }`}
-              disabled={!createName.trim()}
+              disabled={!createName.trim() || createSubmitting}
             >
-              确认发起
+              {createSubmitting ? '提交中...' : '确认发起'}
             </button>
           </div>
         }
@@ -346,7 +398,7 @@ export function TrainingModule() {
               />
             </div>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-slate-700">计划日期</div>
+              <div className="text-sm font-medium text-slate-700">计划完成日期</div>
               <input
                 type="date"
                 value={createPlanDate}
@@ -355,9 +407,16 @@ export function TrainingModule() {
               />
             </div>
           </div>
-          <div className="rounded border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
-            当前为 UI 演示版本：发起培训仅在前端提示，不写入 Notion。
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-slate-700">目标对象/参与范围</div>
+            <textarea
+              value={createTarget}
+              onChange={(e) => setCreateTarget(e.target.value)}
+              className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+              placeholder="选填"
+            />
           </div>
+          {createError ? <div className="rounded border border-red-200 bg-red-50 p-3 text-xs text-red-700">发起失败：{createError}</div> : null}
         </div>
       </Modal>
     </section>

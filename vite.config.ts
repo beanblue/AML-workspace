@@ -374,6 +374,75 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
         }
       })
 
+      server.middlewares.use('/api/workunit/create', async (req, res, next) => {
+        if (req.method !== 'POST') {
+          next()
+          return
+        }
+
+        if (!token) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: 'Notion 中转未配置 NOTION_TOKEN。' }))
+          return
+        }
+
+        const databaseIdRaw = env.NOTION_DB_WORKUNIT ?? ''
+        if (!databaseIdRaw) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: '未配置 NOTION_DB_WORKUNIT，无法解析数据库 ID。' }))
+          return
+        }
+
+        try {
+          const databaseId = toHyphenId(databaseIdRaw)
+          const body = await readJsonBody(req)
+          const name = String((body as any)?.name ?? '').trim()
+          const owner = String((body as any)?.owner ?? '').trim()
+          const target = String((body as any)?.target ?? '').trim()
+          const planEndDate = String((body as any)?.planEndDate ?? '').trim()
+          if (!name) {
+            res.statusCode = 400
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ message: '缺少 项目名称(name)。' }))
+            return
+          }
+
+          const properties: Record<string, unknown> = {
+            项目名称: { title: [{ text: { content: name } }] },
+            项目类型: { select: { name: '培训' } },
+            当前阶段: { select: { name: '需求立项' } },
+            状态: { status: { name: '立项中' } },
+            ...(owner ? { 负责人: { rich_text: [{ text: { content: owner } }] } } : {}),
+            ...(target ? { '目标对象/参与范围': { rich_text: [{ text: { content: target } }] } } : {}),
+            ...(planEndDate ? { 计划完成日期: { date: { start: planEndDate } } } : {}),
+          }
+
+          const response = await fetch('https://api.notion.com/v1/pages', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Notion-Version': NOTION_VERSION,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              parent: { database_id: databaseId },
+              properties,
+            }),
+          })
+
+          const text = await response.text()
+          res.statusCode = response.status
+          res.setHeader('Content-Type', 'application/json')
+          res.end(text)
+        } catch (error) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: error instanceof Error ? error.message : 'Notion 创建失败。' }))
+        }
+      })
+
       server.middlewares.use('/api/workunit', async (req, res, next) => {
         if (req.method !== 'PATCH') {
           next()
