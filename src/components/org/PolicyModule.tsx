@@ -28,6 +28,7 @@ type LibraryDoc = {
   dept: string
   publishDate: string
   effectiveDate: string
+  sortDate: string
   summary: string
   content: string
   sourceLevel: string
@@ -403,8 +404,9 @@ export function PolicyModule() {
     const typeRaw = safeText(row.类型 ?? row.文档类型)
     const statusRaw = safeText(row.状态)
     const dept = safeText(row.来源 ?? row.发文机关 ?? row.发文部门)
-    const publishDate = safeText(row['生效/发布日期'] ?? row.发布日期)
-    const effectiveDate = safeText(row['生效/发布日期'] ?? row.生效日期 ?? row.发布日期)
+    const sortDate = safeText(row['生效/发布日期'] ?? '')
+    const publishDate = safeText(row.发布日期) || sortDate
+    const effectiveDate = safeText(row.生效日期) || sortDate
     const summary = safeText(row.摘要)
     const keyPoints = safeText((row as any)['关键要点/适用情景'] ?? (row as any)['关键要点/适用情景 '] ?? '')
     const scope = safeText(row.适用范围)
@@ -427,12 +429,13 @@ export function PolicyModule() {
       id: row.id,
       source: 'notion',
       category: normalizeNotionCategory(typeRaw),
-      timeliness: normalizeNotionTimeliness(statusRaw, effectiveDate || publishDate),
+      timeliness: normalizeNotionTimeliness(statusRaw, effectiveDate || publishDate || sortDate),
       title,
       docNo: '',
       dept,
       publishDate,
       effectiveDate,
+      sortDate,
       summary,
       content,
       sourceLevel: guessedSourceLevel,
@@ -570,8 +573,9 @@ export function PolicyModule() {
       return Number.isNaN(ts) ? 0 : ts
     }
 
-    const publishTs = (d: LibraryDoc) => toTs(d.publishDate)
-    const effectiveTs = (d: LibraryDoc) => toTs(d.effectiveDate || d.publishDate)
+    const sortTs = (d: LibraryDoc) => toTs(d.sortDate || d.effectiveDate || d.publishDate)
+    const publishTs = sortTs
+    const effectiveTs = sortTs
 
     const sorted = [...rows].sort((a, b) => {
       if (sortBy === 'relevance') {
@@ -1261,7 +1265,10 @@ export function PolicyModule() {
           <div ref={exportMenuRef} className="relative">
             <button
               type="button"
-              onClick={() => setExportMenuOpen((prev) => !prev)}
+              onClick={() => {
+                setSortMenuOpen(false)
+                setExportMenuOpen((prev) => !prev)
+              }}
               className={`inline-flex items-center gap-2 rounded border bg-white px-3 py-2 text-sm ${
                 canBatch ? 'border-slate-200 text-slate-700 hover:bg-slate-50' : 'cursor-not-allowed border-slate-200 text-slate-400'
               }`}
@@ -1410,11 +1417,13 @@ export function PolicyModule() {
           <div ref={sortMenuRef} className="relative">
             <button
               type="button"
-              onClick={() => setSortMenuOpen((prev) => !prev)}
+              onClick={() => {
+                setExportMenuOpen(false)
+                setSortMenuOpen((prev) => !prev)
+              }}
               className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
             >
-              <span>排序</span>
-              <span className="text-slate-500">{sortLabel}</span>
+              <span>{sortLabel}</span>
               <ChevronDown className={`h-4 w-4 transition ${sortMenuOpen ? 'rotate-180' : ''}`} />
             </button>
             {sortMenuOpen ? (
@@ -1997,6 +2006,7 @@ export function PolicyModule() {
                   dept: '',
                   publishDate: createPublishDate,
                   effectiveDate: '',
+                  sortDate: createPublishDate,
                   summary: '',
                   content,
                   sourceLevel:
