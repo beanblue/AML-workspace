@@ -1,10 +1,13 @@
 import {
   ArrowLeft,
+  BookOpen,
   BookOpenText,
   ChevronDown,
   ChevronRight,
   Download,
-  Link2,
+  GitBranch,
+  Info,
+  Link,
   Network,
   PanelLeftClose,
   PanelLeftOpen,
@@ -46,7 +49,7 @@ type NotionDocumentRow = {
   主题标签?: string[] | string
 }
 
-type InsightTab = '引用文档' | '修订沿革' | '合规解读'
+type InsightTab = '关联条款' | '释义' | '笔记'
 
 const STATUS_STYLE: Record<string, string> = {
   现行有效: 'bg-emerald-100 text-emerald-700',
@@ -174,6 +177,7 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 const FAVORITES_KEY = 'aml_favorites'
+const NOTE_KEY_PREFIX = 'aml_note_'
 
 function readFavorites(): string[] {
   try {
@@ -188,6 +192,20 @@ function readFavorites(): string[] {
 function writeFavorites(ids: string[]) {
   try {
     localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids))
+  } catch {}
+}
+
+function readNote(key: string): string {
+  try {
+    return String(localStorage.getItem(key) ?? '')
+  } catch {
+    return ''
+  }
+}
+
+function writeNote(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
   } catch {}
 }
 
@@ -427,25 +445,27 @@ function parseHeadingSections(content: string): SectionNode[] {
   return nodes
 }
 
-function renderHighlightedText(text: string, keyword: string) {
-  const kw = keyword.trim()
-  if (!kw) return text
-  const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const regex = new RegExp(`(${escaped})`, 'gi')
+function renderHighlightedText(text: string, keywords: string[]) {
+  const terms = keywords.map((x) => x.trim()).filter(Boolean)
+  if (terms.length === 0) return text
+  const escaped = terms.map((kw) => kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  const regex = new RegExp(`(${escaped.join('|')})`, 'gi')
   const parts = text.split(regex)
-  const kwLower = kw.toLowerCase()
-  return parts.map((part, idx) =>
-    part.toLowerCase() === kwLower ? (
-      <mark key={`${part}-${idx}`} className="rounded bg-yellow-200 px-0.5 text-gray-900">
+  const lowers = terms.map((t) => t.toLowerCase())
+  const colors = ['bg-yellow-200', 'bg-emerald-200', 'bg-sky-200']
+  return parts.map((part, idx) => {
+    const hitIndex = lowers.indexOf(part.toLowerCase())
+    if (hitIndex === -1) return <span key={`${part}-${idx}`}>{part}</span>
+    const color = colors[hitIndex] ?? colors[0]
+    return (
+      <mark key={`${part}-${idx}`} className={`rounded ${color} px-0.5 text-gray-900`}>
         {part}
       </mark>
-    ) : (
-      <span key={`${part}-${idx}`}>{part}</span>
-    ),
-  )
+    )
+  })
 }
 
-function renderSectionContent(text: string, keyword: string) {
+function renderSectionContent(text: string, keywords: string[]) {
   const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
   return (
     <div className="mt-3 space-y-2 text-sm leading-7 text-slate-800">
@@ -460,7 +480,7 @@ function renderSectionContent(text: string, keyword: string) {
               : 'pl-0'
         return (
           <p key={`line-${idx}`} className={`whitespace-pre-wrap ${indent}`}>
-            {renderHighlightedText(trimmed, keyword)}
+            {renderHighlightedText(trimmed, keywords)}
           </p>
         )
       })}
@@ -468,27 +488,49 @@ function renderSectionContent(text: string, keyword: string) {
   )
 }
 
-function ClauseInsight({ clauseId }: { clauseId: string }) {
-  const [tab, setTab] = useState<InsightTab>('引用文档')
+function ClauseInsight({
+  clauseId,
+  note,
+  hasNote,
+  onChangeNote,
+}: {
+  clauseId: string
+  note: string
+  hasNote: boolean
+  onChangeNote: (value: string) => void
+}) {
+  const [tab, setTab] = useState<InsightTab>('关联条款')
 
   return (
     <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 pb-3 pt-3">
       <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
-        {(['引用文档', '修订沿革', '合规解读'] as const).map((item) => (
+        {(['关联条款', '释义', '笔记'] as const).map((item) => (
           <button
             key={`${clauseId}-${item}`}
             type="button"
             onClick={() => setTab(item)}
-            className={`rounded px-3 py-1.5 text-sm ${tab === item ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+            className={`relative rounded px-3 py-1.5 text-sm ${
+              tab === item ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+            }`}
           >
             {item}
+            {item === '笔记' && hasNote ? (
+              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-blue-600" />
+            ) : null}
           </button>
         ))}
       </div>
       <div className="mt-3 rounded border border-slate-200 bg-white p-3 text-sm text-slate-700">
-        {tab === '引用文档' ? '暂无引用文档，接入关联库后自动展示。' : null}
-        {tab === '修订沿革' ? '暂无修订沿革，接入版本库后自动展示。' : null}
-        {tab === '合规解读' ? '暂无合规解读，接入解读库后自动展示。' : null}
+        {tab === '关联条款' ? <div className="text-slate-500">暂无关联条款数据，后续由 AI 自动生成</div> : null}
+        {tab === '释义' ? <div className="text-slate-500">暂无释义内容</div> : null}
+        {tab === '笔记' ? (
+          <textarea
+            value={note}
+            onChange={(e) => onChangeNote(e.target.value)}
+            placeholder="记录你的想法、疑问或备注…"
+            className="min-h-24 w-full resize-y rounded border border-slate-200 bg-white p-2 text-sm outline-none focus:border-blue-300"
+          />
+        ) : null}
       </div>
     </div>
   )
@@ -510,6 +552,8 @@ export default function PolicyDetail() {
   const [pageContentLoading, setPageContentLoading] = useState(false)
   const [favorites, setFavorites] = useState<string[]>(() => readFavorites())
   const [search, setSearch] = useState('')
+  const [noteView, setNoteView] = useState(false)
+  const [notesByClauseId, setNotesByClauseId] = useState<Record<string, string>>({})
   const [activeTocId, setActiveTocId] = useState<string>('fulltext')
   const [collapsedTocIds, setCollapsedTocIds] = useState<string[]>([])
   const [printOpen, setPrintOpen] = useState(false)
@@ -547,6 +591,17 @@ export default function PolicyDetail() {
   useEffect(() => {
     setFavorites(readFavorites())
   }, [])
+
+  const searchKeywords = useMemo(
+    () =>
+      search
+        .trim()
+        .split(/\s+/g)
+        .map((x) => x.trim())
+        .filter(Boolean),
+    [search],
+  )
+  const searchKeywordsLower = useMemo(() => searchKeywords.map((x) => x.toLowerCase()), [searchKeywords])
 
   useEffect(() => {
     const run = async () => {
@@ -614,6 +669,28 @@ export default function PolicyDetail() {
     return parseSections(parseSourceText)
   }, [parseMode, parseSourceText])
   const hasSectionLevel = useMemo(() => sections.some((s) => s.type === 'section'), [sections])
+  const clauseNoById = useMemo(() => {
+    const map = new Map<string, string>()
+    sections.forEach((node) => {
+      if (node.type !== 'article') return
+      const m = node.title.match(/^(第[一二三四五六七八九十百千\d]+条)/)
+      const no = m?.[1] ?? ''
+      if (!no) return
+      map.set(node.id, no)
+    })
+    return map
+  }, [sections])
+
+  useEffect(() => {
+    if (!pageIdNormalized) return
+    const next: Record<string, string> = {}
+    clauseNoById.forEach((no, id) => {
+      const key = `${NOTE_KEY_PREFIX}${pageIdNormalized}_${no}`
+      const v = readNote(key)
+      if (v) next[id] = v
+    })
+    setNotesByClauseId(next)
+  }, [clauseNoById, pageIdNormalized])
 
   const childrenMap = useMemo(() => {
     const map = new Map<string, string[]>()
@@ -742,24 +819,6 @@ export default function PolicyDetail() {
     return sections
   }, [effectivePrintRange, printableSections, sections])
 
-  const previewArticles = useMemo(() => {
-    if (effectivePrintRange === 'selection') {
-      return selectedText
-        .split('\n')
-        .map((x) => x.trim())
-        .filter(Boolean)
-        .slice(0, 3)
-        .map((line, idx) => ({ id: `sel-${idx}`, title: '', lines: [line] }))
-    }
-
-    const articles = printableForRange.filter((n) => n.type === 'article').slice(0, 3)
-    return articles.map((a) => ({
-      id: a.id,
-      title: a.title,
-      lines: [a.title, ...(a.content ? a.content.split('\n') : [])].map((x) => x.trim()).filter(Boolean),
-    }))
-  }, [effectivePrintRange, printableForRange, selectedText])
-
   const previewComputed = useMemo(() => getPrintComputed(printSettings), [printSettings])
 
   const triggerPrint = () => {
@@ -840,10 +899,56 @@ export default function PolicyDetail() {
       .slice(0, 6)
   }, [allDocs, doc?.id, topics])
 
+  const matchedClauseIds = useMemo(() => {
+    if (sections.length === 0) return []
+    if (searchKeywordsLower.length === 0) return sections.filter((n) => n.type === 'article').map((n) => n.id)
+    return sections
+      .filter((n) => n.type === 'article')
+      .filter((node) => {
+        const combined = `${node.title}\n${node.content}`.toLowerCase()
+        return searchKeywordsLower.some((kw) => combined.includes(kw))
+      })
+      .map((n) => n.id)
+  }, [searchKeywordsLower, sections])
+
+  const noteClauseEntries = useMemo(() => {
+    return sections
+      .filter((node) => node.type === 'article')
+      .map((node) => {
+        const noMatch = node.title.match(/^(第[一二三四五六七八九十百千\d]+条)/)
+        const no = noMatch?.[1] ?? '条款'
+        const lead = node.title.replace(no, '').trim()
+        const note = String(notesByClauseId[node.id] ?? '').trim()
+        return { clauseId: node.id, clauseNo: no, lead, note }
+      })
+      .filter((x) => x.note)
+  }, [notesByClauseId, sections])
+
   const visibleSections = useMemo(() => {
     if (sections.length === 0) return []
-    const kw = search.trim().toLowerCase()
-    if (!kw) return sections
+
+    if (noteView) {
+      if (noteClauseEntries.length === 0) return []
+      const included = new Set<string>()
+      const byId = new Map(sections.map((s) => [s.id, s]))
+      const addAncestors = (node: SectionNode) => {
+        if (!node.parentId) return
+        const parent = byId.get(node.parentId)
+        if (!parent) return
+        included.add(parent.id)
+        addAncestors(parent)
+      }
+
+      noteClauseEntries.forEach((entry) => {
+        included.add(entry.clauseId)
+        const node = byId.get(entry.clauseId)
+        if (node) addAncestors(node)
+      })
+      return sections.filter((node) => included.has(node.id))
+    }
+
+    if (searchKeywordsLower.length === 0) return sections
+    if (matchedClauseIds.length === 0) return []
 
     const included = new Set<string>()
     const byId = new Map(sections.map((s) => [s.id, s]))
@@ -855,19 +960,19 @@ export default function PolicyDetail() {
       addAncestors(parent)
     }
 
-    sections.forEach((node) => {
-      const combined = `${node.title}\n${node.content}`.toLowerCase()
-      if (!combined.includes(kw)) return
-      included.add(node.id)
-      addAncestors(node)
+    matchedClauseIds.forEach((id) => {
+      included.add(id)
+      const node = byId.get(id)
+      if (node) addAncestors(node)
     })
 
-    if (included.size === 0) return []
     return sections.filter((node) => included.has(node.id))
-  }, [search, sections])
+  }, [matchedClauseIds, noteClauseEntries, noteView, searchKeywordsLower.length, sections])
 
   const displaySections = useMemo(() => {
     if (parseMode === 'chapter') return visibleSections
+    if (noteView) return visibleSections
+    if (searchKeywordsLower.length > 0) return visibleSections
     const articles = visibleSections.filter((node) => node.type === 'article')
     const pageArticles = clausePageSize === 'all' ? articles : articles.slice(0, clausePageSize)
     const included = new Set<string>()
@@ -884,14 +989,16 @@ export default function PolicyDetail() {
       addAncestors(node)
     })
     return visibleSections.filter((node) => included.has(node.id))
-  }, [clausePageSize, parseMode, visibleSections])
+  }, [clausePageSize, noteView, parseMode, searchKeywordsLower.length, visibleSections])
 
   const pageClauseIds = useMemo(() => {
     if (parseMode === 'chapter') return []
+    if (noteView) return []
     const articles = visibleSections.filter((node) => node.type === 'article')
+    if (searchKeywordsLower.length > 0) return articles.map((x) => x.id)
     const pageArticles = clausePageSize === 'all' ? articles : articles.slice(0, clausePageSize)
     return pageArticles.map((x) => x.id)
-  }, [clausePageSize, parseMode, visibleSections])
+  }, [clausePageSize, noteView, parseMode, searchKeywordsLower.length, visibleSections])
 
   const allClausesSelected = useMemo(
     () => pageClauseIds.length > 0 && pageClauseIds.every((id) => selectedClauseIds.includes(id)),
@@ -992,17 +1099,7 @@ export default function PolicyDetail() {
             <span className="min-w-0 truncate text-slate-700">{title || '文档标题'}</span>
           </div>
 
-          <div className="flex w-full items-center justify-end xl:w-auto">
-            <div className="flex w-full items-center rounded-lg border border-slate-200 bg-white px-2 xl:w-72">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="文档内搜索"
-                className="w-full border-none bg-transparent px-2 py-2 text-sm outline-none"
-              />
-            </div>
-          </div>
+          <div className="hidden xl:block xl:w-72" />
         </div>
 
       <div className="flex flex-col gap-3 xl:flex-row xl:items-stretch">
@@ -1460,7 +1557,22 @@ export default function PolicyDetail() {
           <article className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="space-y-4">
               {parseMode === 'clause' && sections.length > 0 ? (
-                <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch('')
+                        setSelectedClauseIds([])
+                        setNoteView((prev) => !prev)
+                      }}
+                      className={`rounded border px-3 py-1.5 text-sm ${
+                        noteView ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      笔记
+                    </button>
+
                   <button
                     type="button"
                     onClick={() =>
@@ -1486,10 +1598,21 @@ export default function PolicyDetail() {
                     全选本页
                   </button>
 
+                    <div className="flex min-w-0 flex-1 items-center rounded-lg border border-slate-200 bg-white px-2">
+                      <Search className="h-4 w-4 text-slate-400" />
+                      <input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="搜索条文内容，多个关键词用空格分隔"
+                        className="w-full border-none bg-transparent px-2 py-2 text-sm outline-none"
+                      />
+                    </div>
+
                   <div className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700">
                     <span>每页显示:</span>
                     <select
                       value={String(clausePageSize)}
+                      disabled={noteView || searchKeywordsLower.length > 0}
                       onChange={(e) => {
                         const v = e.target.value
                         setClausePageSize(v === 'all' ? 'all' : (Number(v) as 5 | 10 | 15 | 20))
@@ -1505,6 +1628,15 @@ export default function PolicyDetail() {
                     </select>
                   </div>
                 </div>
+                  {!noteView && searchKeywordsLower.length > 0 ? (
+                    <div className="text-sm text-slate-600">
+                      找到 {matchedClauseIds.length} 条匹配 ·{' '}
+                      <button type="button" onClick={() => setSearch('')} className="text-blue-600 hover:text-blue-700">
+                        清除
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
 
               {sections.length === 0 ? (
@@ -1513,8 +1645,37 @@ export default function PolicyDetail() {
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">全文</span>
                     <span className="text-sm font-semibold text-slate-900">正文</span>
                   </div>
-                  {renderSectionContent(parseSourceText, search)}
+                  {renderSectionContent(parseSourceText, searchKeywords)}
                 </div>
+              ) : noteView ? (
+                noteClauseEntries.length === 0 ? (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">暂无笔记</div>
+                ) : (
+                  <div className="space-y-3">
+                    {noteClauseEntries.map((entry) => (
+                      <button
+                        key={entry.clauseId}
+                        type="button"
+                        onClick={() => {
+                          setNoteView(false)
+                          requestAnimationFrame(() => {
+                            document.getElementById(entry.clauseId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                            setActiveTocId(entry.clauseId)
+                          })
+                        }}
+                        className="w-full rounded-lg border border-slate-200 bg-white p-4 text-left hover:bg-slate-50"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{entry.clauseNo}</span>
+                          <span className="text-sm font-semibold text-slate-900">{entry.lead || '—'}</span>
+                        </div>
+                        <div className="mt-2 text-sm text-slate-600">
+                          {entry.note.length > 120 ? `${entry.note.slice(0, 120)}...` : entry.note}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )
               ) : displaySections.length === 0 ? (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">无匹配条款</div>
               ) : (
@@ -1525,7 +1686,7 @@ export default function PolicyDetail() {
                         <p className={`${parseMode === 'chapter' ? 'text-lg font-semibold' : 'text-sm font-semibold'} text-slate-900`}>
                           {node.title}
                         </p>
-                        {node.content ? renderSectionContent(node.content, search) : null}
+                        {node.content ? renderSectionContent(node.content, searchKeywords) : null}
                       </div>
                     )
                   }
@@ -1536,7 +1697,7 @@ export default function PolicyDetail() {
                         <p className={`${parseMode === 'chapter' ? 'text-base font-semibold' : 'text-sm font-semibold'} text-slate-900`}>
                           {node.title}
                         </p>
-                        {node.content ? renderSectionContent(node.content, search) : null}
+                        {node.content ? renderSectionContent(node.content, searchKeywords) : null}
                       </div>
                     )
                   }
@@ -1546,6 +1707,8 @@ export default function PolicyDetail() {
                   const lead = node.title.replace(no, '').trim()
                   const active = activeTocId === node.id
                   const checked = selectedClauseIds.includes(node.id)
+                  const hasNote = Boolean(String(notesByClauseId[node.id] ?? '').trim())
+                  const noteKey = `${NOTE_KEY_PREFIX}${pageIdNormalized}_${no}`
 
                   return (
                     <div
@@ -1562,12 +1725,23 @@ export default function PolicyDetail() {
                               setSelectedClauseIds((prev) => (prev.includes(node.id) ? prev.filter((x) => x !== node.id) : [...prev, node.id]))
                             }
                           />
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{no}</span>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+                            {no}
+                            {hasNote ? <span className="ml-1 text-amber-500">📝</span> : null}
+                          </span>
                           <span className="text-sm font-semibold text-slate-900">{lead || '—'}</span>
                         </div>
-                        {renderSectionContent(node.content, search)}
+                        {renderSectionContent(node.content, searchKeywords)}
                       </div>
-                      <ClauseInsight clauseId={node.id} />
+                      <ClauseInsight
+                        clauseId={node.id}
+                        note={String(notesByClauseId[node.id] ?? '')}
+                        hasNote={hasNote}
+                        onChangeNote={(value) => {
+                          setNotesByClauseId((prev) => ({ ...prev, [node.id]: value }))
+                          writeNote(noteKey, value)
+                        }}
+                      />
                     </div>
                   )
                 })
@@ -1586,12 +1760,14 @@ export default function PolicyDetail() {
           <div className={`flex items-center justify-between px-3 py-2 ${rightCollapsed ? '' : 'border-b border-slate-200'}`}>
             {rightCollapsed ? (
               <div className="flex flex-1 items-center justify-center">
-                <span className="text-xs font-medium text-slate-600" style={{ writingMode: 'vertical-rl' }}>
-                  信息
+                <span title="信息">
+                  <Info className="h-4 w-4 text-slate-600" />
                 </span>
               </div>
             ) : (
-              <span className="text-sm font-medium text-slate-800">信息</span>
+              <span title="信息">
+                <Info className="h-4 w-4 text-slate-600" />
+              </span>
             )}
             <button
               type="button"
@@ -1606,8 +1782,9 @@ export default function PolicyDetail() {
             <div className="min-h-0 flex-1 space-y-3 overflow-auto p-3">
               <article className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-slate-900">制度图谱</p>
-                  <Network className="h-4 w-4 text-slate-500" />
+                  <span title="制度图谱">
+                    <Network className="h-4 w-4 text-slate-500" />
+                  </span>
                 </div>
                 <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <svg viewBox="0 0 240 140" className="h-36 w-full">
@@ -1625,8 +1802,9 @@ export default function PolicyDetail() {
 
               <article className="rounded-xl border border-slate-200 bg-white p-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-slate-900">关联流程</p>
-                  <Link2 className="h-4 w-4 text-slate-500" />
+                  <span title="关联流程">
+                    <GitBranch className="h-4 w-4 text-slate-500" />
+                  </span>
                 </div>
                 <div className="mt-3 space-y-2">
                   {counts.flows === 0 ? <p className="text-sm text-slate-500">暂无关联流程</p> : null}
@@ -1645,7 +1823,11 @@ export default function PolicyDetail() {
               </article>
 
               <article className="rounded-xl border border-slate-200 bg-white p-4">
-                <p className="text-sm font-semibold text-slate-900">监管依据</p>
+                <div className="flex items-center justify-between">
+                  <span title="监管依据">
+                    <BookOpen className="h-4 w-4 text-slate-500" />
+                  </span>
+                </div>
                 <div className="mt-3 space-y-2">
                   {counts.basis === 0 ? <p className="text-sm text-slate-500">暂无监管依据</p> : null}
                   {Array.from({ length: counts.basis }).map((_, idx) => (
@@ -1657,7 +1839,11 @@ export default function PolicyDetail() {
               </article>
 
               <article className="rounded-xl border border-slate-200 bg-white p-4">
-                <p className="text-sm font-semibold text-slate-900">相关制度</p>
+                <div className="flex items-center justify-between">
+                  <span title="相关制度">
+                    <Link className="h-4 w-4 text-slate-500" />
+                  </span>
+                </div>
                 <div className="mt-3 space-y-2">
                   {relatedDocs.length === 0 ? <p className="text-sm text-slate-500">暂无相关制度</p> : null}
                   {relatedDocs.map((item) => (
@@ -2285,9 +2471,9 @@ export default function PolicyDetail() {
                       <div className="flex flex-wrap gap-2">
                         {([
                           { key: 'full', label: '全文' },
-                          { key: 'clauses', label: '已选条文' },
-                          { key: 'selection', label: '选中内容' },
-                          { key: 'custom', label: '自定义章节' },
+                          { key: 'clauses', label: '已选' },
+                          { key: 'selection', label: '自选' },
+                          { key: 'custom', label: '章节' },
                         ] as const).map((item) => {
                           const selectionDisabled = item.key === 'selection' && !selectedText.trim()
                           const clausesDisabled = item.key === 'clauses' && selectedClauseIds.length === 0
@@ -2373,10 +2559,7 @@ export default function PolicyDetail() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-5">
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
-                  预览仅显示前3条，实际打印为全文 / 选中内容 / 自定义章节的结果
-                </div>
-                <div className="mt-3 rounded-lg border border-slate-200 bg-white p-5">
+                <div className="h-[55vh] overflow-y-auto rounded-lg border border-slate-200 bg-white p-5">
                   <div
                     style={{
                       fontFamily: previewComputed.fontFamily,
@@ -2396,24 +2579,81 @@ export default function PolicyDetail() {
                       </div>
                     ) : null}
 
-                    {previewArticles.length === 0 ? (
+                    {effectivePrintRange === 'selection' ? (
+                      selectedText
+                        .split('\n')
+                        .map((x) => x.trim())
+                        .filter(Boolean)
+                        .map((line, idx) => (
+                          <div
+                            key={`sel-preview-${idx}`}
+                            style={{
+                              textIndent: previewComputed.indent,
+                              margin: `${previewComputed.paragraphMargin} 0`,
+                            }}
+                          >
+                            {line}
+                          </div>
+                        ))
+                    ) : printableForRange.length === 0 ? (
                       <div className="text-sm text-slate-500">暂无可预览内容</div>
                     ) : (
-                      previewArticles.map((article) => (
-                        <div key={article.id} style={{ marginBottom: '10pt' }}>
-                          {article.lines.map((line, idx) => (
-                            <div
-                              key={`${article.id}-${idx}`}
-                              style={{
-                                textIndent: previewComputed.indent,
-                                margin: `${previewComputed.paragraphMargin} 0`,
-                              }}
-                            >
-                              {line}
+                      printableForRange.map((node) => {
+                        if (node.type === 'chapter') {
+                          const lines = (node.content ? node.content.split('\n') : []).map((x) => x.trim()).filter(Boolean)
+                          return (
+                            <div key={`prev-${node.id}`} style={{ marginBottom: '10pt' }}>
+                              <div style={{ fontWeight: 700, margin: `${previewComputed.paragraphMargin} 0` }}>{node.title}</div>
+                              {lines.map((line, idx) => (
+                                <div
+                                  key={`prev-${node.id}-${idx}`}
+                                  style={{
+                                    textIndent: previewComputed.indent,
+                                    margin: `${previewComputed.paragraphMargin} 0`,
+                                  }}
+                                >
+                                  {line}
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      ))
+                          )
+                        }
+                        if (node.type === 'section') {
+                          const lines = (node.content ? node.content.split('\n') : []).map((x) => x.trim()).filter(Boolean)
+                          return (
+                            <div key={`prev-${node.id}`} style={{ marginBottom: '10pt' }}>
+                              <div style={{ fontWeight: 700, margin: `${previewComputed.paragraphMargin} 0` }}>{node.title}</div>
+                              {lines.map((line, idx) => (
+                                <div
+                                  key={`prev-${node.id}-${idx}`}
+                                  style={{
+                                    textIndent: previewComputed.indent,
+                                    margin: `${previewComputed.paragraphMargin} 0`,
+                                  }}
+                                >
+                                  {line}
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        }
+                        const lines = [node.title, ...(node.content ? node.content.split('\n') : [])].map((x) => x.trim()).filter(Boolean)
+                        return (
+                          <div key={`prev-${node.id}`} style={{ marginBottom: '10pt' }}>
+                            {lines.map((line, idx) => (
+                              <div
+                                key={`prev-${node.id}-${idx}`}
+                                style={{
+                                  textIndent: previewComputed.indent,
+                                  margin: `${previewComputed.paragraphMargin} 0`,
+                                }}
+                              >
+                                {line}
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })
                     )}
                   </div>
                 </div>
