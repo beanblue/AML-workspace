@@ -29,6 +29,8 @@ const resolveDatabaseId = (databaseId) => {
     kpi: 'NOTION_DB_KPI',
     self_eval: 'NOTION_DB_SELF_EVAL',
     suspicious: 'NOTION_DB_SUSPICIOUS',
+    workunit: 'NOTION_DB_WORKUNIT',
+    nodes: 'NOTION_DB_NODES',
   }
 
   const key = String(databaseId ?? '').trim()

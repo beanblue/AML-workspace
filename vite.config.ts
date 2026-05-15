@@ -40,6 +40,8 @@ const resolveDatabaseId = (env: Record<string, string>, databaseId: string): str
     kpi: env.NOTION_DB_KPI,
     self_eval: env.NOTION_DB_SELF_EVAL,
     suspicious: env.NOTION_DB_SUSPICIOUS,
+    workunit: env.NOTION_DB_WORKUNIT,
+    nodes: env.NOTION_DB_NODES,
   }
   return toHyphenId(map[databaseId] ?? databaseId)
 }

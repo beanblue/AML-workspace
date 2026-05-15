@@ -6,6 +6,7 @@ import PolicyDetail from './components/org/PolicyDetail'
 import { PolicyModule } from './components/org/PolicyModule'
 import { PublicityModule } from './components/org/PublicityModule'
 import { ResponsibilityModule } from './components/org/ResponsibilityModule'
+import TrainingDetail from './components/org/TrainingDetail'
 import { TrainingModule } from './components/org/TrainingModule'
 import { CDDModule } from './components/ops/CDDModule'
 import { LargeTransactionModule } from './components/ops/LargeTransactionModule'
@@ -80,6 +81,7 @@ function App() {
         <Route path="/org/responsibility" element={<ResponsibilityModule />} />
         <Route path="/org/committee" element={<CommitteeModule />} />
         <Route path="/org/training" element={<TrainingModule />} />
+        <Route path="/org/training/:id" element={<TrainingDetail />} />
         <Route path="/org/publicity" element={<PublicityModule />} />
         <Route path="/org/assessment" element={<AssessmentModule />} />
 
