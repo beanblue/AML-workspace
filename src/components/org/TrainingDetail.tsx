@@ -12,7 +12,6 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { queryDatabase } from '../../api/notion'
 
 type NotionWorkUnitRow = {
   id: string
@@ -21,6 +20,12 @@ type NotionWorkUnitRow = {
 
 type NotionNodeRow = {
   id: string
+  name?: string
+  stage?: string
+  order?: number | null
+  status?: string
+  assignee?: string
+  dueDate?: string
   [key: string]: unknown
 }
 
@@ -84,6 +89,11 @@ export default function TrainingDetail() {
   >((initialTab === 'materials' ? 'materials' : 'tasks') as any)
 
   const [rightCollapsed, setRightCollapsed] = useState(false)
+  const [stagePickerOpen, setStagePickerOpen] = useState(false)
+  const [stageUpdating, setStageUpdating] = useState(false)
+  const [stageUpdateError, setStageUpdateError] = useState<string | null>(null)
+  const [creatingTask, setCreatingTask] = useState(false)
+  const [createTaskError, setCreateTaskError] = useState<string | null>(null)
 
   const [localTasks, setLocalTasks] = useState<Array<{ id: string; title: string; done: boolean }>>([])
   const [newTaskTitle, setNewTaskTitle] = useState('')
@@ -94,66 +104,55 @@ export default function TrainingDetail() {
   useEffect(() => {
     const workUnitId = safeText(id)
     if (!workUnitId) return
-    setWorkUnitLoading(true)
-    setWorkUnitError(null)
-    fetch('/api/workunit/list?type=%E5%9F%B9%E8%AE%AD')
-      .then(async (res) => {
+    const load = async () => {
+      setWorkUnitLoading(true)
+      setWorkUnitError(null)
+      try {
+        const res = await fetch('/api/workunit/list?type=%E5%9F%B9%E8%AE%AD')
         if (!res.ok) throw new Error(String(res.status))
-        return res.json()
-      })
-      .then((data) => {
+        const data = await res.json()
         const list = (Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : []) as NotionWorkUnitRow[]
         const found = list.find((r) => safeText(r.id) === workUnitId) ?? null
         setWorkUnit(found)
-      })
-      .catch((e) => setWorkUnitError(e instanceof Error ? e.message : String(e)))
-      .finally(() => setWorkUnitLoading(false))
+      } catch (e) {
+        setWorkUnitError(e instanceof Error ? e.message : String(e))
+      } finally {
+        setWorkUnitLoading(false)
+      }
+    }
+    load()
   }, [id])
 
   useEffect(() => {
     const workUnitId = safeText(id)
     if (!workUnitId) return
-    setNodesLoading(true)
-    setNodesError(null)
-
-    const tryFilters: Array<Record<string, unknown> | undefined> = [
-      {
-        property: 'WorkUnit',
-        relation: { contains: workUnitId },
-      },
-      {
-        property: '工作项目',
-        relation: { contains: workUnitId },
-      },
-      undefined,
-    ]
-
-    const run = async () => {
-      for (const filter of tryFilters) {
-        try {
-          const rows = (await queryDatabase('nodes', filter)) as unknown as NotionNodeRow[]
-          if (rows.length > 0 || filter === undefined) {
-            setNodes(rows)
-            return
-          }
-        } catch (e) {
-          if (filter === undefined) throw e
-        }
+    const load = async () => {
+      setNodesLoading(true)
+      setNodesError(null)
+      try {
+        const res = await fetch(`/api/nodes/list?workUnitId=${encodeURIComponent(workUnitId)}`)
+        if (!res.ok) throw new Error(String(res.status))
+        const data = await res.json()
+        setNodes((Array.isArray(data) ? data : []) as NotionNodeRow[])
+      } catch (e) {
+        setNodesError(e instanceof Error ? e.message : String(e))
+      } finally {
+        setNodesLoading(false)
       }
     }
-
-    run()
-      .catch((e) => setNodesError(e instanceof Error ? e.message : String(e)))
-      .finally(() => setNodesLoading(false))
+    load()
   }, [id])
 
   useEffect(() => {
-    if (nodes.length === 0) return
-    const mapped = nodes.slice(0, 20).map((n, idx) => ({
-      id: safeText(n.id) || `node-${idx}`,
-      title: safeText((n as any).任务名称 ?? (n as any).标题 ?? (n as any).Name) || `任务 ${idx + 1}`,
-      done: Boolean((n as any).完成 ?? (n as any).Done ?? false),
-    }))
+    const mapped = nodes.slice(0, 50).map((n, idx) => {
+      const status = safeText((n as any).status)
+      const done = /完成/.test(status) || status.toLowerCase() === 'done'
+      return {
+        id: safeText(n.id) || `node-${idx}`,
+        title: safeText((n as any).name) || `任务 ${idx + 1}`,
+        done,
+      }
+    })
     setLocalTasks(mapped)
   }, [nodes])
 
@@ -162,11 +161,75 @@ export default function TrainingDetail() {
   const stage = getWorkUnitStage(workUnit)
   const owner = getWorkUnitOwner(workUnit)
   const planDate = getWorkUnitPlanDate(workUnit)
+  const department = safeText((workUnit as any)?.department) || safeText((workUnit as any)?.牵头部门)
+  const planStartDate = safeText((workUnit as any)?.planStartDate) || planDate
+  const planEndDate = safeText((workUnit as any)?.planEndDate)
+  const target = safeText((workUnit as any)?.target)
+  const summary = safeText((workUnit as any)?.summary)
 
   const stageIdx = useMemo(() => stageIndex(stage), [stage])
 
   return (
     <section className="space-y-4">
+      {stagePickerOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+          onClick={() => (stageUpdating ? null : setStagePickerOpen(false))}
+        >
+          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-slate-900">选择阶段</h3>
+              <button
+                type="button"
+                onClick={() => (stageUpdating ? null : setStagePickerOpen(false))}
+                className="text-sm text-slate-500 hover:text-slate-900"
+              >
+                关闭
+              </button>
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-2">
+              {STAGES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  disabled={stageUpdating}
+                  onClick={async () => {
+                    const workUnitId = safeText(id)
+                    if (!workUnitId) return
+                    setStageUpdating(true)
+                    setStageUpdateError(null)
+                    try {
+                      const res = await fetch(`/api/workunit/${encodeURIComponent(workUnitId)}/stage`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ stage: s }),
+                      })
+                      if (!res.ok) throw new Error(String(res.status))
+
+                      setWorkUnit((prev) => (prev ? ({ ...(prev as any), stage: s } as any) : prev))
+                      setStagePickerOpen(false)
+                    } catch (e) {
+                      setStageUpdateError(e instanceof Error ? e.message : String(e))
+                    } finally {
+                      setStageUpdating(false)
+                    }
+                  }}
+                  className={`rounded-lg border px-3 py-2 text-left text-sm ${
+                    s === stage ? 'border-orange-200 bg-orange-50 text-orange-800' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+
+            {stageUpdating ? <div className="mt-3 text-sm text-slate-500">更新中...</div> : null}
+            {stageUpdateError ? <div className="mt-3 text-sm text-red-700">更新失败：{stageUpdateError}</div> : null}
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
@@ -194,7 +257,7 @@ export default function TrainingDetail() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => window.alert('Mock：推进阶段')}
+            onClick={() => setStagePickerOpen(true)}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
           >
             推进阶段 <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -307,17 +370,51 @@ export default function TrainingDetail() {
                   <button
                     type="button"
                     onClick={() => {
-                      const v = newTaskTitle.trim()
-                      if (!v) return
-                      setLocalTasks((prev) => [{ id: `local-${Date.now()}`, title: v, done: false }, ...prev])
-                      setNewTaskTitle('')
+                      const run = async () => {
+                        const v = newTaskTitle.trim()
+                        const workUnitId = safeText(id)
+                        if (!v || !workUnitId) return
+                        setCreatingTask(true)
+                        setCreateTaskError(null)
+                        try {
+                          const res = await fetch('/api/nodes/create', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: v, workUnitId, stage }),
+                          })
+                          if (!res.ok) throw new Error(String(res.status))
+                          setNewTaskTitle('')
+
+                          setNodesLoading(true)
+                          setNodesError(null)
+                          try {
+                            const listRes = await fetch(`/api/nodes/list?workUnitId=${encodeURIComponent(workUnitId)}`)
+                            if (!listRes.ok) throw new Error(String(listRes.status))
+                            const data = await listRes.json()
+                            setNodes((Array.isArray(data) ? data : []) as NotionNodeRow[])
+                          } catch (e) {
+                            setNodesError(e instanceof Error ? e.message : String(e))
+                          } finally {
+                            setNodesLoading(false)
+                          }
+                        } catch (e) {
+                          setCreateTaskError(e instanceof Error ? e.message : String(e))
+                        } finally {
+                          setCreatingTask(false)
+                        }
+                      }
+                      run()
                     }}
-                    className="inline-flex items-center gap-2 rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+                    disabled={creatingTask}
+                    className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm text-white ${
+                      creatingTask ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700'
+                    }`}
                   >
                     <Plus className="h-4 w-4" />
                     添加
                   </button>
                 </div>
+                {createTaskError ? <div className="mt-2 text-sm text-red-700">创建失败：{createTaskError}</div> : null}
               </article>
 
               <article className="rounded-xl border border-slate-200 bg-white p-4">
@@ -422,19 +519,42 @@ export default function TrainingDetail() {
           <aside className="w-full shrink-0 xl:w-80">
             <div className="space-y-3">
               <article className="rounded-xl border border-slate-200 bg-white p-4">
-                <h3 className="text-sm font-semibold text-slate-900">项目概览</h3>
-                <div className="mt-3 space-y-2 text-sm text-slate-700">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">阶段</span>
-                    <span>{stage}</span>
+                <h3 className="text-sm font-semibold text-slate-900">项目详情</h3>
+                <div className="mt-3 space-y-3 text-sm text-slate-700">
+                  <div>
+                    <p className="text-xs text-slate-500">项目名称</p>
+                    <p className="mt-1 text-slate-900">{title}</p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">负责人</span>
-                    <span>{owner}</span>
+
+                  <div>
+                    <p className="text-xs text-slate-500">项目类型 / 当前阶段</p>
+                    <p className="mt-1 text-slate-900">
+                      {type} / {stage}
+                    </p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">任务数</span>
-                    <span>{localTasks.length}</span>
+
+                  <div>
+                    <p className="text-xs text-slate-500">负责人 / 牵头部门</p>
+                    <p className="mt-1 text-slate-900">
+                      {owner || '—'} / {department || '—'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-slate-500">计划开始日期 / 计划完成日期</p>
+                    <p className="mt-1 text-slate-900">
+                      {planStartDate || '—'} / {planEndDate || '—'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-slate-500">目标对象/参与范围</p>
+                    <p className="mt-1 whitespace-pre-wrap text-slate-900">{target || '—'}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-slate-500">项目摘要</p>
+                    <p className="mt-1 whitespace-pre-wrap text-slate-900">{summary || '—'}</p>
                   </div>
                 </div>
               </article>

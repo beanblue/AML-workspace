@@ -342,6 +342,7 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
           const propSelect = (prop: any) => String(prop?.select?.name ?? '')
           const propStatus = (prop: any) => String(prop?.status?.name ?? prop?.select?.name ?? '')
           const propNumber = (prop: any) => (typeof prop?.number === 'number' ? prop.number : null)
+          const propDate = (prop: any) => String(prop?.date?.start ?? '')
 
           const mapped = filtered.map((page: any) => {
             const props = page?.properties ?? {}
@@ -353,6 +354,9 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
               status: propStatus(props['状态']),
               owner: propRichText(props['负责人']),
               department: propRichText(props['牵头部门']),
+              planStartDate: propDate(props['计划开始日期']) || propDate(props['计划日期']) || '',
+              planEndDate: propDate(props['计划完成日期']) || '',
+              planDate: propDate(props['计划日期']) || propDate(props['计划开始日期']) || '',
               target: propRichText(props['目标对象/参与范围']),
               participants: propNumber(props['实际参与人数']) ?? 0,
               satisfaction: propNumber(props['满意度评分']),
@@ -367,6 +371,254 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
           res.statusCode = 500
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify({ message: error instanceof Error ? error.message : 'Notion 查询失败。' }))
+        }
+      })
+
+      server.middlewares.use('/api/workunit', async (req, res, next) => {
+        if (req.method !== 'PATCH') {
+          next()
+          return
+        }
+
+        const rawUrl = String(req.url ?? '')
+        const parts = rawUrl.replace(/^\//, '').split(/[?#]/)[0]?.split('/') ?? []
+        if (parts.length !== 4 || parts[0] !== 'api' || parts[1] !== 'workunit' || parts[3] !== 'stage') {
+          next()
+          return
+        }
+
+        if (!token) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: 'Notion 中转未配置 NOTION_TOKEN。' }))
+          return
+        }
+
+        try {
+          const pageId = toHyphenId(parts[2] ?? '')
+          const body = await readJsonBody(req)
+          const stage = String((body as any)?.stage ?? '').trim()
+          if (!stage) {
+            res.statusCode = 400
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ message: '缺少 stage。' }))
+            return
+          }
+
+          const response = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Notion-Version': NOTION_VERSION,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              properties: {
+                当前阶段: { select: { name: stage } },
+              },
+            }),
+          })
+
+          const text = await response.text()
+          if (!response.ok) {
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: 'Notion 更新失败。', status: response.status, body: text }))
+            return
+          }
+
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ ok: true }))
+        } catch (error) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: error instanceof Error ? error.message : 'Notion 更新失败。' }))
+        }
+      })
+
+      server.middlewares.use('/api/nodes/list', async (req, res, next) => {
+        if (req.method !== 'GET') {
+          next()
+          return
+        }
+
+        if (!token) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: 'Notion 中转未配置 NOTION_TOKEN。' }))
+          return
+        }
+
+        const databaseIdRaw = env.NOTION_DB_NODES ?? ''
+        if (!databaseIdRaw) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: '未配置 NOTION_DB_NODES，无法解析数据库 ID。' }))
+          return
+        }
+
+        try {
+          const url = new URL(req.url ?? '', `http://${req.headers.host ?? 'localhost'}`)
+          const workUnitIdRaw = String(url.searchParams.get('workUnitId') ?? '').trim()
+          if (!workUnitIdRaw) {
+            res.statusCode = 400
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ message: '缺少 workUnitId。' }))
+            return
+          }
+
+          const workUnitId = toHyphenId(workUnitIdRaw)
+          const databaseId = toHyphenId(databaseIdRaw)
+
+          const response = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Notion-Version': NOTION_VERSION,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ page_size: 100 }),
+          })
+
+          const text = await response.text()
+          if (!response.ok) {
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: 'Notion 查询失败。', status: response.status, body: text }))
+            return
+          }
+
+          const data = JSON.parse(text) as any
+          const results = Array.isArray(data?.results) ? data.results : []
+
+          const toPlainText = (list?: Array<{ plain_text?: string }>) => list?.map((t) => t.plain_text ?? '').join('') ?? ''
+          const propTitle = (prop: any) => toPlainText(prop?.title)
+          const propRichText = (prop: any) => toPlainText(prop?.rich_text)
+          const propSelect = (prop: any) => String(prop?.select?.name ?? '')
+          const propStatus = (prop: any) => String(prop?.status?.name ?? prop?.select?.name ?? '')
+          const propNumber = (prop: any) => (typeof prop?.number === 'number' ? prop.number : null)
+          const propDate = (prop: any) => String(prop?.date?.start ?? '')
+          const propPeople = (prop: any) =>
+            Array.isArray(prop?.people) ? prop.people.map((p: any) => String(p?.name ?? '')).filter(Boolean).join(' / ') : ''
+          const propRelationIds = (prop: any) => (Array.isArray(prop?.relation) ? prop.relation.map((r: any) => String(r?.id ?? '')) : [])
+
+          const filtered = results.filter((page: any) => {
+            const props = page?.properties ?? {}
+            const rel =
+              props['所属工作项目'] ??
+              props['所属工作单元'] ??
+              props['WorkUnit'] ??
+              props['工作项目'] ??
+              props['工作项目台账'] ??
+              null
+            const ids = propRelationIds(rel).map((x: string) => toHyphenId(x))
+            return ids.includes(workUnitId)
+          })
+
+          const mapped = filtered
+            .map((page: any) => {
+              const props = page?.properties ?? {}
+              return {
+                id: page.id,
+                name:
+                  propTitle(props['节点名称']) ||
+                  propTitle(props['任务名称']) ||
+                  propTitle(props['名称']) ||
+                  propTitle(props['标题']) ||
+                  propTitle(props['Name']) ||
+                  '',
+                stage: propSelect(props['所属阶段']) || propSelect(props['当前阶段']) || propSelect(props['阶段']) || '',
+                order: propNumber(props['顺序']) ?? propNumber(props['排序']) ?? null,
+                status: propStatus(props['状态']),
+                assignee: propPeople(props['负责人']) || propPeople(props['执行人']) || propRichText(props['负责人']) || '',
+                dueDate: propDate(props['截止日期']) || propDate(props['到期日']) || propDate(props['计划完成日期']) || '',
+              }
+            })
+            .sort((a: any, b: any) => {
+              const ao = typeof a.order === 'number' ? a.order : Number.POSITIVE_INFINITY
+              const bo = typeof b.order === 'number' ? b.order : Number.POSITIVE_INFINITY
+              return ao - bo
+            })
+
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify(mapped))
+        } catch (error) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: error instanceof Error ? error.message : 'Notion 查询失败。' }))
+        }
+      })
+
+      server.middlewares.use('/api/nodes/create', async (req, res, next) => {
+        if (req.method !== 'POST') {
+          next()
+          return
+        }
+
+        if (!token) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: 'Notion 中转未配置 NOTION_TOKEN。' }))
+          return
+        }
+
+        const databaseIdRaw = env.NOTION_DB_NODES ?? ''
+        if (!databaseIdRaw) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: '未配置 NOTION_DB_NODES，无法解析数据库 ID。' }))
+          return
+        }
+
+        try {
+          const body = await readJsonBody(req)
+          const name = String((body as any)?.name ?? '').trim()
+          const workUnitIdRaw = String((body as any)?.workUnitId ?? '').trim()
+          const stage = String((body as any)?.stage ?? '').trim()
+          if (!name || !workUnitIdRaw || !stage) {
+            res.statusCode = 400
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ message: '缺少 name / workUnitId / stage。' }))
+            return
+          }
+
+          const databaseId = toHyphenId(databaseIdRaw)
+          const workUnitId = toHyphenId(workUnitIdRaw)
+
+          const response = await fetch('https://api.notion.com/v1/pages', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Notion-Version': NOTION_VERSION,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              parent: { database_id: databaseId },
+              properties: {
+                节点名称: { title: [{ text: { content: name } }] },
+                所属工作项目: { relation: [{ id: workUnitId }] },
+                所属阶段: { select: { name: stage } },
+              },
+            }),
+          })
+
+          const text = await response.text()
+          if (!response.ok) {
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: 'Notion 创建失败。', status: response.status, body: text }))
+            return
+          }
+
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ ok: true }))
+        } catch (error) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: error instanceof Error ? error.message : 'Notion 创建失败。' }))
         }
       })
     },

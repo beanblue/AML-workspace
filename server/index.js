@@ -288,6 +288,65 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  const workUnitStageMatch = url.pathname.match(/^\/api\/workunit\/([^/]+)\/stage$/)
+  if (workUnitStageMatch) {
+    if (req.method !== 'PATCH') {
+      sendJson(res, 405, { message: 'Method Not Allowed' })
+      return
+    }
+
+    try {
+      const token = process.env.NOTION_TOKEN ?? ''
+      if (!token) {
+        sendJson(res, 500, { message: 'Notion 中转未配置 NOTION_TOKEN。' })
+        return
+      }
+
+      const body = await readJson(req)
+      const stage = String(body?.stage ?? '').trim()
+      if (!stage) {
+        sendJson(res, 400, { message: '缺少 stage。' })
+        return
+      }
+
+      const pageIdRaw = workUnitStageMatch[1] ?? ''
+      const pageId = toHyphenId(pageIdRaw)
+      if (!isNotionId(pageId)) {
+        sendJson(res, 400, { message: 'workUnitId 不是有效的 Notion 页面 ID。' })
+        return
+      }
+
+      const response = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Notion-Version': NOTION_VERSION,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          properties: {
+            当前阶段: { select: { name: stage } },
+          },
+        }),
+      })
+
+      const text = await response.text()
+      if (!response.ok) {
+        console.error('[workunit/stage] update failed', { status: response.status, body: text, pageId })
+        sendJson(res, 500, { error: 'Notion 更新失败。', status: response.status })
+        return
+      }
+
+      sendJson(res, 200, { ok: true })
+      return
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('[workunit/stage] error:', message, error instanceof Error ? error.stack : '')
+      sendJson(res, 500, { error: message })
+      return
+    }
+  }
+
   if (url.pathname === '/api/workunit/list') {
     if (req.method !== 'GET') {
       sendJson(res, 405, { message: 'Method Not Allowed' })
@@ -324,6 +383,7 @@ const server = http.createServer(async (req, res) => {
       const propSelect = (prop) => String(prop?.select?.name ?? '')
       const propStatus = (prop) => String(prop?.status?.name ?? prop?.select?.name ?? '')
       const propNumber = (prop) => (typeof prop?.number === 'number' ? prop.number : null)
+      const propDate = (prop) => String(prop?.date?.start ?? '')
 
       const queryResponse = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
         method: 'POST',
@@ -373,6 +433,9 @@ const server = http.createServer(async (req, res) => {
           status: propStatus(props['状态']),
           owner: propRichText(props['负责人']),
           department: propRichText(props['牵头部门']),
+          planStartDate: propDate(props['计划开始日期']) || propDate(props['计划日期']) || '',
+          planEndDate: propDate(props['计划完成日期']) || '',
+          planDate: propDate(props['计划日期']) || propDate(props['计划开始日期']) || '',
           target: propRichText(props['目标对象/参与范围']),
           participants: propNumber(props['实际参与人数']) ?? 0,
           satisfaction: propNumber(props['满意度评分']),
@@ -386,6 +449,199 @@ const server = http.createServer(async (req, res) => {
       const message = error instanceof Error ? error.message : String(error)
       console.error('[workunit] 详细错误:', error)
       console.error('[workunit] error:', message, error instanceof Error ? error.stack : '')
+      sendJson(res, 500, { error: message })
+      return
+    }
+  }
+
+  if (url.pathname === '/api/nodes/list') {
+    if (req.method !== 'GET') {
+      sendJson(res, 405, { message: 'Method Not Allowed' })
+      return
+    }
+
+    try {
+      const token = process.env.NOTION_TOKEN ?? ''
+      if (!token) {
+        sendJson(res, 500, { message: 'Notion 中转未配置 NOTION_TOKEN。' })
+        return
+      }
+
+      const databaseIdRaw = process.env.NOTION_DB_NODES ?? ''
+      const databaseId = toHyphenId(databaseIdRaw)
+      if (!databaseIdRaw) {
+        sendJson(res, 500, { message: '未配置 NOTION_DB_NODES，无法解析数据库 ID。' })
+        return
+      }
+      if (!isNotionId(databaseId)) {
+        sendJson(res, 500, { message: 'NOTION_DB_NODES 不是有效的 Notion 数据库 ID。' })
+        return
+      }
+
+      const workUnitIdRaw = String(url.searchParams.get('workUnitId') ?? '').trim()
+      if (!workUnitIdRaw) {
+        sendJson(res, 400, { message: '缺少 workUnitId。' })
+        return
+      }
+      const workUnitId = toHyphenId(workUnitIdRaw)
+
+      const toPlainText = (list) =>
+        Array.isArray(list) ? list.map((item) => String(item?.plain_text ?? '')).join('') : ''
+      const propTitle = (prop) => toPlainText(prop?.title)
+      const propRichText = (prop) => toPlainText(prop?.rich_text)
+      const propSelect = (prop) => String(prop?.select?.name ?? '')
+      const propStatus = (prop) => String(prop?.status?.name ?? prop?.select?.name ?? '')
+      const propNumber = (prop) => (typeof prop?.number === 'number' ? prop.number : null)
+      const propDate = (prop) => String(prop?.date?.start ?? '')
+      const propPeople = (prop) =>
+        Array.isArray(prop?.people) ? prop.people.map((p) => String(p?.name ?? '')).filter(Boolean).join(' / ') : ''
+      const propRelationIds = (prop) =>
+        Array.isArray(prop?.relation) ? prop.relation.map((r) => String(r?.id ?? '')).filter(Boolean) : []
+
+      const queryResponse = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Notion-Version': NOTION_VERSION,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ page_size: 100 }),
+      })
+
+      const text = await queryResponse.text()
+      if (!queryResponse.ok) {
+        console.error('[nodes/list] query failed', { status: queryResponse.status, body: text, databaseId })
+        sendJson(res, 500, { error: 'Notion 查询失败。', status: queryResponse.status })
+        return
+      }
+
+      const data = JSON.parse(text)
+      const results = Array.isArray(data?.results) ? data.results : []
+
+      const filtered = results.filter((page) => {
+        const props = page?.properties ?? {}
+        const rel =
+          props['所属工作项目'] ??
+          props['所属工作单元'] ??
+          props['WorkUnit'] ??
+          props['工作项目'] ??
+          props['工作项目台账'] ??
+          null
+        const ids = propRelationIds(rel).map((x) => toHyphenId(x))
+        return ids.includes(workUnitId)
+      })
+
+      const mapped = filtered
+        .map((page) => {
+          const props = page?.properties ?? {}
+          return {
+            id: page.id,
+            name:
+              propTitle(props['节点名称']) ||
+              propTitle(props['任务名称']) ||
+              propTitle(props['名称']) ||
+              propTitle(props['标题']) ||
+              propTitle(props['Name']) ||
+              '',
+            stage: propSelect(props['所属阶段']) || propSelect(props['当前阶段']) || propSelect(props['阶段']) || '',
+            order: propNumber(props['顺序']) ?? propNumber(props['排序']) ?? null,
+            status: propStatus(props['状态']),
+            assignee: propPeople(props['负责人']) || propPeople(props['执行人']) || propRichText(props['负责人']) || '',
+            dueDate: propDate(props['截止日期']) || propDate(props['到期日']) || propDate(props['计划完成日期']) || '',
+          }
+        })
+        .sort((a, b) => {
+          const ao = typeof a.order === 'number' ? a.order : Number.POSITIVE_INFINITY
+          const bo = typeof b.order === 'number' ? b.order : Number.POSITIVE_INFINITY
+          return ao - bo
+        })
+
+      sendJson(res, 200, mapped)
+      return
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('[nodes/list] error:', message, error instanceof Error ? error.stack : '')
+      sendJson(res, 500, { error: message })
+      return
+    }
+  }
+
+  if (url.pathname === '/api/nodes/create') {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { message: 'Method Not Allowed' })
+      return
+    }
+
+    try {
+      const token = process.env.NOTION_TOKEN ?? ''
+      if (!token) {
+        sendJson(res, 500, { message: 'Notion 中转未配置 NOTION_TOKEN。' })
+        return
+      }
+
+      const databaseIdRaw = process.env.NOTION_DB_NODES ?? ''
+      const databaseId = toHyphenId(databaseIdRaw)
+      if (!databaseIdRaw) {
+        sendJson(res, 500, { message: '未配置 NOTION_DB_NODES，无法解析数据库 ID。' })
+        return
+      }
+      if (!isNotionId(databaseId)) {
+        sendJson(res, 500, { message: 'NOTION_DB_NODES 不是有效的 Notion 数据库 ID。' })
+        return
+      }
+
+      const body = await readJson(req)
+      const name = String(body?.name ?? '').trim()
+      const workUnitIdRaw = String(body?.workUnitId ?? '').trim()
+      const stage = String(body?.stage ?? '').trim()
+      if (!name) {
+        sendJson(res, 400, { message: '缺少 name。' })
+        return
+      }
+      if (!workUnitIdRaw) {
+        sendJson(res, 400, { message: '缺少 workUnitId。' })
+        return
+      }
+      if (!stage) {
+        sendJson(res, 400, { message: '缺少 stage。' })
+        return
+      }
+
+      const workUnitId = toHyphenId(workUnitIdRaw)
+      if (!isNotionId(workUnitId)) {
+        sendJson(res, 400, { message: 'workUnitId 不是有效的 Notion 页面 ID。' })
+        return
+      }
+
+      const response = await fetch('https://api.notion.com/v1/pages', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Notion-Version': NOTION_VERSION,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          parent: { database_id: databaseId },
+          properties: {
+            节点名称: { title: [{ text: { content: name } }] },
+            所属工作项目: { relation: [{ id: workUnitId }] },
+            所属阶段: { select: { name: stage } },
+          },
+        }),
+      })
+
+      const text = await response.text()
+      if (!response.ok) {
+        console.error('[nodes/create] create failed', { status: response.status, body: text, databaseId })
+        sendJson(res, 500, { error: 'Notion 创建失败。', status: response.status })
+        return
+      }
+
+      sendJson(res, 200, { ok: true })
+      return
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('[nodes/create] error:', message, error instanceof Error ? error.stack : '')
       sendJson(res, 500, { error: message })
       return
     }
