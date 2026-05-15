@@ -328,53 +328,88 @@ const server = http.createServer(async (req, res) => {
     }
 
     const pick = (props, key) => (props && props[key] ? formatPropertyValue(props[key]) : '')
+    const formatWorkUnit = (page) => {
+      const props = page?.properties ?? {}
+      const name = pick(props, '项目名称') || pick(props, '名称') || pick(props, '标题') || pick(props, 'Name') || ''
+      return {
+        id: page.id,
+        项目名称: name,
+        类型: pick(props, '类型'),
+        状态: pick(props, '状态'),
+        当前阶段: pick(props, '当前阶段'),
+        负责人: pick(props, '负责人'),
+        计划日期: pick(props, '计划日期'),
+        目标对象: pick(props, '目标对象'),
+        参与人数: pick(props, '参与人数'),
+        满意度: pick(props, '满意度'),
+        项目类型: pick(props, '项目类型'),
+      }
+    }
 
     try {
-      const response = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Notion-Version': NOTION_VERSION,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const makeRequest = async (withFilter) => {
+        const body = {
           page_size: 100,
-          filter: {
-            property: '项目类型',
-            select: { equals: typeValue },
+          ...(withFilter
+            ? {
+                filter: {
+                  property: '项目类型',
+                  select: { equals: typeValue },
+                },
+              }
+            : {}),
+        }
+        const response = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Notion-Version': NOTION_VERSION,
+            'Content-Type': 'application/json',
           },
-        }),
-      })
+          body: JSON.stringify(body),
+        })
+        const text = await response.text()
+        return { response, text }
+      }
 
-      const text = await response.text()
+      let { response, text } = await makeRequest(true)
       if (!response.ok) {
-        res.statusCode = response.status
-        res.setHeader('Content-Type', 'application/json')
-        res.end(text)
+        console.error('[workunit/list] query failed', {
+          status: response.status,
+          body: text,
+          databaseId,
+          typeValue,
+        })
+        ;({ response, text } = await makeRequest(false))
+      }
+
+      if (!response.ok) {
+        console.error('[workunit/list] fallback query failed', {
+          status: response.status,
+          body: text,
+          databaseId,
+          typeValue,
+        })
+        sendJson(res, 500, { message: 'Notion 查询失败。', status: response.status })
         return
       }
 
       const data = JSON.parse(text)
       const results = Array.isArray(data?.results) ? data.results : []
-      const mapped = results.map((page) => {
-        const props = page?.properties ?? {}
-        const name = pick(props, '项目名称') || pick(props, '名称') || pick(props, '标题') || pick(props, 'Name') || ''
-        return {
-          id: page.id,
-          项目名称: name,
-          类型: pick(props, '类型'),
-          状态: pick(props, '状态'),
-          当前阶段: pick(props, '当前阶段'),
-          负责人: pick(props, '负责人'),
-          计划日期: pick(props, '计划日期'),
-          目标对象: pick(props, '目标对象'),
-          参与人数: pick(props, '参与人数'),
-          满意度: pick(props, '满意度'),
-        }
+      const mapped = results.map(formatWorkUnit).filter((row) => {
+        const v = String(row.项目类型 ?? row.类型 ?? '').trim()
+        return v === typeValue || v.includes(typeValue)
       })
-      sendJson(res, 200, { results: mapped })
+      sendJson(
+        res,
+        200,
+        {
+          results: mapped.map(({ 项目类型, ...rest }) => rest),
+        },
+      )
       return
     } catch (error) {
+      console.error('[workunit/list] exception', error)
       sendJson(res, 500, { message: error instanceof Error ? error.message : 'Notion 查询失败。' })
       return
     }

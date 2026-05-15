@@ -247,7 +247,7 @@ export function Sidebar({
           </section>
         ) : null}
 
-        <section className="mb-5 border-y border-slate-200 py-3">
+        <section className="mb-5 border-b border-slate-200 pb-5">
           <div className="space-y-2">
             {(() => {
               const Icon = favoritesItem.icon;
