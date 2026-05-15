@@ -6,7 +6,6 @@ import {
   Printer,
   Search,
   Star,
-  Upload,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -316,10 +315,7 @@ export function PolicyModule() {
   const [sortBy, setSortBy] = useState<'relevance' | 'publishDate' | 'effectiveDate'>('relevance')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
-  const [newMenuOpen, setNewMenuOpen] = useState(false)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
-  const [pasteOpen, setPasteOpen] = useState(false)
   const [printOpen, setPrintOpen] = useState(false)
   const [mergePrint, setMergePrint] = useState(true)
   const [printSettings, setPrintSettings] = useState<PrintSettings>(() => {
@@ -337,25 +333,18 @@ export function PolicyModule() {
   const [separatePrint, setSeparatePrint] = useState(false)
   const [printIndex, setPrintIndex] = useState(0)
 
-  const [importLoading, setImportLoading] = useState(false)
-  const [importError, setImportError] = useState<string | null>(null)
-  const [importTitle, setImportTitle] = useState('')
-  const [importCategory, setImportCategory] = useState<Exclude<LibraryCategory, '全部'>>('内控制度')
-  const [importDept, setImportDept] = useState('')
-  const [importPublishDate, setImportPublishDate] = useState('')
-  const [importEffectiveDate, setImportEffectiveDate] = useState('')
-  const [importContent, setImportContent] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createLoading, setCreateLoading] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [createFileContent, setCreateFileContent] = useState('')
+  const [createPasteContent, setCreatePasteContent] = useState('')
+  const [createTitle, setCreateTitle] = useState('')
+  const [createCategory, setCreateCategory] = useState<Exclude<LibraryCategory, '全部'>>('内控制度')
+  const [createTimeliness, setCreateTimeliness] = useState<Timeliness>('草案')
+  const [createPublishDate, setCreatePublishDate] = useState('')
 
-  const [pasteTitle, setPasteTitle] = useState('')
-  const [pasteCategory, setPasteCategory] = useState<Exclude<LibraryCategory, '全部'>>('内控制度')
-  const [pasteDept, setPasteDept] = useState('')
-  const [pastePublishDate, setPastePublishDate] = useState('')
-  const [pasteEffectiveDate, setPasteEffectiveDate] = useState('')
-  const [pasteContent, setPasteContent] = useState('')
-
-  const newMenuRef = useRef<HTMLDivElement | null>(null)
   const exportMenuRef = useRef<HTMLDivElement | null>(null)
-  const importInputRef = useRef<HTMLInputElement | null>(null)
+  const createFileInputRef = useRef<HTMLInputElement | null>(null)
   const beforePrintTitleRef = useRef<string>('')
 
   const [pageContentCache, setPageContentCache] = useState<Record<string, string>>({})
@@ -944,9 +933,7 @@ export function PolicyModule() {
     const handler = (event: MouseEvent) => {
       const target = event.target as Node | null
       if (!target) return
-      if (newMenuRef.current?.contains(target)) return
       if (exportMenuRef.current?.contains(target)) return
-      setNewMenuOpen(false)
       setExportMenuOpen(false)
     }
     document.addEventListener('mousedown', handler)
@@ -977,18 +964,18 @@ export function PolicyModule() {
     setTopicTags((prev) => toggleInArray(prev, value))
   }
 
-  const handleImportFile = async (file: File) => {
-    setImportError(null)
-    setImportLoading(true)
-    setImportTitle(parseFileNameTitle(file.name))
+  const handleCreateFile = async (file: File) => {
+    setCreateError(null)
+    setCreateLoading(true)
+    if (!createTitle.trim()) setCreateTitle(parseFileNameTitle(file.name))
     try {
       const text = await parseFile(file)
-      setImportContent(text)
+      setCreateFileContent(text)
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : String(err))
-      setImportContent('')
+      setCreateError(err instanceof Error ? err.message : String(err))
+      setCreateFileContent('')
     } finally {
-      setImportLoading(false)
+      setCreateLoading(false)
     }
   }
 
@@ -1221,42 +1208,25 @@ export function PolicyModule() {
               重置
             </button>
 
-            <div ref={newMenuRef} className="relative">
+            <div className="relative">
               <button
                 type="button"
-                onClick={() => setNewMenuOpen((prev) => !prev)}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                onClick={() => {
+                  setCreateError(null)
+                  setCreateLoading(false)
+                  setCreateFileContent('')
+                  setCreatePasteContent('')
+                  setCreateTitle('')
+                  setCreateCategory('内控制度')
+                  setCreateTimeliness('草案')
+                  setCreatePublishDate('')
+                  setCreateOpen(true)
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
               >
                 <Plus className="h-4 w-4" />
                 新建资料
-                <ChevronDown className={`h-4 w-4 transition ${newMenuOpen ? 'rotate-180' : ''}`} />
               </button>
-              {newMenuOpen ? (
-                <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewMenuOpen(false)
-                      setImportOpen(true)
-                    }}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    <Upload className="h-4 w-4 text-slate-500" />
-                    导入文件
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewMenuOpen(false)
-                      setPasteOpen(true)
-                    }}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    <Plus className="h-4 w-4 text-slate-500" />
-                    粘贴内容新建
-                  </button>
-                </div>
-              ) : null}
             </div>
           </div>
 
@@ -1266,15 +1236,6 @@ export function PolicyModule() {
 
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setImportOpen(true)}
-            className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-          >
-            <Upload className="h-4 w-4" />
-            导入
-          </button>
-
           <div ref={exportMenuRef} className="relative">
             <button
               type="button"
@@ -1957,255 +1918,158 @@ export function PolicyModule() {
       ) : null}
 
       <Modal
-        open={importOpen}
-        title="导入文件"
-        onClose={() => setImportOpen(false)}
+        open={createOpen}
+        title="新建资料"
+        onClose={() => setCreateOpen(false)}
         footer={
-          <div className="flex justify-between">
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setCreateOpen(false)}
+              className="rounded border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              取消
+            </button>
             <button
               type="button"
               onClick={() => {
-                setImportTitle('')
-                setImportDept('')
-                setImportPublishDate('')
-                setImportEffectiveDate('')
-                setImportContent('')
-                setImportError(null)
+                if (!createTitle.trim()) return
+                const content = [createFileContent, createPasteContent].map((x) => x.trim()).filter(Boolean).join('\n\n')
+                const newDoc: LibraryDoc = {
+                  id: `local-${Date.now()}`,
+                  source: 'local',
+                  title: createTitle.trim(),
+                  category: createCategory,
+                  timeliness: createTimeliness,
+                  docNo: '',
+                  dept: '',
+                  publishDate: createPublishDate,
+                  effectiveDate: '',
+                  summary: '',
+                  content,
+                  sourceLevel:
+                    createCategory === '法律法规'
+                      ? '监管层'
+                      : createCategory === '流程'
+                        ? '分公司层'
+                        : createCategory === '内控制度'
+                          ? '总公司层'
+                          : '其他',
+                  topics: [],
+                }
+                setLocalDocs((prev) => [newDoc, ...prev])
+                setCreateOpen(false)
               }}
-              className="text-sm text-slate-500 hover:text-slate-700"
+              className={`rounded px-4 py-2 text-sm text-white ${
+                createTitle.trim() ? 'bg-red-600 hover:bg-red-700' : 'cursor-not-allowed bg-slate-300'
+              }`}
+              disabled={!createTitle.trim()}
             >
-              重置
+              确认新建
             </button>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setImportOpen(false)}
-                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-              >
-                关闭
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!importTitle.trim() || !importContent.trim()) return
-                  const newDoc: LibraryDoc = {
-                    id: `local-${Date.now()}`,
-                    source: 'local',
-                    title: importTitle.trim(),
-                    category: importCategory,
-                    timeliness: '草案',
-                    docNo: '',
-                    dept: importDept.trim(),
-                    publishDate: importPublishDate,
-                    effectiveDate: importEffectiveDate,
-                    summary: '',
-                    content: importContent.trim(),
-                    sourceLevel:
-                      importCategory === '法律法规'
-                        ? '监管层'
-                        : importCategory === '流程'
-                          ? '分公司层'
-                          : importCategory === '内控制度'
-                            ? '总公司层'
-                            : '其他',
-                    topics: [],
-                  }
-                  setLocalDocs((prev) => [newDoc, ...prev])
-                  setImportOpen(false)
-                }}
-                className={`rounded px-3 py-1.5 text-sm text-white ${
-                  importTitle.trim() && importContent.trim() ? 'bg-blue-600 hover:bg-blue-700' : 'cursor-not-allowed bg-slate-300'
-                }`}
-                disabled={!importTitle.trim() || !importContent.trim()}
-              >
-                添加到列表
-              </button>
-            </div>
           </div>
         }
       >
-        <div className="space-y-4">
-          <input
-            ref={importInputRef}
-            type="file"
-            accept=".docx,.pdf,.md,.txt"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (!file) return
-              void handleImportFile(file)
-            }}
-          />
-
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => importInputRef.current?.click()}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') importInputRef.current?.click()
-            }}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => {
-              event.preventDefault()
-              const file = event.dataTransfer.files?.[0]
-              if (!file) return
-              void handleImportFile(file)
-            }}
-            className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-600 hover:bg-slate-100"
-          >
-            <div className="text-slate-700">点击选择文件，或将文件拖拽到此处</div>
-            <div className="mt-1 text-xs text-slate-500">支持格式：.docx / .pdf / .md / .txt</div>
-          </div>
-
-          {importLoading ? <div className="text-sm text-slate-500">正在解析文件...</div> : null}
-          {importError ? <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{importError}</div> : null}
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="space-y-1">
-              <span className="text-sm text-slate-600">标题</span>
-              <input value={importTitle} onChange={(e) => setImportTitle(e.target.value)} className="w-full rounded border border-slate-200 px-3 py-2 text-sm" />
-            </label>
-
-            <label className="space-y-1">
-              <span className="text-sm text-slate-600">分类</span>
-              <select value={importCategory} onChange={(e) => setImportCategory(e.target.value as any)} className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm">
-                {CATEGORY_OPTIONS.filter((c) => c !== '全部').map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="space-y-1">
-              <span className="text-sm text-slate-600">发文机关/部门</span>
-              <input value={importDept} onChange={(e) => setImportDept(e.target.value)} className="w-full rounded border border-slate-200 px-3 py-2 text-sm" />
-            </label>
-
-            <div className="grid grid-cols-2 gap-2">
-              <label className="space-y-1">
-                <span className="text-sm text-slate-600">发布日期</span>
-                <input type="date" value={importPublishDate} onChange={(e) => setImportPublishDate(e.target.value)} className="w-full rounded border border-slate-200 px-3 py-2 text-sm" />
-              </label>
-              <label className="space-y-1">
-                <span className="text-sm text-slate-600">生效日期</span>
-                <input type="date" value={importEffectiveDate} onChange={(e) => setImportEffectiveDate(e.target.value)} className="w-full rounded border border-slate-200 px-3 py-2 text-sm" />
-              </label>
-            </div>
-          </div>
-
-          <label className="space-y-1">
-            <span className="text-sm text-slate-600">内容</span>
-            <textarea value={importContent} onChange={(e) => setImportContent(e.target.value)} className="h-56 w-full rounded border border-slate-200 px-3 py-2 text-sm" />
-          </label>
-        </div>
-      </Modal>
-
-      <Modal
-        open={pasteOpen}
-        title="粘贴内容新建"
-        onClose={() => setPasteOpen(false)}
-        footer={
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                setPasteTitle('')
-                setPasteDept('')
-                setPastePublishDate('')
-                setPasteEffectiveDate('')
-                setPasteContent('')
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-slate-800">文件导入</div>
+            <input
+              ref={createFileInputRef}
+              type="file"
+              accept=".docx,.pdf,.md,.txt"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                void handleCreateFile(file)
               }}
-              className="text-sm text-slate-500 hover:text-slate-700"
+            />
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => createFileInputRef.current?.click()}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') createFileInputRef.current?.click()
+              }}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault()
+                const file = event.dataTransfer.files?.[0]
+                if (!file) return
+                void handleCreateFile(file)
+              }}
+              className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-600 hover:bg-slate-100"
             >
-              重置
-            </button>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPasteOpen(false)}
-                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-              >
-                关闭
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!pasteTitle.trim() || !pasteContent.trim()) return
-                  const newDoc: LibraryDoc = {
-                    id: `local-${Date.now()}`,
-                    source: 'local',
-                    title: pasteTitle.trim(),
-                    category: pasteCategory,
-                    timeliness: '草案',
-                    docNo: '',
-                    dept: pasteDept.trim(),
-                    publishDate: pastePublishDate,
-                    effectiveDate: pasteEffectiveDate,
-                    summary: '',
-                    content: pasteContent.trim(),
-                    sourceLevel:
-                      pasteCategory === '法律法规'
-                        ? '监管层'
-                        : pasteCategory === '流程'
-                          ? '分公司层'
-                          : pasteCategory === '内控制度'
-                            ? '总公司层'
-                            : '其他',
-                    topics: [],
-                  }
-                  setLocalDocs((prev) => [newDoc, ...prev])
-                  setPasteOpen(false)
-                }}
-                className={`rounded px-3 py-1.5 text-sm text-white ${
-                  pasteTitle.trim() && pasteContent.trim() ? 'bg-blue-600 hover:bg-blue-700' : 'cursor-not-allowed bg-slate-300'
-                }`}
-                disabled={!pasteTitle.trim() || !pasteContent.trim()}
-              >
-                添加到列表
-              </button>
+              <div className="text-slate-700">点击选择文件，或拖拽到此处</div>
+              <div className="mt-1 text-xs text-slate-500">支持格式：.docx / .pdf / .md / .txt</div>
             </div>
+            {createLoading ? <div className="text-sm text-slate-500">正在解析文件...</div> : null}
+            {createError ? <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{createError}</div> : null}
           </div>
-        }
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="space-y-1">
-              <span className="text-sm text-slate-600">标题</span>
-              <input value={pasteTitle} onChange={(e) => setPasteTitle(e.target.value)} className="w-full rounded border border-slate-200 px-3 py-2 text-sm" />
-            </label>
-            <label className="space-y-1">
-              <span className="text-sm text-slate-600">分类</span>
-              <select value={pasteCategory} onChange={(e) => setPasteCategory(e.target.value as any)} className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm">
-                {CATEGORY_OPTIONS.filter((c) => c !== '全部').map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </label>
 
-            <label className="space-y-1">
-              <span className="text-sm text-slate-600">发文机关/部门</span>
-              <input value={pasteDept} onChange={(e) => setPasteDept(e.target.value)} className="w-full rounded border border-slate-200 px-3 py-2 text-sm" />
-            </label>
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-slate-800">粘贴文本</div>
+            <textarea
+              value={createPasteContent}
+              onChange={(e) => setCreatePasteContent(e.target.value)}
+              placeholder="直接粘贴文档内容…"
+              className="h-[6.5rem] w-full rounded border border-slate-200 px-3 py-2 text-sm"
+            />
+          </div>
 
-            <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-3">
+            <div className="text-sm font-medium text-slate-800">手动填写基础信息</div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <label className="space-y-1 md:col-span-2">
+                <span className="text-sm text-slate-600">文档标题（必填）</span>
+                <input
+                  value={createTitle}
+                  onChange={(e) => setCreateTitle(e.target.value)}
+                  className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+                />
+              </label>
+
+              <label className="space-y-1">
+                <span className="text-sm text-slate-600">内容类别</span>
+                <select
+                  value={createCategory}
+                  onChange={(e) => setCreateCategory(e.target.value as any)}
+                  className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
+                >
+                  {CATEGORY_OPTIONS.filter((c) => c !== '全部').map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="space-y-1">
+                <span className="text-sm text-slate-600">效力状态</span>
+                <select
+                  value={createTimeliness}
+                  onChange={(e) => setCreateTimeliness(e.target.value as Timeliness)}
+                  className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm"
+                >
+                  {TIMELINESS_OPTIONS.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
               <label className="space-y-1">
                 <span className="text-sm text-slate-600">发布日期</span>
-                <input type="date" value={pastePublishDate} onChange={(e) => setPastePublishDate(e.target.value)} className="w-full rounded border border-slate-200 px-3 py-2 text-sm" />
-              </label>
-              <label className="space-y-1">
-                <span className="text-sm text-slate-600">生效日期</span>
-                <input type="date" value={pasteEffectiveDate} onChange={(e) => setPasteEffectiveDate(e.target.value)} className="w-full rounded border border-slate-200 px-3 py-2 text-sm" />
+                <input
+                  type="date"
+                  value={createPublishDate}
+                  onChange={(e) => setCreatePublishDate(e.target.value)}
+                  className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+                />
               </label>
             </div>
           </div>
-
-          <label className="space-y-1">
-            <span className="text-sm text-slate-600">内容</span>
-            <textarea value={pasteContent} onChange={(e) => setPasteContent(e.target.value)} className="h-56 w-full rounded border border-slate-200 px-3 py-2 text-sm" placeholder="粘贴正文内容..." />
-          </label>
         </div>
       </Modal>
     </section>
