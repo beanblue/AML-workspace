@@ -294,59 +294,63 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
-    const token = process.env.NOTION_TOKEN ?? ''
-    if (!token) {
-      sendJson(res, 500, { message: 'Notion 中转未配置 NOTION_TOKEN。' })
-      return
-    }
-
-    const databaseIdRaw = process.env.NOTION_DB_WORKUNIT ?? ''
-    const databaseId = toHyphenId(databaseIdRaw)
-    if (!databaseIdRaw) {
-      sendJson(res, 500, { message: '未配置 NOTION_DB_WORKUNIT，无法解析数据库 ID。' })
-      return
-    }
-    if (!isNotionId(databaseId)) {
-      sendJson(res, 500, { message: 'NOTION_DB_WORKUNIT 不是有效的 Notion 数据库 ID。' })
-      return
-    }
-
-    const typeValue = String(url.searchParams.get('type') ?? '培训').trim() || '培训'
-
-    const toText = (list) => (Array.isArray(list) ? list.map((item) => item?.plain_text ?? '').join('') : '')
-    const formatPropertyValue = (prop) => {
-      const type = prop?.type
-      if (type === 'title') return toText(prop?.title)
-      if (type === 'rich_text') return toText(prop?.rich_text)
-      if (type === 'select') return prop?.select?.name ?? ''
-      if (type === 'multi_select') return Array.isArray(prop?.multi_select) ? prop.multi_select.map((i) => i?.name ?? '').filter(Boolean) : []
-      if (type === 'date') return prop?.date?.start ?? ''
-      if (type === 'number') return prop?.number ?? null
-      if (type === 'checkbox') return Boolean(prop?.checkbox)
-      if (type === 'people') return Array.isArray(prop?.people) ? prop.people.map((p) => p?.name ?? '').filter(Boolean).join(',') : ''
-      return null
-    }
-
-    const pick = (props, key) => (props && props[key] ? formatPropertyValue(props[key]) : '')
-    const formatWorkUnit = (page) => {
-      const props = page?.properties ?? {}
-      const name = pick(props, '项目名称') || pick(props, '名称') || pick(props, '标题') || pick(props, 'Name') || ''
-      return {
-        id: page.id,
-        项目名称: name,
-        类型: pick(props, '类型'),
-        状态: pick(props, '状态'),
-        当前阶段: pick(props, '当前阶段'),
-        负责人: pick(props, '负责人'),
-        计划日期: pick(props, '计划日期'),
-        目标对象: pick(props, '目标对象'),
-        参与人数: pick(props, '参与人数'),
-        满意度: pick(props, '满意度'),
-        项目类型: pick(props, '项目类型'),
-      }
-    }
+    console.log('[workunit] DB ID:', process.env.NOTION_DB_WORKUNIT)
 
     try {
+      const token = process.env.NOTION_TOKEN ?? ''
+      if (!token) {
+        sendJson(res, 500, { message: 'Notion 中转未配置 NOTION_TOKEN。' })
+        return
+      }
+
+      const databaseIdRaw = process.env.NOTION_DB_WORKUNIT ?? ''
+      const databaseId = toHyphenId(databaseIdRaw)
+      if (!databaseIdRaw) {
+        sendJson(res, 500, { message: '未配置 NOTION_DB_WORKUNIT，无法解析数据库 ID。' })
+        return
+      }
+      if (!isNotionId(databaseId)) {
+        sendJson(res, 500, { message: 'NOTION_DB_WORKUNIT 不是有效的 Notion 数据库 ID。' })
+        return
+      }
+
+      const typeValue = String(url.searchParams.get('type') ?? '培训').trim() || '培训'
+
+      const toText = (list) => (Array.isArray(list) ? list.map((item) => item?.plain_text ?? '').join('') : '')
+      const formatPropertyValue = (prop) => {
+        const type = prop?.type
+        if (type === 'title') return toText(prop?.title)
+        if (type === 'rich_text') return toText(prop?.rich_text)
+        if (type === 'select') return prop?.select?.name ?? ''
+        if (type === 'multi_select')
+          return Array.isArray(prop?.multi_select) ? prop.multi_select.map((i) => i?.name ?? '').filter(Boolean) : []
+        if (type === 'date') return prop?.date?.start ?? ''
+        if (type === 'number') return prop?.number ?? null
+        if (type === 'checkbox') return Boolean(prop?.checkbox)
+        if (type === 'people')
+          return Array.isArray(prop?.people) ? prop.people.map((p) => p?.name ?? '').filter(Boolean).join(',') : ''
+        return null
+      }
+
+      const pick = (props, key) => (props && props[key] ? formatPropertyValue(props[key]) : '')
+      const formatWorkUnit = (page) => {
+        const props = page?.properties ?? {}
+        const name = pick(props, '项目名称') || pick(props, '名称') || pick(props, '标题') || pick(props, 'Name') || ''
+        return {
+          id: page.id,
+          项目名称: name,
+          类型: pick(props, '类型'),
+          状态: pick(props, '状态'),
+          当前阶段: pick(props, '当前阶段'),
+          负责人: pick(props, '负责人'),
+          计划日期: pick(props, '计划日期'),
+          目标对象: pick(props, '目标对象'),
+          参与人数: pick(props, '参与人数'),
+          满意度: pick(props, '满意度'),
+          项目类型: pick(props, '项目类型'),
+        }
+      }
+
       const makeRequest = async (withFilter) => {
         const body = {
           page_size: 100,
@@ -409,8 +413,9 @@ const server = http.createServer(async (req, res) => {
       )
       return
     } catch (error) {
-      console.error('[workunit/list] exception', error)
-      sendJson(res, 500, { message: error instanceof Error ? error.message : 'Notion 查询失败。' })
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('[workunit] error:', message, error instanceof Error ? error.stack : '')
+      sendJson(res, 500, { error: message })
       return
     }
   }
