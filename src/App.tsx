@@ -20,6 +20,7 @@ import Dashboard from './pages/Dashboard'
 const MODULE_PATH_MAP: Record<AMLModule, string> = {
   dashboard: '/dashboard',
   policy: '/org/library',
+  policyFavorites: '/org/library?view=favorites',
   policyProcess: '/org/library',
   policyKnowledge: '/org/library',
   responsibility: '/org/responsibility',
@@ -36,9 +37,13 @@ const MODULE_PATH_MAP: Record<AMLModule, string> = {
   rectification: '/special/rectification',
 }
 
-function getActiveModuleByPath(pathname: string): AMLModule {
+function getActiveModuleByPath(pathname: string, search: string): AMLModule {
   if (pathname.startsWith('/library')) return 'policy'
-  if (pathname.startsWith('/org/library')) return 'policy'
+  if (pathname.startsWith('/org/library')) {
+    const view = new URLSearchParams(search).get('view')
+    if (view === 'favorites') return 'policyFavorites'
+    return 'policy'
+  }
   if (pathname.startsWith('/org/policy')) return 'policy'
 
   const matched = (Object.entries(MODULE_PATH_MAP) as Array<[AMLModule, string]>).find(([module, path]) => {
@@ -51,7 +56,7 @@ function getActiveModuleByPath(pathname: string): AMLModule {
 function App() {
   const location = useLocation()
   const navigate = useNavigate()
-  const activeModule = getActiveModuleByPath(location.pathname)
+  const activeModule = getActiveModuleByPath(location.pathname, location.search)
 
   return (
     <Layout

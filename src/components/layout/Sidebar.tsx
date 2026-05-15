@@ -11,6 +11,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ShieldCheck,
+  Star,
   UserCheck,
   Users,
 } from 'lucide-react';
@@ -64,6 +65,12 @@ const NAV_GROUPS: SidebarGroup[] = [
         label: '资料库',
         features: ['统一列表', '高级搜索', '导入导出'],
         icon: FolderOpen,
+      },
+      {
+        module: 'policyFavorites',
+        label: '⭐ 我的收藏',
+        features: ['收藏列表', '快速筛选'],
+        icon: Star,
       },
       {
         module: 'responsibility',

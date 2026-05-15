@@ -8,14 +8,14 @@ import {
   Star,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { queryDatabase } from '../../api/notion'
 import { Modal } from '../shared/Modal'
 
 type LibraryCategory = '全部' | '内控制度' | '法律法规' | '流程' | '图书' | '论文' | '其他'
 type Timeliness = '有效' | '已废止' | '修订中' | '草案' | '尚未生效'
 type SearchScope = 'title' | 'summary' | 'full'
-type PageSize = 10 | 15 | 20 | 'all'
+type PageSize = 5 | 10 | 15 | 20 | 'all'
 type SortKey = 'relevance' | 'publishDateAsc' | 'publishDateDesc' | 'effectiveDateAsc' | 'effectiveDateDesc'
 
 type LibraryDoc = {
@@ -60,6 +60,24 @@ const TOPIC_TAG_OPTIONS = `客户尽调（CDD）/ 加强尽调（EDD）/ 持续�
   .split('/')
   .map((x) => x.trim())
   .filter(Boolean)
+
+const FAVORITES_KEY = 'aml_favorites'
+
+function readFavorites(): string[] {
+  try {
+    const raw = localStorage.getItem(FAVORITES_KEY)
+    const parsed = raw ? (JSON.parse(raw) as unknown) : []
+    return Array.isArray(parsed) ? parsed.map((x) => String(x ?? '')).filter(Boolean) : []
+  } catch {
+    return []
+  }
+}
+
+function writeFavorites(ids: string[]) {
+  try {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids))
+  } catch {}
+}
 
 type PrintPaperSize = 'A4' | 'A3' | 'Letter'
 type PrintOrientation = 'portrait' | 'landscape'
@@ -297,6 +315,8 @@ function normalizeNotionTimeliness(statusValue: string, dateValue: string): Time
 
 export function PolicyModule() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const onlyFavorites = useMemo(() => new URLSearchParams(location.search).get('view') === 'favorites', [location.search])
 
   const [localDocs, setLocalDocs] = useState<LibraryDoc[]>([])
   const [notionDocs, setNotionDocs] = useState<LibraryDoc[]>([])
@@ -320,9 +340,11 @@ export function PolicyModule() {
   const [pageSize, setPageSize] = useState<PageSize>(10)
   const [sortBy, setSortBy] = useState<SortKey>('relevance')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [favorites, setFavorites] = useState<string[]>(() => readFavorites())
 
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
+  const [bottomExportMenuOpen, setBottomExportMenuOpen] = useState(false)
   const [printOpen, setPrintOpen] = useState(false)
   const [mergePrint, setMergePrint] = useState(true)
   const [printSettings, setPrintSettings] = useState<PrintSettings>(() => {
@@ -352,11 +374,31 @@ export function PolicyModule() {
 
   const exportMenuRef = useRef<HTMLDivElement | null>(null)
   const sortMenuRef = useRef<HTMLDivElement | null>(null)
+  const bottomExportMenuRef = useRef<HTMLDivElement | null>(null)
   const createFileInputRef = useRef<HTMLInputElement | null>(null)
   const beforePrintTitleRef = useRef<string>('')
 
   const [pageContentCache, setPageContentCache] = useState<Record<string, string>>({})
   const [printBodyById, setPrintBodyById] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    setFavorites(readFavorites())
+  }, [])
+
+  const favoritesSet = useMemo(() => new Set(favorites.map((x) => toHyphenId(x))), [favorites])
+
+  const toggleFavoriteIds = (ids: string[]) => {
+    const normalized = ids.map((id) => toHyphenId(id))
+    setFavorites((prev) => {
+      const set = new Set(prev.map((x) => toHyphenId(x)))
+      const allSelected = normalized.length > 0 && normalized.every((id) => set.has(id))
+      const next = allSelected
+        ? prev.filter((x) => !normalized.includes(toHyphenId(x)))
+        : Array.from(new Set([...prev.map((x) => toHyphenId(x)), ...normalized]))
+      writeFavorites(next)
+      return next
+    })
+  }
 
   const parseFile = async (file: File): Promise<string> => {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
@@ -538,6 +580,7 @@ export function PolicyModule() {
     const scopes = new Set(searchScopes.length > 0 ? searchScopes : (['title', 'summary', 'full'] as const))
 
     const rows = docsForFilter
+      .filter((d) => (!onlyFavorites ? true : favoritesSet.has(toHyphenId(d.id))))
       .filter((d) => (category.length === 0 || category.includes('全部') ? true : category.includes(d.category)))
       .filter((d) => (timeliness.length === 0 ? true : timeliness.includes(d.timeliness)))
       .filter((d) => (sourceLevels.length === 0 ? true : sourceLevels.includes(d.sourceLevel || '其他')))
@@ -593,7 +636,7 @@ export function PolicyModule() {
     })
 
     return sorted
-  }, [advanced, category, docsForFilter, keyword, searchScopes, sortBy, sourceLevels, timeliness, topicTags])
+  }, [advanced, category, docsForFilter, favoritesSet, keyword, onlyFavorites, searchScopes, sortBy, sourceLevels, timeliness, topicTags])
 
   const pageRows = useMemo(() => {
     if (pageSize === 'all') return filtered
@@ -602,6 +645,13 @@ export function PolicyModule() {
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
   const canBatch = selectedIds.length > 0
+
+  const pageRowIds = useMemo(() => pageRows.map((d) => d.id), [pageRows])
+  const allPageSelected = useMemo(
+    () => pageRowIds.length > 0 && pageRowIds.every((id) => selectedSet.has(id)),
+    [pageRowIds, selectedSet],
+  )
+  const somePageSelected = useMemo(() => pageRowIds.some((id) => selectedSet.has(id)), [pageRowIds, selectedSet])
 
   const selectedDocs = useMemo(() => {
     const map = new Map<string, LibraryDoc>()
@@ -951,9 +1001,11 @@ export function PolicyModule() {
       const target = event.target as Node | null
       if (!target) return
       if (exportMenuRef.current?.contains(target)) return
+      if (bottomExportMenuRef.current?.contains(target)) return
       if (sortMenuRef.current?.contains(target)) return
       setExportMenuOpen(false)
       setSortMenuOpen(false)
+      setBottomExportMenuOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -1262,11 +1314,36 @@ export function PolicyModule() {
 
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedIds((prev) => {
+                if (pageRowIds.length === 0) return prev
+                const set = new Set(prev)
+                const allSelected = pageRowIds.every((id) => set.has(id))
+                if (allSelected) return prev.filter((id) => !pageRowIds.includes(id))
+                pageRowIds.forEach((id) => set.add(id))
+                return Array.from(set)
+              })
+            }
+            className={`inline-flex items-center gap-2 rounded border bg-white px-3 py-2 text-sm ${
+              pageRowIds.length === 0
+                ? 'cursor-not-allowed border-slate-200 text-slate-400'
+                : somePageSelected
+                  ? 'border-blue-200 bg-blue-50 text-blue-700'
+                  : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+            }`}
+            disabled={pageRowIds.length === 0}
+          >
+            <input type="checkbox" readOnly checked={allPageSelected} className="pointer-events-none" />
+            全选本页
+          </button>
           <div ref={exportMenuRef} className="relative">
             <button
               type="button"
               onClick={() => {
                 setSortMenuOpen(false)
+                setBottomExportMenuOpen(false)
                 setExportMenuOpen((prev) => !prev)
               }}
               className={`inline-flex items-center gap-2 rounded border bg-white px-3 py-2 text-sm ${
@@ -1385,14 +1462,17 @@ export function PolicyModule() {
 
           <button
             type="button"
-            onClick={() => window.alert('Mock：批量收藏')}
+            onClick={() => {
+              if (!canBatch) return
+              toggleFavoriteIds(selectedDocs.map((d) => d.id))
+            }}
             className={`inline-flex items-center gap-2 rounded border bg-white px-3 py-2 text-sm ${
               canBatch ? 'border-slate-200 text-slate-700 hover:bg-slate-50' : 'cursor-not-allowed border-slate-200 text-slate-400'
             }`}
             disabled={!canBatch}
           >
             <Star className="h-4 w-4" />
-            批量收藏
+            收藏
           </button>
         </div>
 
@@ -1403,10 +1483,11 @@ export function PolicyModule() {
               value={String(pageSize)}
               onChange={(e) => {
                 const v = e.target.value
-                setPageSize(v === 'all' ? 'all' : (Number(v) as 10 | 15 | 20))
+                setPageSize(v === 'all' ? 'all' : (Number(v) as 5 | 10 | 15 | 20))
               }}
               className="border-none bg-transparent text-sm outline-none"
             >
+              <option value="5">5</option>
               <option value="10">10</option>
               <option value="15">15</option>
               <option value="20">20</option>
@@ -1419,6 +1500,7 @@ export function PolicyModule() {
               type="button"
               onClick={() => {
                 setExportMenuOpen(false)
+                setBottomExportMenuOpen(false)
                 setSortMenuOpen((prev) => !prev)
               }}
               className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
@@ -1541,10 +1623,16 @@ export function PolicyModule() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => window.alert('Mock：收藏')}
+                      onClick={() => toggleFavoriteIds([doc.id])}
                       className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
                     >
-                      收藏
+                      <span className="inline-flex items-center gap-1">
+                        <Star
+                          className={`h-4 w-4 ${favoritesSet.has(toHyphenId(doc.id)) ? 'text-amber-500' : 'text-slate-500'}`}
+                          fill={favoritesSet.has(toHyphenId(doc.id)) ? 'currentColor' : 'none'}
+                        />
+                        收藏
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -1553,6 +1641,144 @@ export function PolicyModule() {
           )
         })}
       </div>
+
+      {canBatch ? (
+        <div className="no-print fixed inset-x-0 bottom-4 z-40 px-4">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg">
+            <div className="text-sm text-slate-700">已选 {selectedIds.length} 篇</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div ref={bottomExportMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExportMenuOpen(false)
+                    setSortMenuOpen(false)
+                    setBottomExportMenuOpen((prev) => !prev)
+                  }}
+                  className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  导出
+                </button>
+                {bottomExportMenuOpen ? (
+                  <div className="absolute bottom-[calc(100%+8px)] left-0 z-40 w-72 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+                    <div className="px-4 py-2 text-xs font-semibold text-slate-500">正文内容导出</div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBottomExportMenuOpen(false)
+                        void startPrint(selectedDocs, 'merge')
+                      }}
+                      className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <span>导出为 PDF</span>
+                      <span className="text-xs text-slate-400">打印另存为</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setBottomExportMenuOpen(false)
+                        await exportDocx()
+                      }}
+                      className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <span>导出为 Word</span>
+                      <span className="text-xs text-slate-400">.docx</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setBottomExportMenuOpen(false)
+                        await exportDocs('md')
+                      }}
+                      className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <span>导出为 Markdown</span>
+                      <span className="text-xs text-slate-400">.md</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setBottomExportMenuOpen(false)
+                        await exportDocs('txt')
+                      }}
+                      className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <span>导出为 TXT</span>
+                      <span className="text-xs text-slate-400">.txt</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setBottomExportMenuOpen(false)
+                        await exportClausesXlsx()
+                      }}
+                      className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <span>导出为 Excel（按条目）</span>
+                      <span className="text-xs text-slate-400">.xlsx</span>
+                    </button>
+
+                    <div className="border-t border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500">清单导出</div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setBottomExportMenuOpen(false)
+                        await exportDocListXlsx()
+                      }}
+                      className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <span>导出文档清单为 Excel</span>
+                      <span className="text-xs text-slate-400">.xlsx</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBottomExportMenuOpen(false)
+                        void exportDocListCsv()
+                      }}
+                      className="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      <span>导出文档清单为 CSV</span>
+                      <span className="text-xs text-slate-400">.csv</span>
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPrintDocs(selectedDocs)
+                  setPrintIndex(0)
+                  setSeparatePrint(false)
+                  setMergePrint(true)
+                  setPrintOpen(true)
+                }}
+                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                打印
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleFavoriteIds(selectedDocs.map((d) => d.id))}
+                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                收藏
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBottomExportMenuOpen(false)
+                  setSelectedIds([])
+                }}
+                className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white hover:bg-slate-800"
+              >
+                取消选择
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="print-content hidden">
         {(() => {

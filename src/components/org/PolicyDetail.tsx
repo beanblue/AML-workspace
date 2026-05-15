@@ -12,13 +12,13 @@ import {
   PanelRightOpen,
   Printer,
   Search,
-  Share2,
   Star,
   X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { queryDatabase } from '../../api/notion'
+import { Modal } from '../shared/Modal'
 
 type NotionDocumentRow = {
   id: string
@@ -66,7 +66,7 @@ type PrintLineHeight = '1.5' | '1.8' | '2.0' | '2.5'
 type PrintIndent = '0' | '1' | '2'
 type PrintParagraphSpacing = '4pt' | '6pt' | '8pt'
 type PrintMargin = 'standard' | 'loose' | 'compact'
-type PrintRange = 'full' | 'selection' | 'custom'
+type PrintRange = 'full' | 'selection' | 'custom' | 'clauses'
 
 type PrintSettings = {
   paperSize: PrintPaperSize
@@ -171,6 +171,24 @@ function downloadBlob(blob: Blob, filename: string) {
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
+}
+
+const FAVORITES_KEY = 'aml_favorites'
+
+function readFavorites(): string[] {
+  try {
+    const raw = localStorage.getItem(FAVORITES_KEY)
+    const parsed = raw ? (JSON.parse(raw) as unknown) : []
+    return Array.isArray(parsed) ? parsed.map((x) => String(x ?? '')).filter(Boolean) : []
+  } catch {
+    return []
+  }
+}
+
+function writeFavorites(ids: string[]) {
+  try {
+    localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids))
+  } catch {}
 }
 
 function normalizeTextList(raw: unknown): string[] {
@@ -490,14 +508,20 @@ export default function PolicyDetail() {
   const [allDocs, setAllDocs] = useState<NotionDocumentRow[]>([])
   const [pageContent, setPageContent] = useState<string>('')
   const [pageContentLoading, setPageContentLoading] = useState(false)
-  const [favorites, setFavorites] = useState<string[]>([])
+  const [favorites, setFavorites] = useState<string[]>(() => readFavorites())
   const [search, setSearch] = useState('')
   const [activeTocId, setActiveTocId] = useState<string>('fulltext')
   const [collapsedTocIds, setCollapsedTocIds] = useState<string[]>([])
   const [printOpen, setPrintOpen] = useState(false)
   const [pendingPrint, setPendingPrint] = useState(false)
   const [selectedText, setSelectedText] = useState('')
+  const [selectedClauseIds, setSelectedClauseIds] = useState<string[]>([])
   const [exportOpen, setExportOpen] = useState(false)
+  const [exportSettingsOpen, setExportSettingsOpen] = useState(false)
+  const [exportRange, setExportRange] = useState<'clauses' | 'full' | 'custom'>('clauses')
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'docx' | 'md'>('pdf')
+  const [exportCustomOutlineIds, setExportCustomOutlineIds] = useState<string[]>([])
+  const [clausePageSize, setClausePageSize] = useState<5 | 10 | 15 | 20 | 'all'>(10)
   const [printSettings, setPrintSettings] = useState<PrintSettings>(() => {
     const raw = localStorage.getItem('aml-print-settings')
     if (!raw) return DEFAULT_PRINT_SETTINGS
@@ -517,6 +541,12 @@ export default function PolicyDetail() {
   const contentRef = useRef<HTMLDivElement | null>(null)
   const beforePrintTitleRef = useRef<string>('')
   const exportRef = useRef<HTMLDivElement | null>(null)
+
+  const favoriteSet = useMemo(() => new Set(favorites.map((x) => toHyphenId(x))), [favorites])
+
+  useEffect(() => {
+    setFavorites(readFavorites())
+  }, [])
 
   useEffect(() => {
     const run = async () => {
@@ -631,6 +661,15 @@ export default function PolicyDetail() {
     return set
   }, [activeTocId, parentMap])
 
+  const tocExpandableIds = useMemo(
+    () =>
+      sections
+        .filter((node) => node.type !== 'article')
+        .filter((node) => (childrenMap.get(node.id) ?? []).length > 0)
+        .map((node) => node.id),
+    [childrenMap, sections],
+  )
+
   const printOutlineOptions = useMemo(() => {
     const byId = new Map(sections.map((s) => [s.id, s]))
     return sections
@@ -646,6 +685,29 @@ export default function PolicyDetail() {
   }, [sections])
 
   const printableSections = useMemo(() => {
+    if (printSettings.range === 'clauses') {
+      if (selectedClauseIds.length === 0) return []
+      const selected = new Set(selectedClauseIds)
+      const included = new Set<string>()
+      const byId = new Map(sections.map((s) => [s.id, s]))
+      const addAncestors = (node: SectionNode) => {
+        if (!node.parentId) return
+        const parent = byId.get(node.parentId)
+        if (!parent) return
+        included.add(parent.id)
+        addAncestors(parent)
+      }
+
+      sections.forEach((node) => {
+        if (node.type !== 'article') return
+        if (!selected.has(node.id)) return
+        included.add(node.id)
+        addAncestors(node)
+      })
+
+      return sections.filter((node) => included.has(node.id))
+    }
+
     if (printSettings.range !== 'custom') return sections
     if (printSettings.customOutlineIds.length === 0) return []
 
@@ -667,15 +729,16 @@ export default function PolicyDetail() {
     })
 
     return sections.filter((node) => included.has(node.id))
-  }, [childrenMap, printSettings.customOutlineIds, printSettings.range, sections])
+  }, [childrenMap, printSettings.customOutlineIds, printSettings.range, sections, selectedClauseIds])
 
   const effectivePrintRange = useMemo(() => {
+    if (printSettings.range === 'clauses') return selectedClauseIds.length > 0 ? 'clauses' : 'full'
     if (printSettings.range !== 'selection') return printSettings.range
     return selectedText.trim() ? 'selection' : 'full'
-  }, [printSettings.range, selectedText])
+  }, [printSettings.range, selectedClauseIds.length, selectedText])
 
   const printableForRange = useMemo(() => {
-    if (effectivePrintRange === 'custom') return printableSections
+    if (effectivePrintRange === 'custom' || effectivePrintRange === 'clauses') return printableSections
     return sections
   }, [effectivePrintRange, printableSections, sections])
 
@@ -803,6 +866,43 @@ export default function PolicyDetail() {
     return sections.filter((node) => included.has(node.id))
   }, [search, sections])
 
+  const displaySections = useMemo(() => {
+    if (parseMode === 'chapter') return visibleSections
+    const articles = visibleSections.filter((node) => node.type === 'article')
+    const pageArticles = clausePageSize === 'all' ? articles : articles.slice(0, clausePageSize)
+    const included = new Set<string>()
+    const byId = new Map(visibleSections.map((s) => [s.id, s]))
+    const addAncestors = (node: SectionNode) => {
+      if (!node.parentId) return
+      const parent = byId.get(node.parentId)
+      if (!parent) return
+      included.add(parent.id)
+      addAncestors(parent)
+    }
+    pageArticles.forEach((node) => {
+      included.add(node.id)
+      addAncestors(node)
+    })
+    return visibleSections.filter((node) => included.has(node.id))
+  }, [clausePageSize, parseMode, visibleSections])
+
+  const pageClauseIds = useMemo(() => {
+    if (parseMode === 'chapter') return []
+    const articles = visibleSections.filter((node) => node.type === 'article')
+    const pageArticles = clausePageSize === 'all' ? articles : articles.slice(0, clausePageSize)
+    return pageArticles.map((x) => x.id)
+  }, [clausePageSize, parseMode, visibleSections])
+
+  const allClausesSelected = useMemo(
+    () => pageClauseIds.length > 0 && pageClauseIds.every((id) => selectedClauseIds.includes(id)),
+    [pageClauseIds, selectedClauseIds],
+  )
+
+  const someClausesSelected = useMemo(
+    () => pageClauseIds.some((id) => selectedClauseIds.includes(id)),
+    [pageClauseIds, selectedClauseIds],
+  )
+
   useEffect(() => {
     if (visibleSections.length === 0) return
     const firstArticle = visibleSections.find((s) => s.type === 'article')
@@ -869,42 +969,80 @@ export default function PolicyDetail() {
   return (
     <section className="space-y-3">
       <div className="no-print space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => navigate('/org/library')}
-          className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          返回
-        </button>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
-          <span className="inline-flex items-center gap-1">
-            文件库 <ChevronRight className="h-4 w-4" />
-          </span>
-          <span className="inline-flex items-center gap-1">
-            制度与流程 <ChevronRight className="h-4 w-4" />
-          </span>
-          <span className="text-slate-700">{title || '文档标题'}</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/org/library')}
+              className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              返回
+            </button>
+          </div>
+
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-2 text-sm text-slate-500">
+            <button
+              type="button"
+              onClick={() => navigate('/org/library')}
+              className="inline-flex items-center gap-1 hover:text-slate-900"
+            >
+              资料库 <ChevronRight className="h-4 w-4" />
+            </button>
+            <span className="min-w-0 truncate text-slate-700">{title || '文档标题'}</span>
+          </div>
+
+          <div className="flex w-full items-center justify-end xl:w-auto">
+            <div className="flex w-full items-center rounded-lg border border-slate-200 bg-white px-2 xl:w-72">
+              <Search className="h-4 w-4 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="文档内搜索"
+                className="w-full border-none bg-transparent px-2 py-2 text-sm outline-none"
+              />
+            </div>
+          </div>
         </div>
-      </div>
 
       <div className="flex flex-col gap-3 xl:flex-row xl:items-stretch">
         <aside
-          className={`rounded-xl border border-slate-200 bg-white ${collapsed ? 'xl:w-14' : 'xl:w-[260px]'} flex min-h-0 flex-col`}
+          className={`rounded-xl ${
+            collapsed ? 'border-transparent bg-transparent xl:w-14' : 'border border-slate-200 bg-white xl:w-[260px]'
+          } flex min-h-0 flex-col`}
         >
-          <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
+          <div className={`flex items-center justify-between px-3 py-2 ${collapsed ? '' : 'border-b border-slate-200'}`}>
             <div className="flex items-center gap-2">
               <BookOpenText className="h-4 w-4 text-slate-600" />
               {collapsed ? null : <span className="text-sm font-medium text-slate-800">目录</span>}
             </div>
-            <button
-              type="button"
-              onClick={() => setCollapsed((prev) => !prev)}
-              className="rounded border border-slate-200 bg-white p-1 text-slate-600 hover:bg-slate-50"
-            >
-              {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-            </button>
+            <div className="flex items-center gap-2">
+              {collapsed ? null : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setCollapsedTocIds([])}
+                    className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                  >
+                    全部展开
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCollapsedTocIds(tocExpandableIds)}
+                    className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                  >
+                    全部折叠
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => setCollapsed((prev) => !prev)}
+                className="rounded border border-slate-200 bg-white p-1 text-slate-600 hover:bg-slate-50"
+              >
+                {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           {collapsed ? null : (
@@ -978,19 +1116,9 @@ export default function PolicyDetail() {
                             document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                             setActiveTocId(targetId)
                           }}
-                          className={`w-full rounded px-2 py-2 text-left text-sm ${indentClass} ${
-                            node.type === 'chapter'
-                              ? active
-                                ? 'bg-blue-50 font-semibold text-blue-700'
-                                : 'bg-slate-50 font-semibold text-slate-700 hover:bg-slate-200/70'
-                              : node.type === 'section'
-                                ? active
-                                  ? 'bg-blue-50 font-medium text-blue-700'
-                                  : 'bg-white font-medium text-slate-700 hover:bg-slate-50'
-                                : active
-                                  ? 'bg-blue-50 text-blue-700'
-                                  : 'bg-white text-slate-700 hover:bg-slate-50'
-                          }`}
+                          className={`w-full rounded px-2 py-2 text-left text-sm ${indentClass} border-l-2 ${
+                            active ? 'border-blue-600 text-slate-900' : 'border-transparent text-slate-700 hover:bg-slate-50'
+                          } ${node.type === 'chapter' ? 'font-semibold' : node.type === 'section' ? 'font-medium' : ''}`}
                         >
                           {baseTitle}
                         </button>
@@ -1286,23 +1414,19 @@ export default function PolicyDetail() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setFavorites((prev) => (prev.includes(doc.id) ? prev.filter((x) => x !== doc.id) : [...prev, doc.id]))}
-                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-                    favorites.includes(doc.id)
-                      ? 'border-amber-200 bg-amber-50 text-amber-700'
-                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <Star className="h-4 w-4" />
-                  收藏
-                </button>
-                <button
-                  type="button"
-                  onClick={() => window.alert('Mock：分享链接')}
+                  onClick={() => {
+                    const id = toHyphenId(doc.id)
+                    setFavorites((prev) => {
+                      const set = new Set(prev.map((x) => toHyphenId(x)))
+                      const next = set.has(id) ? prev.filter((x) => toHyphenId(x) !== id) : [...prev, id]
+                      writeFavorites(next)
+                      return next
+                    })
+                  }}
                   className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  <Share2 className="h-4 w-4" />
-                  分享
+                  <Star className={`h-4 w-4 ${favoriteSet.has(toHyphenId(doc.id)) ? 'text-amber-500' : 'text-slate-500'}`} fill={favoriteSet.has(toHyphenId(doc.id)) ? 'currentColor' : 'none'} />
+                  收藏
                 </button>
               </div>
             </div>
@@ -1333,40 +1457,56 @@ export default function PolicyDetail() {
             )}
           </article>
 
-          <article className="rounded-xl border border-slate-200 bg-white p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
-                <button type="button" className="rounded bg-slate-100 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-200">
-                  关联流程({counts.flows})
-                </button>
-                <button type="button" className="rounded bg-slate-100 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-200">
-                  监管依据({counts.basis})
-                </button>
-                <button type="button" className="rounded bg-slate-100 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-200">
-                  操作指引({counts.guides})
-                </button>
-                <button type="button" className="rounded bg-slate-100 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-200">
-                  相关案例({counts.cases})
-                </button>
-                <button type="button" className="rounded bg-slate-100 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-200">
-                  培训材料({counts.trainings})
-                </button>
-              </div>
-
-              <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2">
-                <Search className="h-4 w-4 text-slate-400" />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="条文内搜索"
-                  className="w-48 border-none bg-transparent px-2 py-2 text-sm outline-none"
-                />
-              </div>
-            </div>
-          </article>
-
           <article className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="space-y-4">
+              {parseMode === 'clause' && sections.length > 0 ? (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedClauseIds((prev) => {
+                        if (pageClauseIds.length === 0) return prev
+                        const set = new Set(prev)
+                        const allSelected = pageClauseIds.every((id) => set.has(id))
+                        if (allSelected) return prev.filter((id) => !pageClauseIds.includes(id))
+                        pageClauseIds.forEach((id) => set.add(id))
+                        return Array.from(set)
+                      })
+                    }
+                    className={`inline-flex items-center gap-2 rounded border px-3 py-1.5 text-sm ${
+                      pageClauseIds.length === 0
+                        ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400'
+                        : someClausesSelected
+                          ? 'border-blue-200 bg-blue-50 text-blue-700'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                    disabled={pageClauseIds.length === 0}
+                  >
+                    <input type="checkbox" readOnly checked={allClausesSelected} className="pointer-events-none" />
+                    全选本页
+                  </button>
+
+                  <div className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700">
+                    <span>每页显示:</span>
+                    <select
+                      value={String(clausePageSize)}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        setClausePageSize(v === 'all' ? 'all' : (Number(v) as 5 | 10 | 15 | 20))
+                        setSelectedClauseIds([])
+                      }}
+                      className="border-none bg-transparent text-sm outline-none"
+                    >
+                      <option value="5">5</option>
+                      <option value="10">10</option>
+                      <option value="15">15</option>
+                      <option value="20">20</option>
+                      <option value="all">全部</option>
+                    </select>
+                  </div>
+                </div>
+              ) : null}
+
               {sections.length === 0 ? (
                 <div id="fulltext" className="rounded-lg border border-slate-200 bg-white p-4">
                   <div className="flex flex-wrap items-center gap-2">
@@ -1375,10 +1515,10 @@ export default function PolicyDetail() {
                   </div>
                   {renderSectionContent(parseSourceText, search)}
                 </div>
-              ) : visibleSections.length === 0 ? (
+              ) : displaySections.length === 0 ? (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">无匹配条款</div>
               ) : (
-                visibleSections.map((node) => {
+                displaySections.map((node) => {
                   if (node.type === 'chapter') {
                     return (
                       <div key={node.id} id={node.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -1405,6 +1545,7 @@ export default function PolicyDetail() {
                   const no = noMatch?.[1] ?? '条款'
                   const lead = node.title.replace(no, '').trim()
                   const active = activeTocId === node.id
+                  const checked = selectedClauseIds.includes(node.id)
 
                   return (
                     <div
@@ -1414,6 +1555,13 @@ export default function PolicyDetail() {
                     >
                       <div className="min-w-0">
                         <div className={`flex flex-wrap items-center gap-2 rounded ${active ? 'bg-blue-50 px-2 py-1' : ''}`}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setSelectedClauseIds((prev) => (prev.includes(node.id) ? prev.filter((x) => x !== node.id) : [...prev, node.id]))
+                            }
+                          />
                           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{no}</span>
                           <span className="text-sm font-semibold text-slate-900">{lead || '—'}</span>
                         </div>
@@ -1429,9 +1577,13 @@ export default function PolicyDetail() {
         </main>
 
         <aside
-          className={`rounded-xl border border-slate-200 bg-white ${rightCollapsed ? 'xl:w-10' : 'xl:w-72 xl:max-w-[320px]'} flex min-h-0 flex-col`}
+          className={`rounded-xl ${
+            rightCollapsed
+              ? 'border-transparent bg-transparent xl:w-10'
+              : 'border border-slate-200 bg-white xl:w-72 xl:max-w-[320px]'
+          } flex min-h-0 flex-col`}
         >
-          <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
+          <div className={`flex items-center justify-between px-3 py-2 ${rightCollapsed ? '' : 'border-b border-slate-200'}`}>
             {rightCollapsed ? (
               <div className="flex flex-1 items-center justify-center">
                 <span className="text-xs font-medium text-slate-600" style={{ writingMode: 'vertical-rl' }}>
@@ -1542,6 +1694,269 @@ export default function PolicyDetail() {
         </aside>
       </div>
       </div>
+
+      {parseMode === 'clause' && selectedClauseIds.length > 0 ? (
+        <div className="no-print fixed inset-x-0 bottom-4 z-40 px-4">
+          <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg">
+            <div className="text-sm text-slate-700">已选 {selectedClauseIds.length} 条</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setExportRange('clauses')
+                  setExportSettingsOpen(true)
+                }}
+                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                导出
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPrintSettings((prev) => ({ ...prev, range: 'clauses' }))
+                  setPrintOpen(true)
+                }}
+                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                打印
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedClauseIds([])}
+                className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white hover:bg-slate-800"
+              >
+                取消选择
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <Modal
+        open={exportSettingsOpen}
+        title="导出设置"
+        onClose={() => setExportSettingsOpen(false)}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setExportSettingsOpen(false)}
+              className="rounded border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const range = exportRange
+                const byId = new Map(sections.map((s) => [s.id, s]))
+                const buildCustom = (outlineIds: string[]) => {
+                  if (outlineIds.length === 0) return []
+                  const selected = new Set(outlineIds)
+                  const included = new Set<string>()
+                  const addNode = (node: SectionNode | undefined) => {
+                    if (!node) return
+                    included.add(node.id)
+                    const children = childrenMap.get(node.id) ?? []
+                    children.forEach((cid) => addNode(byId.get(cid)))
+                  }
+                  sections.forEach((node) => {
+                    if (node.type !== 'chapter' && node.type !== 'section') return
+                    if (!selected.has(node.id)) return
+                    addNode(node)
+                  })
+                  return sections.filter((node) => included.has(node.id))
+                }
+
+                const buildClauses = () => {
+                  if (selectedClauseIds.length === 0) return []
+                  const selected = new Set(selectedClauseIds)
+                  const included = new Set<string>()
+                  const addAncestors = (node: SectionNode) => {
+                    if (!node.parentId) return
+                    const parent = byId.get(node.parentId)
+                    if (!parent) return
+                    included.add(parent.id)
+                    addAncestors(parent)
+                  }
+                  sections.forEach((node) => {
+                    if (node.type !== 'article') return
+                    if (!selected.has(node.id)) return
+                    included.add(node.id)
+                    addAncestors(node)
+                  })
+                  return sections.filter((node) => included.has(node.id))
+                }
+
+                const nodes =
+                  range === 'full' ? sections : range === 'custom' ? buildCustom(exportCustomOutlineIds) : buildClauses()
+
+                if (exportFormat === 'pdf') {
+                  setPrintSettings((prev) => ({
+                    ...prev,
+                    range: range === 'full' ? 'full' : range === 'custom' ? 'custom' : 'clauses',
+                    customOutlineIds: range === 'custom' ? exportCustomOutlineIds : prev.customOutlineIds,
+                  }))
+                  setExportSettingsOpen(false)
+                  setPendingPrint(true)
+                  return
+                }
+
+                const base = title || '制度正文'
+                if (exportFormat === 'md') {
+                  const filename = `${base}.md`
+                  const lines: string[] = []
+                  if (title) lines.push(`# ${title}`, '')
+                  if (dept || docNo || publish || effective) {
+                    if (dept) lines.push(`- 发文机关：${dept}`)
+                    if (docNo) lines.push(`- 文号：${docNo}`)
+                    if (publish) lines.push(`- 发布日期：${publish}`)
+                    if (effective) lines.push(`- 生效日期：${effective}`)
+                    lines.push('')
+                  }
+                  nodes.forEach((node) => {
+                    if (node.type === 'chapter') {
+                      lines.push(`## ${node.title}`)
+                      if (node.content) lines.push(node.content)
+                      lines.push('')
+                    } else if (node.type === 'section') {
+                      lines.push(`### ${node.title}`)
+                      if (node.content) lines.push(node.content)
+                      lines.push('')
+                    } else {
+                      lines.push(node.title)
+                      if (node.content) lines.push(node.content)
+                      lines.push('')
+                    }
+                  })
+                  downloadBlob(new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' }), filename)
+                  setExportSettingsOpen(false)
+                  return
+                }
+
+                const mod = await import('docx')
+                const { AlignmentType, Document, HeadingLevel, Packer, Paragraph, TextRun } = mod as unknown as typeof import('docx')
+                const children: any[] = []
+                children.push(
+                  new Paragraph({
+                    text: title || '制度正文',
+                    heading: HeadingLevel.TITLE,
+                    alignment: AlignmentType.CENTER,
+                  }),
+                )
+                if (dept || docNo || publish) {
+                  if (dept) children.push(new Paragraph({ children: [new TextRun({ text: `发文机关：${dept}` })] }))
+                  if (docNo) children.push(new Paragraph({ children: [new TextRun({ text: `文号：${docNo}` })] }))
+                  if (publish) children.push(new Paragraph({ children: [new TextRun({ text: `发布日期：${publish}` })] }))
+                  children.push(new Paragraph({ text: '' }))
+                }
+
+                const addLine = (text: string) => children.push(new Paragraph({ children: [new TextRun(text)] }))
+                nodes.forEach((node) => {
+                  if (node.type === 'chapter') {
+                    children.push(new Paragraph({ text: node.title, heading: HeadingLevel.HEADING_1 }))
+                    if (node.content) node.content.split('\n').map((x) => x.trim()).filter(Boolean).forEach(addLine)
+                    children.push(new Paragraph({ text: '' }))
+                    return
+                  }
+                  if (node.type === 'section') {
+                    children.push(new Paragraph({ text: node.title, heading: HeadingLevel.HEADING_2 }))
+                    if (node.content) node.content.split('\n').map((x) => x.trim()).filter(Boolean).forEach(addLine)
+                    children.push(new Paragraph({ text: '' }))
+                    return
+                  }
+                  addLine(node.title)
+                  if (node.content) node.content.split('\n').map((x) => x.trim()).filter(Boolean).forEach(addLine)
+                  children.push(new Paragraph({ text: '' }))
+                })
+                const docx = new Document({ sections: [{ properties: {}, children }] })
+                const out = await Packer.toBlob(docx)
+                downloadBlob(out, `${base}.docx`)
+                setExportSettingsOpen(false)
+              }}
+              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              确认导出
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-slate-800">范围</div>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { key: 'clauses', label: '已选条文', disabled: selectedClauseIds.length === 0 },
+                { key: 'full', label: '全文', disabled: false },
+                { key: 'custom', label: '自定义章节', disabled: false },
+              ] as const).map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  disabled={item.disabled}
+                  onClick={() => setExportRange(item.key)}
+                  className={`rounded border px-3 py-1.5 text-sm ${
+                    item.disabled
+                      ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400'
+                      : exportRange === item.key
+                        ? 'border-blue-200 bg-blue-50 text-blue-700'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            {exportRange === 'custom' ? (
+              <div className="space-y-2 rounded border border-slate-200 bg-slate-50 p-3">
+                {printOutlineOptions.length === 0 ? (
+                  <p className="text-sm text-slate-500">未识别到章/节，无法自定义章节。</p>
+                ) : (
+                  printOutlineOptions.map((node) => (
+                    <label key={node.id} className={`flex items-start gap-2 text-sm text-slate-700 ${node.depth === 1 ? 'pl-5' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={exportCustomOutlineIds.includes(node.id)}
+                        onChange={() =>
+                          setExportCustomOutlineIds((prev) =>
+                            prev.includes(node.id) ? prev.filter((x) => x !== node.id) : [...prev, node.id],
+                          )
+                        }
+                      />
+                      <span className="flex-1">
+                        {node.depth === 1 && node.parentTitle ? <span className="text-xs text-slate-500">{node.parentTitle} · </span> : null}
+                        {node.title}
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-slate-800">格式</div>
+            <div className="flex flex-wrap gap-2">
+              {([
+                { key: 'pdf', label: 'PDF' },
+                { key: 'docx', label: 'Word(.docx)' },
+                { key: 'md', label: 'Markdown' },
+              ] as const).map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setExportFormat(item.key)}
+                  className={`rounded border px-3 py-1.5 text-sm ${
+                    exportFormat === item.key ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       <div className="print-content hidden">
         <h1>{title || '文档标题'}</h1>
@@ -1870,18 +2285,20 @@ export default function PolicyDetail() {
                       <div className="flex flex-wrap gap-2">
                         {([
                           { key: 'full', label: '全文' },
+                          { key: 'clauses', label: '已选条文' },
                           { key: 'selection', label: '选中内容' },
                           { key: 'custom', label: '自定义章节' },
                         ] as const).map((item) => {
                           const selectionDisabled = item.key === 'selection' && !selectedText.trim()
+                          const clausesDisabled = item.key === 'clauses' && selectedClauseIds.length === 0
                           return (
                             <button
                               key={item.key}
                               type="button"
-                              disabled={selectionDisabled}
+                              disabled={selectionDisabled || clausesDisabled}
                               onClick={() => setPrintSettings((prev) => ({ ...prev, range: item.key }))}
                               className={`rounded border px-3 py-1.5 text-sm ${
-                                selectionDisabled
+                                selectionDisabled || clausesDisabled
                                   ? 'cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400'
                                   : printSettings.range === item.key
                                     ? 'border-blue-200 bg-blue-50 text-blue-700'

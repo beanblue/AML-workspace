@@ -237,6 +237,7 @@ export interface RectificationTask extends BaseEntity {
 export type AMLModule =
   | 'dashboard'
   | 'policy'
+  | 'policyFavorites'
   | 'policyProcess'
   | 'policyKnowledge'
   | 'responsibility'
