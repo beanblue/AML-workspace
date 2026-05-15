@@ -28,7 +28,9 @@ export function TrainingModule() {
         if (!res.ok) throw new Error(String(res.status))
         return res.json()
       })
-      .then((data) => setRows((Array.isArray(data?.results) ? data.results : []) as Array<Record<string, unknown>>))
+      .then((data) =>
+        setRows((Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : []) as Array<Record<string, unknown>>),
+      )
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
   }, [])
@@ -42,20 +44,19 @@ export function TrainingModule() {
   const trainingRows = useMemo(
     () =>
       rows
-        .filter((r) => safeText((r as any).项目类型) === '培训' || safeText((r as any).类型).includes('培训'))
         .map((r) => ({
           id: safeText(r.id),
-          name: safeText((r as any).项目名称) || safeText((r as any).名称) || safeText((r as any).标题) || safeText((r as any).Name) || '未命名培训',
-          type: safeText((r as any).类型) || '培训',
-          stage: safeText((r as any).当前阶段) || '需求立项',
-          owner: safeText((r as any).负责人) || safeText((r as any).Owner) || '未指定',
-          target: safeText((r as any).目标对象) || safeText((r as any).培训对象) || '',
+          name: safeText((r as any).name) || '未命名培训',
+          type: safeText((r as any).type) || '培训',
+          stage: safeText((r as any).stage) || '需求立项',
+          owner: safeText((r as any).owner) || '未指定',
+          target: safeText((r as any).target) || '',
           progress: safeNumber((r as any).阶段完成度) || safeNumber((r as any).进度) || 0,
-          planDate: safeText((r as any).计划日期) || safeText((r as any).开始日期) || '',
-          participants: safeNumber((r as any).参训人次) || 0,
+          planDate: safeText((r as any).planDate) || safeText((r as any).计划日期) || '',
+          participants: safeNumber((r as any).participants) || 0,
           coverage: safeNumber((r as any).人员覆盖率) || safeNumber((r as any).覆盖率) || 0,
-          satisfaction: safeNumber((r as any).满意度评分) || safeNumber((r as any).满意度) || 0,
-          status: safeText((r as any).状态) || safeText((r as any).项目状态) || '',
+          satisfaction: safeNumber((r as any).satisfaction) || 0,
+          status: safeText((r as any).status) || '',
         })),
     [rows],
   )

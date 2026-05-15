@@ -305,7 +305,7 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
 
         try {
           const url = new URL(req.url ?? '', `http://${req.headers.host ?? 'localhost'}`)
-          const typeValue = String(url.searchParams.get('type') ?? '培训').trim() || '培训'
+          const typeValue = String(url.searchParams.get('type') ?? '').trim()
           const databaseId = toHyphenId(databaseIdRaw)
 
           const response = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
@@ -317,14 +317,52 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
             },
             body: JSON.stringify({
               page_size: 100,
-              filter: { property: '项目类型', select: { equals: typeValue } },
             }),
           })
 
           const text = await response.text()
-          res.statusCode = response.status
+          if (!response.ok) {
+            res.statusCode = 500
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ error: 'Notion 查询失败。', status: response.status, body: text }))
+            return
+          }
+
+          const data = JSON.parse(text) as any
+          const results = Array.isArray(data?.results) ? data.results : []
+          const filtered = results.filter((page: any) => {
+            if (!typeValue) return true
+            const name = String(page?.properties?.['项目类型']?.select?.name ?? '').trim()
+            return name === typeValue
+          })
+
+          const toPlainText = (list?: Array<{ plain_text?: string }>) => list?.map((t) => t.plain_text ?? '').join('') ?? ''
+          const propTitle = (prop: any) => toPlainText(prop?.title)
+          const propRichText = (prop: any) => toPlainText(prop?.rich_text)
+          const propSelect = (prop: any) => String(prop?.select?.name ?? '')
+          const propStatus = (prop: any) => String(prop?.status?.name ?? prop?.select?.name ?? '')
+          const propNumber = (prop: any) => (typeof prop?.number === 'number' ? prop.number : null)
+
+          const mapped = filtered.map((page: any) => {
+            const props = page?.properties ?? {}
+            return {
+              id: page.id,
+              name: propTitle(props['项目名称']) || propTitle(props['名称']) || propTitle(props['标题']) || propTitle(props['Name']) || '',
+              type: propSelect(props['项目类型']),
+              stage: propSelect(props['当前阶段']),
+              status: propStatus(props['状态']),
+              owner: propRichText(props['负责人']),
+              department: propRichText(props['牵头部门']),
+              target: propRichText(props['目标对象/参与范围']),
+              participants: propNumber(props['实际参与人数']) ?? 0,
+              satisfaction: propNumber(props['满意度评分']),
+              summary: propRichText(props['项目摘要']),
+            }
+          })
+
+          res.statusCode = 200
           res.setHeader('Content-Type', 'application/json')
-          res.end(text)
+          res.end(JSON.stringify(mapped))
         } catch (error) {
           res.statusCode = 500
           res.setHeader('Content-Type', 'application/json')

@@ -314,103 +314,66 @@ const server = http.createServer(async (req, res) => {
         return
       }
 
-      const typeValue = String(url.searchParams.get('type') ?? '培训').trim() || '培训'
+      const typeValue = String(url.searchParams.get('type') ?? '').trim()
 
-      const toText = (list) => (Array.isArray(list) ? list.map((item) => item?.plain_text ?? '').join('') : '')
-      const formatPropertyValue = (prop) => {
-        const type = prop?.type
-        if (type === 'title') return toText(prop?.title)
-        if (type === 'rich_text') return toText(prop?.rich_text)
-        if (type === 'select') return prop?.select?.name ?? ''
-        if (type === 'multi_select')
-          return Array.isArray(prop?.multi_select) ? prop.multi_select.map((i) => i?.name ?? '').filter(Boolean) : []
-        if (type === 'date') return prop?.date?.start ?? ''
-        if (type === 'number') return prop?.number ?? null
-        if (type === 'checkbox') return Boolean(prop?.checkbox)
-        if (type === 'people')
-          return Array.isArray(prop?.people) ? prop.people.map((p) => p?.name ?? '').filter(Boolean).join(',') : ''
-        return null
-      }
+      const toPlainText = (list) =>
+        Array.isArray(list) ? list.map((item) => String(item?.plain_text ?? '')).join('') : ''
+      const propTitle = (prop) => toPlainText(prop?.title)
+      const propRichText = (prop) => toPlainText(prop?.rich_text)
+      const propSelect = (prop) => String(prop?.select?.name ?? '')
+      const propStatus = (prop) => String(prop?.status?.name ?? prop?.select?.name ?? '')
+      const propNumber = (prop) => (typeof prop?.number === 'number' ? prop.number : null)
 
-      const pick = (props, key) => (props && props[key] ? formatPropertyValue(props[key]) : '')
-      const formatWorkUnit = (page) => {
-        const props = page?.properties ?? {}
-        const name = pick(props, '项目名称') || pick(props, '名称') || pick(props, '标题') || pick(props, 'Name') || ''
-        return {
-          id: page.id,
-          项目名称: name,
-          类型: pick(props, '类型'),
-          状态: pick(props, '状态'),
-          当前阶段: pick(props, '当前阶段'),
-          负责人: pick(props, '负责人'),
-          计划日期: pick(props, '计划日期'),
-          目标对象: pick(props, '目标对象'),
-          参与人数: pick(props, '参与人数'),
-          满意度: pick(props, '满意度'),
-          项目类型: pick(props, '项目类型'),
-        }
-      }
+      const queryResponse = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Notion-Version': NOTION_VERSION,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ page_size: 100 }),
+      })
 
-      const makeRequest = async (withFilter) => {
-        const body = {
-          page_size: 100,
-          ...(withFilter
-            ? {
-                filter: {
-                  property: '项目类型',
-                  select: { equals: typeValue },
-                },
-              }
-            : {}),
-        }
-        const response = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Notion-Version': NOTION_VERSION,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        })
-        const text = await response.text()
-        return { response, text }
-      }
-
-      let { response, text } = await makeRequest(true)
-      if (!response.ok) {
-        console.error('[workunit/list] query failed', {
-          status: response.status,
-          body: text,
-          databaseId,
-          typeValue,
-        })
-        ;({ response, text } = await makeRequest(false))
-      }
-
-      if (!response.ok) {
-        console.error('[workunit/list] fallback query failed', {
-          status: response.status,
-          body: text,
-          databaseId,
-          typeValue,
-        })
-        sendJson(res, 500, { message: 'Notion 查询失败。', status: response.status })
+      const text = await queryResponse.text()
+      if (!queryResponse.ok) {
+        console.error('[workunit/list] query failed', { status: queryResponse.status, body: text, databaseId })
+        sendJson(res, 500, { error: 'Notion 查询失败。', status: queryResponse.status })
         return
       }
 
       const data = JSON.parse(text)
       const results = Array.isArray(data?.results) ? data.results : []
-      const mapped = results.map(formatWorkUnit).filter((row) => {
-        const v = String(row.项目类型 ?? row.类型 ?? '').trim()
-        return v === typeValue || v.includes(typeValue)
+
+      const filtered = results.filter((page) => {
+        if (!typeValue) return true
+        const prop = page?.properties?.['项目类型']
+        const name = String(prop?.select?.name ?? '').trim()
+        return name === typeValue
       })
-      sendJson(
-        res,
-        200,
-        {
-          results: mapped.map(({ 项目类型, ...rest }) => rest),
-        },
-      )
+
+      const mapped = filtered.map((page) => {
+        const props = page?.properties ?? {}
+        return {
+          id: page.id,
+          name:
+            propTitle(props['项目名称']) ||
+            propTitle(props['名称']) ||
+            propTitle(props['标题']) ||
+            propTitle(props['Name']) ||
+            '',
+          type: propSelect(props['项目类型']),
+          stage: propSelect(props['当前阶段']),
+          status: propStatus(props['状态']),
+          owner: propRichText(props['负责人']),
+          department: propRichText(props['牵头部门']),
+          target: propRichText(props['目标对象/参与范围']),
+          participants: propNumber(props['实际参与人数']) ?? 0,
+          satisfaction: propNumber(props['满意度评分']),
+          summary: propRichText(props['项目摘要']),
+        }
+      })
+
+      sendJson(res, 200, mapped)
       return
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

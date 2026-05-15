@@ -39,6 +39,7 @@ function stageIndex(value: string): number {
 
 function getWorkUnitName(row: NotionWorkUnitRow | null): string {
   return (
+    safeText((row as any)?.name) ||
     safeText(row?.项目名称) ||
     safeText(row?.名称) ||
     safeText(row?.标题) ||
@@ -48,20 +49,20 @@ function getWorkUnitName(row: NotionWorkUnitRow | null): string {
 }
 
 function getWorkUnitType(row: NotionWorkUnitRow | null): string {
-  return safeText(row?.类型) || safeText(row?.项目类型) || '培训'
+  return safeText((row as any)?.type) || safeText(row?.类型) || safeText(row?.项目类型) || '培训'
 }
 
 function getWorkUnitStage(row: NotionWorkUnitRow | null): StageKey {
-  const raw = safeText(row?.当前阶段) || safeText(row?.阶段) || '需求立项'
+  const raw = safeText((row as any)?.stage) || safeText(row?.当前阶段) || safeText(row?.阶段) || '需求立项'
   return (STAGES.includes(raw as StageKey) ? raw : '需求立项') as StageKey
 }
 
 function getWorkUnitOwner(row: NotionWorkUnitRow | null): string {
-  return safeText(row?.负责人) || safeText(row?.Owner) || safeText(row?.owner) || '未指定'
+  return safeText((row as any)?.owner) || safeText(row?.负责人) || safeText(row?.Owner) || safeText(row?.owner) || '未指定'
 }
 
 function getWorkUnitPlanDate(row: NotionWorkUnitRow | null): string {
-  return safeText(row?.计划日期) || safeText(row?.计划开始) || safeText(row?.开始日期) || ''
+  return safeText((row as any)?.planDate) || safeText(row?.计划日期) || safeText(row?.计划开始) || safeText(row?.开始日期) || ''
 }
 
 export default function TrainingDetail() {
@@ -101,7 +102,7 @@ export default function TrainingDetail() {
         return res.json()
       })
       .then((data) => {
-        const list = (Array.isArray(data?.results) ? data.results : []) as NotionWorkUnitRow[]
+        const list = (Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : []) as NotionWorkUnitRow[]
         const found = list.find((r) => safeText(r.id) === workUnitId) ?? null
         setWorkUnit(found)
       })
