@@ -352,6 +352,7 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
               type: propSelect(props['项目类型']),
               stage: propSelect(props['当前阶段']),
               status: propStatus(props['状态']),
+              source: propSelect(props['项目来源']),
               owner: propRichText(props['负责人']),
               department: propRichText(props['牵头部门']),
               planStartDate: propDate(props['计划开始日期']) || propDate(props['计划日期']) || '',
@@ -402,6 +403,7 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
           const owner = String((body as any)?.owner ?? '').trim()
           const target = String((body as any)?.target ?? '').trim()
           const planEndDate = String((body as any)?.planEndDate ?? '').trim()
+          const source = (String((body as any)?.source ?? '年度计划').trim() || '年度计划') as string
           if (!name) {
             res.statusCode = 400
             res.setHeader('Content-Type', 'application/json')
@@ -414,6 +416,7 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
             项目类型: { select: { name: '培训' } },
             当前阶段: { select: { name: '需求立项' } },
             状态: { status: { name: '立项中' } },
+            项目来源: { select: { name: source } },
             ...(owner ? { 负责人: { rich_text: [{ text: { content: owner } }] } } : {}),
             ...(target ? { '目标对象/参与范围': { rich_text: [{ text: { content: target } }] } } : {}),
             ...(planEndDate ? { 计划完成日期: { date: { start: planEndDate } } } : {}),
@@ -566,7 +569,6 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
           const propRichText = (prop: any) => toPlainText(prop?.rich_text)
           const propSelect = (prop: any) => String(prop?.select?.name ?? '')
           const propStatus = (prop: any) => String(prop?.status?.name ?? prop?.select?.name ?? '')
-          const propNumber = (prop: any) => (typeof prop?.number === 'number' ? prop.number : null)
           const propDate = (prop: any) => String(prop?.date?.start ?? '')
           const propPeople = (prop: any) =>
             Array.isArray(prop?.people) ? prop.people.map((p: any) => String(p?.name ?? '')).filter(Boolean).join(' / ') : ''
@@ -574,41 +576,28 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
 
           const filtered = results.filter((page: any) => {
             const props = page?.properties ?? {}
-            const rel =
-              props['所属工作项目'] ??
-              props['所属工作单元'] ??
-              props['WorkUnit'] ??
-              props['工作项目'] ??
-              props['工作项目台账'] ??
-              null
-            const ids = propRelationIds(rel).map((x: string) => toHyphenId(x))
-            return ids.includes(workUnitId)
+            const rel = props['所属工作项目']
+            const ids = propRelationIds(rel).map((x: string) => toHyphenId(x).replace(/-/g, ''))
+            return ids.includes(workUnitId.replace(/-/g, ''))
           })
 
-          const mapped = filtered
-            .map((page: any) => {
-              const props = page?.properties ?? {}
-              return {
-                id: page.id,
-                name:
-                  propTitle(props['节点名称']) ||
-                  propTitle(props['任务名称']) ||
-                  propTitle(props['名称']) ||
-                  propTitle(props['标题']) ||
-                  propTitle(props['Name']) ||
-                  '',
-                stage: propSelect(props['所属阶段']) || propSelect(props['当前阶段']) || propSelect(props['阶段']) || '',
-                order: propNumber(props['顺序']) ?? propNumber(props['排序']) ?? null,
-                status: propStatus(props['状态']),
-                assignee: propPeople(props['负责人']) || propPeople(props['执行人']) || propRichText(props['负责人']) || '',
-                dueDate: propDate(props['截止日期']) || propDate(props['到期日']) || propDate(props['计划完成日期']) || '',
-              }
-            })
-            .sort((a: any, b: any) => {
-              const ao = typeof a.order === 'number' ? a.order : Number.POSITIVE_INFINITY
-              const bo = typeof b.order === 'number' ? b.order : Number.POSITIVE_INFINITY
-              return ao - bo
-            })
+          const mapped = filtered.map((page: any) => {
+            const props = page?.properties ?? {}
+            return {
+              id: page.id,
+              name:
+                propTitle(props['节点名称']) ||
+                propTitle(props['任务名称']) ||
+                propTitle(props['名称']) ||
+                propTitle(props['标题']) ||
+                propTitle(props['Name']) ||
+                '',
+              stage: propSelect(props['所属阶段']) || '',
+              status: propStatus(props['状态']),
+              assignee: propPeople(props['负责人']) || propPeople(props['执行人']) || propRichText(props['负责人']) || '',
+              dueDate: propDate(props['截止日期']) || propDate(props['到期日']) || propDate(props['计划完成日期']) || '',
+            }
+          })
 
           res.statusCode = 200
           res.setHeader('Content-Type', 'application/json')

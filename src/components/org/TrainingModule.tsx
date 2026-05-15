@@ -20,6 +20,7 @@ export function TrainingModule() {
   const [createOwner, setCreateOwner] = useState('')
   const [createPlanDate, setCreatePlanDate] = useState('')
   const [createTarget, setCreateTarget] = useState('')
+  const [createSource, setCreateSource] = useState<'年度计划' | '临时触发'>('年度计划')
 
   const year = new Date().getFullYear()
 
@@ -61,6 +62,7 @@ export function TrainingModule() {
           name: safeText((r as any).name) || '未命名培训',
           type: safeText((r as any).type) || '培训',
           stage: normalizeStage(safeText((r as any).stage) || '需求立项'),
+          source: safeText((r as any).source) || safeText((r as any).项目来源) || '',
           owner: safeText((r as any).owner) || '未指定',
           target: safeText((r as any).target) || '',
           progress: safeNumber((r as any).阶段完成度) || safeNumber((r as any).进度) || 0,
@@ -265,7 +267,18 @@ export function TrainingModule() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">{r.type}</span>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">{r.type}</span>
+                              {r.source ? (
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-xs ${
+                                    r.source === '临时触发' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
+                                  }`}
+                                >
+                                  {r.source}
+                                </span>
+                              ) : null}
+                            </div>
                             <p className="mt-1 truncate text-sm font-semibold text-slate-900">{r.name}</p>
                             {r.target ? <p className="mt-1 text-xs text-slate-500">目标对象：{r.target}</p> : null}
                           </div>
@@ -352,6 +365,7 @@ export function TrainingModule() {
                       owner: createOwner.trim(),
                       target: createTarget.trim(),
                       planEndDate: createPlanDate || '',
+                      source: createSource,
                     }),
                   })
                   if (!res.ok) throw new Error(String(res.status))
@@ -360,6 +374,7 @@ export function TrainingModule() {
                   setCreateOwner('')
                   setCreatePlanDate('')
                   setCreateTarget('')
+                  setCreateSource('年度计划')
                   await reloadRows()
                 } catch (e) {
                   setCreateError(e instanceof Error ? e.message : String(e))
@@ -406,6 +421,17 @@ export function TrainingModule() {
                 className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-slate-700">项目来源</div>
+            <select
+              value={createSource}
+              onChange={(e) => setCreateSource(e.target.value as any)}
+              className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-300"
+            >
+              <option value="年度计划">年度计划</option>
+              <option value="临时触发">临时触发</option>
+            </select>
           </div>
           <div className="space-y-2">
             <div className="text-sm font-medium text-slate-700">目标对象/参与范围</div>
