@@ -14,7 +14,7 @@ import { queryDatabase } from '../../api/notion'
 import { Modal } from '../shared/Modal'
 
 type LibraryCategory = '全部' | '内控制度' | '法律法规' | '流程' | '图书' | '论文' | '其他'
-type Timeliness = '编码有效' | '已废止' | '修订中' | '草案' | '尚未生效'
+type Timeliness = '有效' | '已废止' | '修订中' | '草案' | '尚未生效'
 type SearchScope = 'title' | 'summary' | 'full'
 type PageSize = 10 | 15 | 20 | 'all'
 
@@ -44,20 +44,10 @@ const CATEGORY_CLASS: Record<Exclude<LibraryCategory, '全部'>, string> = {
   其他: 'bg-slate-100 text-slate-700',
 }
 
-const CATEGORY_FILTER_CLASS: Record<LibraryCategory, string> = {
-  全部: 'border-slate-200 bg-white text-slate-700',
-  内控制度: 'border-blue-200 bg-blue-50 text-blue-700',
-  法律法规: 'border-red-200 bg-red-50 text-red-700',
-  流程: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  图书: 'border-violet-200 bg-violet-50 text-violet-700',
-  论文: 'border-violet-200 bg-violet-50 text-violet-700',
-  其他: 'border-slate-200 bg-slate-50 text-slate-700',
-}
-
-const TIMELINESS_OPTIONS: Timeliness[] = ['编码有效', '已废止', '修订中', '草案', '尚未生效']
+const TIMELINESS_OPTIONS: Timeliness[] = ['有效', '已废止', '修订中', '草案', '尚未生效']
 
 const TIMELINESS_CLASS: Record<Timeliness, string> = {
-  编码有效: 'bg-emerald-100 text-emerald-700',
+  有效: 'bg-emerald-100 text-emerald-700',
   已废止: 'bg-slate-100 text-slate-600',
   修订中: 'bg-orange-100 text-orange-700',
   草案: 'bg-blue-100 text-blue-700',
@@ -287,8 +277,8 @@ function normalizeNotionTimeliness(statusValue: string, dateValue: string): Time
 
   const ts = dateValue ? new Date(dateValue).getTime() : Number.NaN
   if (!Number.isNaN(ts) && ts > Date.now()) return '尚未生效'
-  if (status.includes('有效') || status === '生效' || status.includes('现行')) return '编码有效'
-  return '编码有效'
+  if (status.includes('有效') || status === '生效' || status.includes('现行')) return '有效'
+  return '有效'
 }
 
 export function PolicyModule() {
@@ -302,7 +292,7 @@ export function PolicyModule() {
   const [notionLoading, setNotionLoading] = useState(false)
   const [notionError, setNotionError] = useState<string | null>(null)
 
-  const [category, setCategory] = useState<LibraryCategory>('全部')
+  const [category, setCategory] = useState<LibraryCategory[]>(['全部'])
   const [timeliness, setTimeliness] = useState<Timeliness[]>([])
   const [keyword, setKeyword] = useState('')
 
@@ -353,6 +343,7 @@ export function PolicyModule() {
 
   const newMenuRef = useRef<HTMLDivElement | null>(null)
   const exportMenuRef = useRef<HTMLDivElement | null>(null)
+  const importInputRef = useRef<HTMLInputElement | null>(null)
   const beforePrintTitleRef = useRef<string>('')
 
   const [pageContentCache, setPageContentCache] = useState<Record<string, string>>({})
@@ -515,7 +506,7 @@ export function PolicyModule() {
     const scopes = new Set(advanced.scopes)
 
     const rows = docsForFilter
-      .filter((d) => (category === '全部' ? true : d.category === category))
+      .filter((d) => (category.length === 0 || category.includes('全部') ? true : category.includes(d.category)))
       .filter((d) => (timeliness.length === 0 ? true : timeliness.includes(d.timeliness)))
       .filter((d) => (advanced.sourceLevels.length === 0 ? true : advanced.sourceLevels.includes(d.sourceLevel)))
       .filter((d) => (advanced.timeliness.length === 0 ? true : advanced.timeliness.includes(d.timeliness)))
@@ -599,7 +590,7 @@ export function PolicyModule() {
       meta.push(`# ${doc.title}`)
       meta.push('')
       meta.push(`发文机关：${doc.dept || '-'} | 发布日期：${doc.publishDate || '-'} | 生效日期：${doc.effectiveDate || '-'}`)
-      meta.push(`分类：${doc.category} | 时效状态：${doc.timeliness}`)
+      meta.push(`分类：${doc.category} | 效力状态：${doc.timeliness}`)
       meta.push('')
       parts.push([...meta, body].join('\n'))
     }
@@ -610,7 +601,7 @@ export function PolicyModule() {
     const parts: string[] = []
     for (const doc of docs) {
       const body = await getDocMarkdown(doc)
-      const meta = `【${doc.title}】\n发文机关：${doc.dept || '-'} | 发布日期：${doc.publishDate || '-'} | 生效日期：${doc.effectiveDate || '-'}\n分类：${doc.category} | 时效状态：${doc.timeliness}\n`
+      const meta = `【${doc.title}】\n发文机关：${doc.dept || '-'} | 发布日期：${doc.publishDate || '-'} | 生效日期：${doc.effectiveDate || '-'}\n分类：${doc.category} | 效力状态：${doc.timeliness}\n`
       parts.push(`${meta}\n${body}`)
     }
     return parts.join('\n\n' + '-'.repeat(30) + '\n\n').trim()
@@ -627,7 +618,7 @@ export function PolicyModule() {
   const exportDocListCsv = async () => {
     if (selectedDocs.length === 0) return
     const base = selectedDocs.length === 1 ? selectedDocs[0].title : formatBatchFilename(selectedDocs.length)
-    const header = ['文档名称', '分类', '发文机关', '发布日期', '生效日期', '时效状态', '摘要']
+    const header = ['文档名称', '分类', '发文机关', '发布日期', '生效日期', '效力状态', '摘要']
     const escape = (v: string) => `"${String(v ?? '').replace(/"/g, '""')}"`
     const rows = selectedDocs.map((d) =>
       [
@@ -654,7 +645,7 @@ export function PolicyModule() {
       发文机关: d.dept,
       发布日期: d.publishDate,
       生效日期: d.effectiveDate,
-      时效状态: d.timeliness,
+      效力状态: d.timeliness,
       摘要: d.summary,
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
@@ -802,7 +793,7 @@ export function PolicyModule() {
         )
         children.push(new Paragraph({ children: [new TextRun({ text: `发文机关：${doc.dept || '-'}` })] }))
         children.push(new Paragraph({ children: [new TextRun({ text: `发布日期：${doc.publishDate || '-'}  生效日期：${doc.effectiveDate || '-'}` })] }))
-        children.push(new Paragraph({ children: [new TextRun({ text: `分类：${doc.category}  时效状态：${doc.timeliness}` })] }))
+        children.push(new Paragraph({ children: [new TextRun({ text: `分类：${doc.category}  效力状态：${doc.timeliness}` })] }))
         children.push(new Paragraph({ text: '' }))
 
         body
@@ -922,6 +913,30 @@ export function PolicyModule() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  const toggleCategory = (value: LibraryCategory) => {
+    setCategory((prev) => {
+      if (value === '全部') return ['全部']
+      const base = prev.filter((v) => v !== '全部')
+      const next = toggleInArray(base, value)
+      return next.length === 0 ? ['全部'] : next
+    })
+  }
+
+  const handleImportFile = async (file: File) => {
+    setImportError(null)
+    setImportLoading(true)
+    setImportTitle(parseFileNameTitle(file.name))
+    try {
+      const text = await parseFile(file)
+      setImportContent(text)
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : String(err))
+      setImportContent('')
+    } finally {
+      setImportLoading(false)
+    }
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
@@ -931,9 +946,9 @@ export function PolicyModule() {
       <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
         <button
           type="button"
-          onClick={() => setCategory('全部')}
+          onClick={() => setCategory(['全部'])}
           className={`rounded-xl border p-4 text-left transition hover:bg-slate-100 ${
-            category === '全部' ? 'border-slate-300 bg-slate-100' : 'border-slate-200 bg-slate-50'
+            category.includes('全部') ? 'border-slate-300 bg-slate-100' : 'border-slate-200 bg-slate-50'
           }`}
         >
           <p className="text-xs text-slate-600">全部资料</p>
@@ -943,9 +958,9 @@ export function PolicyModule() {
 
         <button
           type="button"
-          onClick={() => setCategory('法律法规')}
+          onClick={() => setCategory(['法律法规'])}
           className={`rounded-xl border p-4 text-left transition hover:bg-red-100 ${
-            category === '法律法规' ? 'border-red-300 bg-red-100' : 'border-red-200 bg-red-50'
+            category.includes('法律法规') && !category.includes('全部') ? 'border-red-300 bg-red-100' : 'border-red-200 bg-red-50'
           }`}
         >
           <p className="text-xs text-red-700">法律法规</p>
@@ -955,9 +970,9 @@ export function PolicyModule() {
 
         <button
           type="button"
-          onClick={() => setCategory('内控制度')}
+          onClick={() => setCategory(['内控制度'])}
           className={`rounded-xl border p-4 text-left transition hover:bg-blue-100 ${
-            category === '内控制度' ? 'border-blue-300 bg-blue-100' : 'border-blue-200 bg-blue-50'
+            category.includes('内控制度') && !category.includes('全部') ? 'border-blue-300 bg-blue-100' : 'border-blue-200 bg-blue-50'
           }`}
         >
           <p className="text-xs text-blue-700">内控制度</p>
@@ -967,9 +982,9 @@ export function PolicyModule() {
 
         <button
           type="button"
-          onClick={() => setCategory('流程')}
+          onClick={() => setCategory(['流程'])}
           className={`rounded-xl border p-4 text-left transition hover:bg-emerald-100 ${
-            category === '流程' ? 'border-emerald-300 bg-emerald-100' : 'border-emerald-200 bg-emerald-50'
+            category.includes('流程') && !category.includes('全部') ? 'border-emerald-300 bg-emerald-100' : 'border-emerald-200 bg-emerald-50'
           }`}
         >
           <p className="text-xs text-emerald-700">操作流程</p>
@@ -979,9 +994,9 @@ export function PolicyModule() {
 
         <button
           type="button"
-          onClick={() => setCategory('图书')}
+          onClick={() => setCategory(['图书'])}
           className={`rounded-xl border p-4 text-left transition hover:bg-violet-100 ${
-            category === '图书' ? 'border-violet-300 bg-violet-100' : 'border-violet-200 bg-violet-50'
+            category.includes('图书') && !category.includes('全部') ? 'border-violet-300 bg-violet-100' : 'border-violet-200 bg-violet-50'
           }`}
         >
           <p className="text-xs text-violet-700">图书专著</p>
@@ -991,9 +1006,9 @@ export function PolicyModule() {
 
         <button
           type="button"
-          onClick={() => setCategory('论文')}
+          onClick={() => setCategory(['论文'])}
           className={`rounded-xl border p-4 text-left transition hover:bg-orange-100 ${
-            category === '论文' ? 'border-orange-300 bg-orange-100' : 'border-orange-200 bg-orange-50'
+            category.includes('论文') && !category.includes('全部') ? 'border-orange-300 bg-orange-100' : 'border-orange-200 bg-orange-50'
           }`}
         >
           <p className="text-xs text-orange-700">学术论文</p>
@@ -1003,34 +1018,38 @@ export function PolicyModule() {
       </div>
 
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-slate-700">库类别：</span>
-          {CATEGORY_OPTIONS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setCategory(c)}
-              className={`rounded-full border px-3 py-1.5 text-sm ${category === c ? CATEGORY_FILTER_CLASS[c] : 'border-slate-200 bg-white text-slate-700'}`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        <div className="flex flex-wrap gap-2">
+          {CATEGORY_OPTIONS.map((c) => {
+            const selected = category.includes(c)
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => toggleCategory(c)}
+                className={`rounded-full border px-3 py-1.5 text-sm ${
+                  selected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-indigo-200'
+                } bg-indigo-100 text-indigo-700`}
+              >
+                {c}
+              </button>
+            )
+          })}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-slate-700">时效标签：</span>
-          {TIMELINESS_OPTIONS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTimeliness((prev) => toggleInArray(prev, t))}
-              className={`rounded-full border px-3 py-1 text-sm ${
-                timeliness.includes(t) ? `border-blue-200 bg-blue-50 text-blue-700` : 'border-slate-200 bg-white text-slate-700'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+          {TIMELINESS_OPTIONS.map((t) => {
+            const selected = timeliness.includes(t)
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTimeliness((prev) => toggleInArray(prev, t))}
+                className={`rounded-full border px-3 py-1.5 text-sm ${
+                  selected ? 'border-sky-500 ring-2 ring-sky-200' : 'border-sky-200'
+                } bg-sky-100 text-sky-700`}
+              >
+                {t}
+              </button>
+            )
+          })}
         </div>
 
         <div className="space-y-1">
@@ -1061,7 +1080,7 @@ export function PolicyModule() {
               type="button"
               onClick={() => {
                 setKeyword('')
-                setCategory('全部')
+                setCategory(['全部'])
                 setTimeliness([])
                 setAdvanced(DEFAULT_ADVANCED)
                 setSelectedIds([])
@@ -1460,7 +1479,7 @@ export function PolicyModule() {
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium text-slate-800">效能体系</p>
+            <p className="text-sm font-medium text-slate-800">效力范围</p>
             <div className="flex flex-wrap gap-2">
               {['监管层', '总公司层', '分公司层', '其他'].map((v) => (
                 <label key={v} className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2">
@@ -1476,7 +1495,7 @@ export function PolicyModule() {
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium text-slate-800">时效性</p>
+            <p className="text-sm font-medium text-slate-800">效力状态</p>
             <div className="flex flex-wrap gap-2">
               {TIMELINESS_OPTIONS.map((v) => (
                 <label key={v} className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2">
@@ -1492,7 +1511,7 @@ export function PolicyModule() {
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium text-slate-800">发文部门</p>
+            <p className="text-sm font-medium text-slate-800">发文部门 / 作者</p>
             <select
               multiple
               value={advancedDraft.departments}
@@ -1919,31 +1938,37 @@ export function PolicyModule() {
         }
       >
         <div className="space-y-4">
-          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
-            支持 .docx / .pdf / .md / .txt，Notion 导出的 .md 文件可直接导入
-          </div>
-
           <input
+            ref={importInputRef}
             type="file"
             accept=".docx,.pdf,.md,.txt"
-            onChange={async (e) => {
+            className="hidden"
+            onChange={(e) => {
               const file = e.target.files?.[0]
               if (!file) return
-              setImportError(null)
-              setImportLoading(true)
-              setImportTitle(parseFileNameTitle(file.name))
-              try {
-                const text = await parseFile(file)
-                setImportContent(text)
-              } catch (err) {
-                setImportError(err instanceof Error ? err.message : String(err))
-                setImportContent('')
-              } finally {
-                setImportLoading(false)
-              }
+              void handleImportFile(file)
             }}
-            className="w-full text-sm"
           />
+
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => importInputRef.current?.click()}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') importInputRef.current?.click()
+            }}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault()
+              const file = event.dataTransfer.files?.[0]
+              if (!file) return
+              void handleImportFile(file)
+            }}
+            className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-600 hover:bg-slate-100"
+          >
+            <div className="text-slate-700">点击选择文件，或将文件拖拽到此处</div>
+            <div className="mt-1 text-xs text-slate-500">支持格式：.docx / .pdf / .md / .txt</div>
+          </div>
 
           {importLoading ? <div className="text-sm text-slate-500">正在解析文件...</div> : null}
           {importError ? <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{importError}</div> : null}
