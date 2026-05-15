@@ -297,6 +297,7 @@ const server = http.createServer(async (req, res) => {
     console.log('[workunit] DB ID:', process.env.NOTION_DB_WORKUNIT)
 
     try {
+      console.log('[workunit] 开始查询, DB ID:', process.env.NOTION_DB_WORKUNIT)
       const token = process.env.NOTION_TOKEN ?? ''
       if (!token) {
         sendJson(res, 500, { message: 'Notion 中转未配置 NOTION_TOKEN。' })
@@ -344,12 +345,18 @@ const server = http.createServer(async (req, res) => {
       const data = JSON.parse(text)
       const results = Array.isArray(data?.results) ? data.results : []
 
+      console.log('[workunit] Notion 返回条数:', results.length)
+      console.log('[workunit] 第一条raw:', JSON.stringify(results[0]?.properties, null, 2))
+
       const filtered = results.filter((page) => {
         if (!typeValue) return true
         const prop = page?.properties?.['项目类型']
         const name = String(prop?.select?.name ?? '').trim()
         return name === typeValue
       })
+
+      console.log('[workunit] 过滤后条数:', filtered.length)
+      console.log('[workunit] typeValue:', typeValue)
 
       const mapped = filtered.map((page) => {
         const props = page?.properties ?? {}
@@ -377,6 +384,7 @@ const server = http.createServer(async (req, res) => {
       return
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      console.error('[workunit] 详细错误:', error)
       console.error('[workunit] error:', message, error instanceof Error ? error.stack : '')
       sendJson(res, 500, { error: message })
       return
