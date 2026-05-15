@@ -153,12 +153,11 @@ export interface CommitteeMeeting extends BaseEntity {
 
 export interface TrainingTask extends BaseEntity {
   stage:
-    | '需求收集'
-    | '规划设计'
-    | '课件制作'
+    | '需求立项'
+    | '计划设计'
+    | '材料准备'
     | '培训实施'
-    | '痕迹留存'
-    | '闭环改进';
+    | '归档评估';
   title: string;
   owner: string;
   deadline: string;

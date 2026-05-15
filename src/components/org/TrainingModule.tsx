@@ -40,6 +40,11 @@ export function TrainingModule() {
     const n = Number(value)
     return Number.isFinite(n) ? n : 0
   }
+  const normalizeStage = (value: string) => {
+    if (value === '课件制作') return '材料准备'
+    if (value === '归档闭环') return '归档评估'
+    return value
+  }
 
   const trainingRows = useMemo(
     () =>
@@ -48,7 +53,7 @@ export function TrainingModule() {
           id: safeText(r.id),
           name: safeText((r as any).name) || '未命名培训',
           type: safeText((r as any).type) || '培训',
-          stage: safeText((r as any).stage) || '需求立项',
+          stage: normalizeStage(safeText((r as any).stage) || '需求立项'),
           owner: safeText((r as any).owner) || '未指定',
           target: safeText((r as any).target) || '',
           progress: safeNumber((r as any).阶段完成度) || safeNumber((r as any).进度) || 0,
@@ -79,7 +84,7 @@ export function TrainingModule() {
     [ownerFilter, trainingRows, typeFilter],
   )
 
-  const stages = ['需求立项', '计划设计', '课件制作', '培训实施', '归档闭环'] as const
+  const stages = ['需求立项', '计划设计', '材料准备', '培训实施', '归档评估'] as const
   const stageCounts = useMemo(() => {
     const map = new Map<string, number>()
     stages.forEach((s) => map.set(s, 0))
@@ -87,8 +92,8 @@ export function TrainingModule() {
     return map
   }, [filteredRows])
 
-  const completed = useMemo(() => filteredRows.filter((r) => r.stage === '归档闭环').length, [filteredRows])
-  const inProgress = useMemo(() => filteredRows.filter((r) => r.stage !== '归档闭环').length, [filteredRows])
+  const completed = useMemo(() => filteredRows.filter((r) => r.stage === '归档评估').length, [filteredRows])
+  const inProgress = useMemo(() => filteredRows.filter((r) => r.stage !== '归档评估').length, [filteredRows])
   const planCount = filteredRows.length
   const completionRate = planCount === 0 ? 0 : Math.round((completed / planCount) * 100)
   const totalParticipants = useMemo(() => filteredRows.reduce((sum, r) => sum + r.participants, 0), [filteredRows])
@@ -171,10 +176,10 @@ export function TrainingModule() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1">
           {([
-            { key: 'kanban', label: '流水线看板' },
-            { key: 'list', label: '列表视图' },
+            { key: 'kanban', label: '流水看板' },
+            { key: 'list', label: '项目视图' },
             { key: 'calendar', label: '日历视图' },
-            { key: 'materials', label: '材料库' },
+            { key: 'materials', label: '材料仓库' },
           ] as const).map((item) => (
             <button
               key={item.key}

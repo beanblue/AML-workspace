@@ -29,9 +29,9 @@ type NotionNodeRow = {
   [key: string]: unknown
 }
 
-type StageKey = '需求立项' | '计划设计' | '课件制作' | '培训实施' | '归档闭环'
+type StageKey = '需求立项' | '计划设计' | '材料准备' | '培训实施' | '归档评估'
 
-const STAGES: StageKey[] = ['需求立项', '计划设计', '课件制作', '培训实施', '归档闭环']
+const STAGES: StageKey[] = ['需求立项', '计划设计', '材料准备', '培训实施', '归档评估']
 
 function safeText(value: unknown): string {
   return String(value ?? '').trim()
@@ -40,6 +40,13 @@ function safeText(value: unknown): string {
 function stageIndex(value: string): number {
   const idx = STAGES.indexOf(value as StageKey)
   return idx === -1 ? 0 : idx
+}
+
+function normalizeStage(value: string): StageKey {
+  if (value === '课件制作') return '材料准备'
+  if (value === '归档闭环') return '归档评估'
+  if (STAGES.includes(value as StageKey)) return value as StageKey
+  return '需求立项'
 }
 
 function getWorkUnitName(row: NotionWorkUnitRow | null): string {
@@ -59,7 +66,7 @@ function getWorkUnitType(row: NotionWorkUnitRow | null): string {
 
 function getWorkUnitStage(row: NotionWorkUnitRow | null): StageKey {
   const raw = safeText((row as any)?.stage) || safeText(row?.当前阶段) || safeText(row?.阶段) || '需求立项'
-  return (STAGES.includes(raw as StageKey) ? raw : '需求立项') as StageKey
+  return normalizeStage(raw)
 }
 
 function getWorkUnitOwner(row: NotionWorkUnitRow | null): string {
@@ -101,6 +108,15 @@ export default function TrainingDetail() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [localMaterials, setLocalMaterials] = useState<Array<{ id: string; name: string; uploadedAt: string }>>([])
 
+  const refreshWorkUnit = async (workUnitId: string) => {
+    const res = await fetch('/api/workunit/list?type=%E5%9F%B9%E8%AE%AD')
+    if (!res.ok) throw new Error(String(res.status))
+    const data = await res.json()
+    const list = (Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : []) as NotionWorkUnitRow[]
+    const found = list.find((r) => safeText(r.id) === workUnitId) ?? null
+    setWorkUnit(found)
+  }
+
   useEffect(() => {
     const workUnitId = safeText(id)
     if (!workUnitId) return
@@ -108,12 +124,7 @@ export default function TrainingDetail() {
       setWorkUnitLoading(true)
       setWorkUnitError(null)
       try {
-        const res = await fetch('/api/workunit/list?type=%E5%9F%B9%E8%AE%AD')
-        if (!res.ok) throw new Error(String(res.status))
-        const data = await res.json()
-        const list = (Array.isArray(data) ? data : Array.isArray((data as any)?.results) ? (data as any).results : []) as NotionWorkUnitRow[]
-        const found = list.find((r) => safeText(r.id) === workUnitId) ?? null
-        setWorkUnit(found)
+        await refreshWorkUnit(workUnitId)
       } catch (e) {
         setWorkUnitError(e instanceof Error ? e.message : String(e))
       } finally {
@@ -161,6 +172,7 @@ export default function TrainingDetail() {
   const stage = getWorkUnitStage(workUnit)
   const owner = getWorkUnitOwner(workUnit)
   const planDate = getWorkUnitPlanDate(workUnit)
+  const status = safeText((workUnit as any)?.status) || safeText((workUnit as any)?.状态)
   const department = safeText((workUnit as any)?.department) || safeText((workUnit as any)?.牵头部门)
   const planStartDate = safeText((workUnit as any)?.planStartDate) || planDate
   const planEndDate = safeText((workUnit as any)?.planEndDate)
@@ -207,8 +219,16 @@ export default function TrainingDetail() {
                       })
                       if (!res.ok) throw new Error(String(res.status))
 
-                      setWorkUnit((prev) => (prev ? ({ ...(prev as any), stage: s } as any) : prev))
-                      setStagePickerOpen(false)
+                      setWorkUnitLoading(true)
+                      setWorkUnitError(null)
+                      try {
+                        await refreshWorkUnit(workUnitId)
+                        setStagePickerOpen(false)
+                      } catch (e) {
+                        setWorkUnitError(e instanceof Error ? e.message : String(e))
+                      } finally {
+                        setWorkUnitLoading(false)
+                      }
                     } catch (e) {
                       setStageUpdateError(e instanceof Error ? e.message : String(e))
                     } finally {
@@ -471,11 +491,11 @@ export default function TrainingDetail() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => window.alert('Mock：从材料库选取')}
+                    onClick={() => window.alert('Mock：从材料仓库选取')}
                     className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                   >
                     <FileText className="h-4 w-4" />
-                    从材料库选取
+                    从材料仓库选取
                   </button>
                 </div>
 
@@ -527,10 +547,18 @@ export default function TrainingDetail() {
                   </div>
 
                   <div>
-                    <p className="text-xs text-slate-500">项目类型 / 当前阶段</p>
-                    <p className="mt-1 text-slate-900">
-                      {type} / {stage}
-                    </p>
+                    <p className="text-xs text-slate-500">项目类型</p>
+                    <p className="mt-1 text-slate-900">{type || '—'}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-slate-500">当前阶段</p>
+                    <p className="mt-1 text-slate-900">{stage || '—'}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-slate-500">状态</p>
+                    <p className="mt-1 text-slate-900">{status || '—'}</p>
                   </div>
 
                   <div>
