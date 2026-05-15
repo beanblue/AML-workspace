@@ -417,6 +417,7 @@ export default function TrainingDetail() {
                   <button
                     type="button"
                     onClick={() => {
+                      console.log('add task clicked')
                       const run = async () => {
                         const v = newTaskTitle.trim()
                         const workUnitId = safeText((workUnit as any)?.id) || safeText(id)
@@ -562,7 +563,7 @@ export default function TrainingDetail() {
           )}
         </div>
 
-        {rightCollapsed ? null : (
+        {!rightCollapsed && (
           <aside className="w-full shrink-0 xl:w-80">
             <div className="space-y-3">
               <article className="rounded-xl border border-slate-200 bg-white p-4">

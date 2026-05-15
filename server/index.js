@@ -662,6 +662,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const body = await readJson(req)
+      console.log('[nodes/create] body:', body)
       const name = String(body?.title ?? body?.name ?? '').trim()
       const workUnitIdRaw = String(body?.workUnitId ?? '').trim()
       const stage = String(body?.stage ?? '').trim()
