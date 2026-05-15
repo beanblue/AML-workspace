@@ -83,7 +83,55 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
             body: JSON.stringify({
               query,
               page_size: 50,
-              filter: { object: 'page' },
+              filter: { property: 'object', value: 'page' },
+            }),
+          })
+
+          const text = await response.text()
+          res.statusCode = response.status
+          res.setHeader('Content-Type', 'application/json')
+          res.end(text)
+        } catch (error) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: error instanceof Error ? error.message : 'Notion 搜索失败。' }))
+        }
+      })
+
+      server.middlewares.use('/api/library/search', async (req, res, next) => {
+        if (req.method !== 'GET') {
+          next()
+          return
+        }
+
+        if (!token) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: 'Notion 中转未配置 NOTION_TOKEN。' }))
+          return
+        }
+
+        try {
+          const url = new URL(req.url ?? '', `http://${req.headers.host ?? 'localhost'}`)
+          const query = String(url.searchParams.get('q') ?? '').trim()
+          if (!query) {
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ results: [] }))
+            return
+          }
+
+          const response = await fetch('https://api.notion.com/v1/search', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Notion-Version': NOTION_VERSION,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query,
+              page_size: 50,
+              filter: { property: 'object', value: 'page' },
             }),
           })
 

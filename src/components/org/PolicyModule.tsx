@@ -209,7 +209,7 @@ function highlightText(text: string, keyword: string) {
   const keywordLower = keyword.toLowerCase()
   return parts.map((part, index) =>
     part.toLowerCase() === keywordLower ? (
-      <mark key={`${part}-${index}`} className="rounded bg-yellow-200 px-0.5">
+      <mark key={`${part}-${index}`} className="bg-yellow-200 rounded px-0.5">
         {part}
       </mark>
     ) : (
@@ -459,7 +459,7 @@ export function PolicyModule() {
     setNotionSearchError(null)
     const controller = new AbortController()
     const timer = window.setTimeout(() => {
-      fetch(`/api/notion/search?q=${encodeURIComponent(q)}`, { signal: controller.signal })
+      fetch(`/api/library/search?q=${encodeURIComponent(q)}`, { signal: controller.signal })
         .then(async (res) => {
           if (!res.ok) throw new Error(String(res.status))
           return res.json()

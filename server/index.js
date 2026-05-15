@@ -97,6 +97,68 @@ const serveFile = async (res, filePath) => {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
 
+  const notionSearch = async (query) => {
+    const token = process.env.NOTION_TOKEN ?? ''
+    if (!token) {
+      sendJson(res, 500, { message: 'Notion 中转未配置 NOTION_TOKEN。' })
+      return null
+    }
+
+    const toText = (list) => (Array.isArray(list) ? list.map((item) => item?.plain_text ?? '').join('') : '')
+    const formatPropertyValue = (prop) => {
+      const type = prop?.type
+      if (type === 'title') return toText(prop?.title)
+      if (type === 'rich_text') return toText(prop?.rich_text)
+      if (type === 'select') return prop?.select?.name ?? ''
+      if (type === 'multi_select') return Array.isArray(prop?.multi_select) ? prop.multi_select.map((i) => i?.name ?? '').filter(Boolean) : []
+      if (type === 'date') return prop?.date?.start ?? ''
+      if (type === 'number') return prop?.number ?? null
+      if (type === 'checkbox') return Boolean(prop?.checkbox)
+      if (type === 'url') return prop?.url ?? ''
+      if (type === 'email') return prop?.email ?? ''
+      if (type === 'phone_number') return prop?.phone_number ?? ''
+      return null
+    }
+    const formatPage = (page) => {
+      const formatted = {
+        id: page.id,
+        createdAt: page.created_time,
+        updatedAt: page.last_edited_time,
+      }
+      const props = page?.properties ?? {}
+      for (const key of Object.keys(props)) {
+        formatted[key] = formatPropertyValue(props[key])
+      }
+      return formatted
+    }
+
+    const response = await fetch('https://api.notion.com/v1/search', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Notion-Version': NOTION_VERSION,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        page_size: 50,
+        filter: { property: 'object', value: 'page' },
+      }),
+    })
+
+    if (!response.ok) {
+      const text = await response.text()
+      res.statusCode = response.status
+      res.setHeader('Content-Type', 'application/json')
+      res.end(text || JSON.stringify({ message: 'Notion 搜索失败。' }))
+      return null
+    }
+
+    const data = await response.json()
+    const results = Array.isArray(data?.results) ? data.results : []
+    return results.map(formatPage)
+  }
+
   if (url.pathname.startsWith('/api/notion/page/')) {
     if (req.method !== 'GET') {
       sendJson(res, 405, { message: 'Method Not Allowed' })
@@ -182,9 +244,27 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
-    const token = process.env.NOTION_TOKEN ?? ''
-    if (!token) {
-      sendJson(res, 500, { message: 'Notion 中转未配置 NOTION_TOKEN。' })
+    const q = url.searchParams.get('q') ?? ''
+    const query = String(q).trim()
+    if (!query) {
+      sendJson(res, 200, { results: [] })
+      return
+    }
+
+    try {
+      const results = await notionSearch(query)
+      if (!results) return
+      sendJson(res, 200, { results })
+      return
+    } catch (error) {
+      sendJson(res, 500, { message: error instanceof Error ? error.message : 'Notion 搜索失败。' })
+      return
+    }
+  }
+
+  if (url.pathname === '/api/library/search') {
+    if (req.method !== 'GET') {
+      sendJson(res, 405, { message: 'Method Not Allowed' })
       return
     }
 
@@ -195,60 +275,10 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
-    const toText = (list) => (Array.isArray(list) ? list.map((item) => item?.plain_text ?? '').join('') : '')
-    const formatPropertyValue = (prop) => {
-      const type = prop?.type
-      if (type === 'title') return toText(prop?.title)
-      if (type === 'rich_text') return toText(prop?.rich_text)
-      if (type === 'select') return prop?.select?.name ?? ''
-      if (type === 'multi_select') return Array.isArray(prop?.multi_select) ? prop.multi_select.map((i) => i?.name ?? '').filter(Boolean) : []
-      if (type === 'date') return prop?.date?.start ?? ''
-      if (type === 'number') return prop?.number ?? null
-      if (type === 'checkbox') return Boolean(prop?.checkbox)
-      if (type === 'url') return prop?.url ?? ''
-      if (type === 'email') return prop?.email ?? ''
-      if (type === 'phone_number') return prop?.phone_number ?? ''
-      return null
-    }
-    const formatPage = (page) => {
-      const formatted = {
-        id: page.id,
-        createdAt: page.created_time,
-        updatedAt: page.last_edited_time,
-      }
-      const props = page?.properties ?? {}
-      for (const key of Object.keys(props)) {
-        formatted[key] = formatPropertyValue(props[key])
-      }
-      return formatted
-    }
-
     try {
-      const response = await fetch('https://api.notion.com/v1/search', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Notion-Version': NOTION_VERSION,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query,
-          page_size: 50,
-          filter: { object: 'page' },
-        }),
-      })
-
-      if (!response.ok) {
-        const text = await response.text()
-        res.statusCode = response.status
-        res.setHeader('Content-Type', 'application/json')
-        res.end(text || JSON.stringify({ message: 'Notion 搜索失败。' }))
-        return
-      }
-
-      const data = await response.json()
-      const results = Array.isArray(data?.results) ? data.results : []
-      sendJson(res, 200, { results: results.map(formatPage) })
+      const results = await notionSearch(query)
+      if (!results) return
+      sendJson(res, 200, { results })
       return
     } catch (error) {
       sendJson(res, 500, { message: error instanceof Error ? error.message : 'Notion 搜索失败。' })
