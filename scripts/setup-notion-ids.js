@@ -64,6 +64,8 @@ const main = async () => {
     { keyword: '考核指标库', envKey: 'NOTION_DB_KPI' },
     { keyword: '自评指标体库', envKey: 'NOTION_DB_SELF_EVAL' },
     { keyword: '可疑指标库', envKey: 'NOTION_DB_SUSPICIOUS' },
+    { keyword: '工作项目台账', envKey: 'NOTION_DB_WORKUNIT' },
+    { keyword: 'WorkUnit 节点任务库', envKey: 'NOTION_DB_NODES' },
   ]
 
   const databases = await searchAllDatabases(token)
@@ -100,12 +102,13 @@ const main = async () => {
     try {
       const abs = path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath)
       const existing = fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : ''
-      const filtered = existing
-        .split(/\r?\n/)
-        .filter((line) => !targets.some((t) => line.startsWith(`${t.envKey}=`)))
-        .filter((line) => line.trim() !== '')
-      const appended = matched.map((item) => `${item.envKey}=${item.id ?? ''}`)
-      const next = [...filtered, ...appended, ''].join('\n')
+      const lines = existing.split(/\r?\n/)
+      const existingKeySet = new Set(lines.map((line) => line.split('=')[0]).filter(Boolean))
+      const appended = matched
+        .filter((item) => !existingKeySet.has(item.envKey))
+        .map((item) => `${item.envKey}=${item.id ?? ''}`)
+      const base = existing.endsWith('\n') || existing.length === 0 ? existing : `${existing}\n`
+      const next = appended.length > 0 ? `${base}${appended.join('\n')}\n` : base
       fs.mkdirSync(path.dirname(abs), { recursive: true })
       fs.writeFileSync(abs, next, 'utf8')
       process.stderr.write(`已写入 ${abs}\n`)
