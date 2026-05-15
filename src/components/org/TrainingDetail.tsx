@@ -95,9 +95,14 @@ export default function TrainingDetail() {
     if (!workUnitId) return
     setWorkUnitLoading(true)
     setWorkUnitError(null)
-    queryDatabase('workunit')
-      .then((rows) => {
-        const found = (rows as unknown as NotionWorkUnitRow[]).find((r) => safeText(r.id) === workUnitId) ?? null
+    fetch('/api/workunit/list?type=%E5%9F%B9%E8%AE%AD')
+      .then(async (res) => {
+        if (!res.ok) throw new Error(String(res.status))
+        return res.json()
+      })
+      .then((data) => {
+        const list = (Array.isArray(data?.results) ? data.results : []) as NotionWorkUnitRow[]
+        const found = list.find((r) => safeText(r.id) === workUnitId) ?? null
         setWorkUnit(found)
       })
       .catch((e) => setWorkUnitError(e instanceof Error ? e.message : String(e)))

@@ -1,7 +1,6 @@
 import { ChevronRight, Download, Plus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { queryDatabase } from '../../api/notion'
 import { Modal } from '../shared/Modal'
 
 export function TrainingModule() {
@@ -24,8 +23,12 @@ export function TrainingModule() {
   useEffect(() => {
     setLoading(true)
     setError(null)
-    queryDatabase('workunit')
-      .then((data) => setRows((data as unknown as Array<Record<string, unknown>>) ?? []))
+    fetch('/api/workunit/list?type=%E5%9F%B9%E8%AE%AD')
+      .then(async (res) => {
+        if (!res.ok) throw new Error(String(res.status))
+        return res.json()
+      })
+      .then((data) => setRows((Array.isArray(data?.results) ? data.results : []) as Array<Record<string, unknown>>))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
   }, [])

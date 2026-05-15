@@ -281,6 +281,56 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
           res.end(JSON.stringify({ message: error instanceof Error ? error.message : 'Notion 获取页面内容失败。' }))
         }
       })
+
+      server.middlewares.use('/api/workunit/list', async (req, res, next) => {
+        if (req.method !== 'GET') {
+          next()
+          return
+        }
+
+        if (!token) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: 'Notion 中转未配置 NOTION_TOKEN。' }))
+          return
+        }
+
+        const databaseIdRaw = env.NOTION_DB_WORKUNIT ?? ''
+        if (!databaseIdRaw) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: '未配置 NOTION_DB_WORKUNIT，无法解析数据库 ID。' }))
+          return
+        }
+
+        try {
+          const url = new URL(req.url ?? '', `http://${req.headers.host ?? 'localhost'}`)
+          const typeValue = String(url.searchParams.get('type') ?? '培训').trim() || '培训'
+          const databaseId = toHyphenId(databaseIdRaw)
+
+          const response = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Notion-Version': NOTION_VERSION,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              page_size: 100,
+              filter: { property: '项目类型', select: { equals: typeValue } },
+            }),
+          })
+
+          const text = await response.text()
+          res.statusCode = response.status
+          res.setHeader('Content-Type', 'application/json')
+          res.end(text)
+        } catch (error) {
+          res.statusCode = 500
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ message: error instanceof Error ? error.message : 'Notion 查询失败。' }))
+        }
+      })
     },
   }
 }

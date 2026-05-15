@@ -67,12 +67,6 @@ const NAV_GROUPS: SidebarGroup[] = [
         icon: FolderOpen,
       },
       {
-        module: 'policyFavorites',
-        label: '⭐ 我的收藏',
-        features: ['收藏列表', '快速筛选'],
-        icon: Star,
-      },
-      {
         module: 'responsibility',
         label: '工作职责管理',
         features: ['岗位职责清单', '工作标准', '风险提示'],
@@ -168,6 +162,15 @@ export function Sidebar({
   onToggle,
   onSelectModule,
 }: SidebarProps) {
+  const favoritesItem: SidebarModuleItem = {
+    module: 'policyFavorites',
+    label: '我的收藏',
+    features: ['收藏列表', '快速筛选'],
+    icon: Star,
+  };
+  const dashboardGroup = NAV_GROUPS.find((g) => g.key === 'dashboard');
+  const otherGroups = NAV_GROUPS.filter((g) => g.key !== 'dashboard');
+
   return (
     <aside
       className={`h-screen border-r border-slate-200 bg-white transition-all duration-200 ${
@@ -192,7 +195,97 @@ export function Sidebar({
       </div>
 
       <nav className="h-[calc(100vh-4rem)] overflow-y-auto px-3 py-4">
-        {NAV_GROUPS.map((group) => (
+        {dashboardGroup ? (
+          <section key={dashboardGroup.key} className="mb-5">
+            <p className={`mb-2 px-2 text-xs font-semibold ${dashboardGroup.colorClass}`}>
+              {collapsed ? dashboardGroup.label.slice(0, 2) : dashboardGroup.label}
+            </p>
+
+            <div className="space-y-2">
+              {dashboardGroup.modules.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeModule === item.module;
+
+                return (
+                  <button
+                    key={item.module}
+                    type="button"
+                    onClick={() => onSelectModule(item.module)}
+                    className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                      isActive
+                        ? 'border-blue-200 bg-blue-50'
+                        : 'border-transparent bg-slate-50 hover:border-slate-200 hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon className={`h-4 w-4 ${isActive ? 'text-blue-700' : 'text-slate-500'}`} />
+                      {!collapsed ? (
+                        <span
+                          className={`text-sm font-medium ${isActive ? 'text-blue-900' : 'text-slate-800'}`}
+                        >
+                          {item.label}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {!collapsed ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {item.features.map((feature) => (
+                          <span
+                            key={feature}
+                            className="rounded bg-white px-2 py-0.5 text-[11px] text-slate-500"
+                          >
+                            {feature}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="mb-5 border-y border-slate-200 py-3">
+          <div className="space-y-2">
+            {(() => {
+              const Icon = favoritesItem.icon;
+              const isActive = activeModule === favoritesItem.module;
+              return (
+                <button
+                  type="button"
+                  onClick={() => onSelectModule(favoritesItem.module)}
+                  className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                    isActive
+                      ? 'border-blue-200 bg-blue-50'
+                      : 'border-transparent bg-slate-50 hover:border-slate-200 hover:bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon className={`h-4 w-4 ${isActive ? 'text-amber-500' : 'text-slate-500'}`} />
+                    {!collapsed ? (
+                      <span className={`text-sm font-medium ${isActive ? 'text-blue-900' : 'text-slate-800'}`}>
+                        {favoritesItem.label}
+                      </span>
+                    ) : null}
+                  </div>
+                  {!collapsed ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {favoritesItem.features.map((feature) => (
+                        <span key={feature} className="rounded bg-white px-2 py-0.5 text-[11px] text-slate-500">
+                          {feature}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </button>
+              );
+            })()}
+          </div>
+        </section>
+
+        {otherGroups.map((group) => (
           <section key={group.key} className="mb-5">
             <p className={`mb-2 px-2 text-xs font-semibold ${group.colorClass}`}>
               {collapsed ? group.label.slice(0, 2) : group.label}
