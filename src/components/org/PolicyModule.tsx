@@ -16,6 +16,7 @@ type LibraryCategory = '全部' | '内控制度' | '法律法规' | '流程' | '
 type Timeliness = '有效' | '已废止' | '修订中' | '草案' | '尚未生效'
 type SearchScope = 'title' | 'summary' | 'full'
 type PageSize = 10 | 15 | 20 | 'all'
+type SortKey = 'relevance' | 'publishDateAsc' | 'publishDateDesc' | 'effectiveDateAsc' | 'effectiveDateDesc'
 
 type LibraryDoc = {
   id: string
@@ -53,6 +54,11 @@ const TIMELINESS_CLASS: Record<Timeliness, string> = {
   草案: 'bg-blue-100 text-blue-700',
   尚未生效: 'bg-indigo-100 text-indigo-700',
 }
+
+const TOPIC_TAG_OPTIONS = `客户尽调（CDD）/ 加强尽调（EDD）/ 持续尽调·业务关系监控 / 客户风险评级 / 高风险客户 / 受益所有人识别 / 实际控制人 / 政治公众人物（PEP）/ 非面对面业务 / 代理人·聘才渠道 / 中介机构管理 / 交易监测 / 可疑交易识别 / 可疑交易报告 / 现金交易监测 / 大额交易 / 结构化交易 / 跨境交易 / 高风险国家·地区 / 制裁与名单筛查 / 黑名单·观察名单 / 关联交易 / 银行业务 / 保险产品 / 互联网·线上渠道 / 新产品评估 / 内部控制 / 反洗钱组织架构 / 岗责划分 / 合规培训 / 员工行为管理 / 数据质量·报送质量 / 文件管理与留痕 / 内部审计·稽核 / 绩效与考核（反洗钱）/ 监管检查 / 行政处罚案例 / 监管问答·FAQ / 监管通报 / 行业自律规范 / 典型案例 / 行业案例 / 刑事司法案例 / 风险提示 / 理论研究 / 实务研究 / 交易监测系统 / 名单筛查系统 / KYC系统 / 风险评分模型 / 报送系统 / 数据仓库·报表 / 保全 / 操作手册 / 风险评估`
+  .split('/')
+  .map((x) => x.trim())
+  .filter(Boolean)
 
 type PrintPaperSize = 'A4' | 'A3' | 'Letter'
 type PrintOrientation = 'portrait' | 'landscape'
@@ -178,8 +184,7 @@ type NotionDocumentRow = {
   发文部门?: string
   效力范围?: string
   来源层级?: string
-  标签?: string[] | string
-  主题?: string[] | string
+  主题标签?: string[] | string
   '生效/发布日期'?: string
   发布日期?: string
   生效日期?: string
@@ -312,10 +317,11 @@ export function PolicyModule() {
   const [advanced, setAdvanced] = useState<AdvancedFilters>(DEFAULT_ADVANCED)
 
   const [pageSize, setPageSize] = useState<PageSize>(10)
-  const [sortBy, setSortBy] = useState<'relevance' | 'publishDate' | 'effectiveDate'>('relevance')
+  const [sortBy, setSortBy] = useState<SortKey>('relevance')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const [sortMenuOpen, setSortMenuOpen] = useState(false)
   const [printOpen, setPrintOpen] = useState(false)
   const [mergePrint, setMergePrint] = useState(true)
   const [printSettings, setPrintSettings] = useState<PrintSettings>(() => {
@@ -344,6 +350,7 @@ export function PolicyModule() {
   const [createPublishDate, setCreatePublishDate] = useState('')
 
   const exportMenuRef = useRef<HTMLDivElement | null>(null)
+  const sortMenuRef = useRef<HTMLDivElement | null>(null)
   const createFileInputRef = useRef<HTMLInputElement | null>(null)
   const beforePrintTitleRef = useRef<string>('')
 
@@ -397,13 +404,13 @@ export function PolicyModule() {
     const statusRaw = safeText(row.状态)
     const dept = safeText(row.来源 ?? row.发文机关 ?? row.发文部门)
     const publishDate = safeText(row['生效/发布日期'] ?? row.发布日期)
-    const effectiveDate = safeText(row.生效日期 ?? row['生效/发布日期'])
+    const effectiveDate = safeText(row['生效/发布日期'] ?? row.生效日期 ?? row.发布日期)
     const summary = safeText(row.摘要)
     const keyPoints = safeText((row as any)['关键要点/适用情景'] ?? (row as any)['关键要点/适用情景 '] ?? '')
     const scope = safeText(row.适用范围)
     const content = [summary, keyPoints, scope].filter(Boolean).join('\n')
     const sourceLevelRaw = safeText((row as any).效力范围 ?? (row as any).来源层级 ?? '')
-    const topics = normalizeTopics((row as any).标签 ?? (row as any).主题 ?? '')
+    const topics = normalizeTopics((row as any).主题标签 ?? '')
     const guessedSourceLevel = (() => {
       const raw = sourceLevelRaw || dept
       if (raw.includes('监管') || raw.includes('人行') || raw.includes('央行')) return '监管层'
@@ -522,14 +529,6 @@ export function PolicyModule() {
   }, [docsForStats])
 
   const departments = useMemo(() => Array.from(new Set(docsForStats.map((d) => d.dept).filter(Boolean))).sort(), [docsForStats])
-  const topicOptions = useMemo(() => {
-    const set = new Set<string>()
-    docsForStats.forEach((d) => {
-      if (d.source !== 'notion') return
-      d.topics.forEach((t) => set.add(t))
-    })
-    return Array.from(set).sort()
-  }, [docsForStats])
 
   const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase()
@@ -566,13 +565,27 @@ export function PolicyModule() {
       return s
     }
 
+    const toTs = (value: string) => {
+      const ts = value ? new Date(value).getTime() : Number.NaN
+      return Number.isNaN(ts) ? 0 : ts
+    }
+
+    const publishTs = (d: LibraryDoc) => toTs(d.publishDate)
+    const effectiveTs = (d: LibraryDoc) => toTs(d.effectiveDate || d.publishDate)
+
     const sorted = [...rows].sort((a, b) => {
       if (sortBy === 'relevance') {
         const diff = score(b) - score(a)
         if (diff !== 0) return diff
+        return publishTs(b) - publishTs(a)
       }
-      if (sortBy === 'effectiveDate') return new Date(b.effectiveDate || 0).getTime() - new Date(a.effectiveDate || 0).getTime()
-      return new Date(b.publishDate || 0).getTime() - new Date(a.publishDate || 0).getTime()
+
+      if (sortBy === 'publishDateAsc') return publishTs(a) - publishTs(b)
+      if (sortBy === 'publishDateDesc') return publishTs(b) - publishTs(a)
+      if (sortBy === 'effectiveDateAsc') return effectiveTs(a) - effectiveTs(b)
+      if (sortBy === 'effectiveDateDesc') return effectiveTs(b) - effectiveTs(a)
+
+      return publishTs(b) - publishTs(a)
     })
 
     return sorted
@@ -934,7 +947,9 @@ export function PolicyModule() {
       const target = event.target as Node | null
       if (!target) return
       if (exportMenuRef.current?.contains(target)) return
+      if (sortMenuRef.current?.contains(target)) return
       setExportMenuOpen(false)
+      setSortMenuOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -963,6 +978,15 @@ export function PolicyModule() {
   const toggleTopicTag = (value: string) => {
     setTopicTags((prev) => toggleInArray(prev, value))
   }
+
+  const sortLabel = useMemo(() => {
+    if (sortBy === 'relevance') return '相关度'
+    if (sortBy === 'publishDateAsc') return '发布日期 ↑'
+    if (sortBy === 'publishDateDesc') return '发布日期 ↓'
+    if (sortBy === 'effectiveDateAsc') return '生效日期 ↑'
+    if (sortBy === 'effectiveDateDesc') return '生效日期 ↓'
+    return '相关度'
+  }, [sortBy])
 
   const handleCreateFile = async (file: File) => {
     setCreateError(null)
@@ -1144,26 +1168,24 @@ export function PolicyModule() {
               })}
             </div>
 
-            {topicOptions.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium text-slate-700">主题标签</span>
-                {topicOptions.map((t) => {
-                  const selected = topicTags.includes(t)
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => toggleTopicTag(t)}
-                      className={`rounded-full border px-3 py-1.5 text-sm ${
-                        selected ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-indigo-200 bg-indigo-100 text-indigo-700'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  )
-                })}
-              </div>
-            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-slate-700">主题标签</span>
+              {TOPIC_TAG_OPTIONS.map((t) => {
+                const selected = topicTags.includes(t)
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => toggleTopicTag(t)}
+                    className={`rounded-full border px-3 py-1.5 text-sm ${
+                      selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-indigo-200 bg-indigo-100 text-indigo-700'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
 
@@ -1385,13 +1407,42 @@ export function PolicyModule() {
             </select>
           </div>
 
-          <div className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-            <span>更多</span>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} className="border-none bg-transparent text-sm outline-none">
-              <option value="relevance">相关度</option>
-              <option value="publishDate">发布日期</option>
-              <option value="effectiveDate">生效日期</option>
-            </select>
+          <div ref={sortMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setSortMenuOpen((prev) => !prev)}
+              className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              <span>排序</span>
+              <span className="text-slate-500">{sortLabel}</span>
+              <ChevronDown className={`h-4 w-4 transition ${sortMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {sortMenuOpen ? (
+              <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+                {([
+                  { key: 'relevance', label: '相关度（默认）' },
+                  { key: 'publishDateAsc', label: '发布日期 ↑' },
+                  { key: 'publishDateDesc', label: '发布日期 ↓' },
+                  { key: 'effectiveDateAsc', label: '生效日期 ↑' },
+                  { key: 'effectiveDateDesc', label: '生效日期 ↓' },
+                ] as const satisfies ReadonlyArray<{ key: SortKey; label: string }>).map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => {
+                      setSortBy(item.key)
+                      setSortMenuOpen(false)
+                    }}
+                    className={`flex w-full items-center justify-between px-4 py-2 text-left text-sm ${
+                      sortBy === item.key ? 'bg-slate-50 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {item.label}
+                    {sortBy === item.key ? <span className="text-xs text-blue-600">已选</span> : null}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <button
@@ -1399,6 +1450,7 @@ export function PolicyModule() {
             onClick={() => {
               setPageSize(10)
               setSortBy('relevance')
+              setSortMenuOpen(false)
               setSelectedIds([])
             }}
             className="rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
