@@ -151,9 +151,6 @@ function applyPrintOverride(settings: PrintSettings, docTitle: string) {
 }
 
 type AdvancedFilters = {
-  scopes: SearchScope[]
-  sourceLevels: string[]
-  timeliness: Timeliness[]
   departments: string[]
   publishStart: string
   publishEnd: string
@@ -162,9 +159,6 @@ type AdvancedFilters = {
 }
 
 const DEFAULT_ADVANCED: AdvancedFilters = {
-  scopes: ['title', 'summary', 'full'],
-  sourceLevels: [],
-  timeliness: [],
   departments: [],
   publishStart: '',
   publishEnd: '',
@@ -182,6 +176,8 @@ type NotionDocumentRow = {
   来源?: string
   发文机关?: string
   发文部门?: string
+  效力范围?: string
+  来源层级?: string
   '生效/发布日期'?: string
   发布日期?: string
   生效日期?: string
@@ -295,6 +291,8 @@ export function PolicyModule() {
   const [category, setCategory] = useState<LibraryCategory[]>(['全部'])
   const [timeliness, setTimeliness] = useState<Timeliness[]>([])
   const [keyword, setKeyword] = useState('')
+  const [sourceLevels, setSourceLevels] = useState<string[]>([])
+  const [searchScopes, setSearchScopes] = useState<SearchScope[]>(['title', 'summary', 'full'])
 
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [advancedDraft, setAdvancedDraft] = useState<AdvancedFilters>(DEFAULT_ADVANCED)
@@ -401,6 +399,18 @@ export function PolicyModule() {
     const keyPoints = safeText((row as any)['关键要点/适用情景'] ?? (row as any)['关键要点/适用情景 '] ?? '')
     const scope = safeText(row.适用范围)
     const content = [summary, keyPoints, scope].filter(Boolean).join('\n')
+    const sourceLevelRaw = safeText((row as any).效力范围 ?? (row as any).来源层级 ?? '')
+    const guessedSourceLevel = (() => {
+      const raw = sourceLevelRaw || dept
+      if (raw.includes('监管') || raw.includes('人行') || raw.includes('央行')) return '监管层'
+      if (raw.includes('总公司') || raw.includes('总部')) return '总公司层'
+      if (raw.includes('分公司') || raw.includes('支行') || raw.includes('网点')) return '分公司层'
+      const cat = normalizeNotionCategory(typeRaw)
+      if (cat === '法律法规') return '监管层'
+      if (cat === '流程') return '分公司层'
+      if (cat === '内控制度') return '总公司层'
+      return '其他'
+    })()
 
     return {
       id: row.id,
@@ -414,7 +424,7 @@ export function PolicyModule() {
       effectiveDate,
       summary,
       content,
-      sourceLevel: '',
+      sourceLevel: guessedSourceLevel,
     }
   }
 
@@ -475,8 +485,15 @@ export function PolicyModule() {
   const localSearchDocs = useMemo(() => {
     const q = keyword.trim().toLowerCase()
     if (!q) return localDocs
-    return localDocs.filter((d) => `${d.title}\n${d.summary}\n${d.content}`.toLowerCase().includes(q))
-  }, [keyword, localDocs])
+    const scopes = new Set(searchScopes.length > 0 ? searchScopes : (['title', 'summary', 'full'] as const))
+    return localDocs.filter((d) => {
+      const parts: string[] = []
+      if (scopes.has('title')) parts.push(d.title)
+      if (scopes.has('summary')) parts.push(d.summary)
+      if (scopes.has('full')) parts.push(d.content)
+      return parts.join('\n').toLowerCase().includes(q)
+    })
+  }, [keyword, localDocs, searchScopes])
 
   const docsForFilter = useMemo(() => {
     const q = keyword.trim()
@@ -503,19 +520,17 @@ export function PolicyModule() {
 
   const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase()
-    const scopes = new Set(advanced.scopes)
+    const scopes = new Set(searchScopes.length > 0 ? searchScopes : (['title', 'summary', 'full'] as const))
 
     const rows = docsForFilter
       .filter((d) => (category.length === 0 || category.includes('全部') ? true : category.includes(d.category)))
       .filter((d) => (timeliness.length === 0 ? true : timeliness.includes(d.timeliness)))
-      .filter((d) => (advanced.sourceLevels.length === 0 ? true : advanced.sourceLevels.includes(d.sourceLevel)))
-      .filter((d) => (advanced.timeliness.length === 0 ? true : advanced.timeliness.includes(d.timeliness)))
+      .filter((d) => (sourceLevels.length === 0 ? true : sourceLevels.includes(d.sourceLevel || '其他')))
       .filter((d) => (advanced.departments.length === 0 ? true : advanced.departments.includes(d.dept)))
       .filter((d) => inDateRange(d.publishDate, advanced.publishStart, advanced.publishEnd))
       .filter((d) => inDateRange(d.effectiveDate, advanced.effectiveStart, advanced.effectiveEnd))
       .filter((d) => {
         if (!kw) return true
-        if (d.source === 'notion') return true
         const parts: string[] = []
         if (scopes.has('title')) parts.push(d.title)
         if (scopes.has('summary')) parts.push(d.summary)
@@ -547,7 +562,7 @@ export function PolicyModule() {
     })
 
     return sorted
-  }, [advanced, category, docsForFilter, keyword, sortBy, timeliness])
+  }, [advanced, category, docsForFilter, keyword, searchScopes, sortBy, sourceLevels, timeliness])
 
   const pageRows = useMemo(() => {
     if (pageSize === 'all') return filtered
@@ -922,6 +937,17 @@ export function PolicyModule() {
     })
   }
 
+  const toggleSourceLevel = (value: string) => {
+    setSourceLevels((prev) => toggleInArray(prev, value))
+  }
+
+  const toggleSearchScope = (value: SearchScope) => {
+    setSearchScopes((prev) => {
+      const next = toggleInArray(prev, value)
+      return next.length === 0 ? prev : next
+    })
+  }
+
   const handleImportFile = async (file: File) => {
     setImportError(null)
     setImportLoading(true)
@@ -1018,38 +1044,88 @@ export function PolicyModule() {
       </div>
 
       <div className="space-y-3">
-        <div className="flex flex-wrap gap-2">
-          {CATEGORY_OPTIONS.map((c) => {
-            const selected = category.includes(c)
-            return (
-              <button
-                key={c}
-                type="button"
-                onClick={() => toggleCategory(c)}
-                className={`rounded-full border px-3 py-1.5 text-sm ${
-                  selected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-indigo-200'
-                } bg-indigo-100 text-indigo-700`}
-              >
-                {c}
-              </button>
-            )
-          })}
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-slate-700">内容类别</span>
+            {CATEGORY_OPTIONS.map((c) => {
+              const selected = category.includes(c)
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => toggleCategory(c)}
+                  className={`rounded-full border px-3 py-1.5 text-sm ${
+                    selected ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-indigo-200 bg-indigo-100 text-indigo-700'
+                  }`}
+                >
+                  {c}
+                </button>
+              )
+            })}
+          </div>
 
-          {TIMELINESS_OPTIONS.map((t) => {
-            const selected = timeliness.includes(t)
-            return (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTimeliness((prev) => toggleInArray(prev, t))}
-                className={`rounded-full border px-3 py-1.5 text-sm ${
-                  selected ? 'border-sky-500 ring-2 ring-sky-200' : 'border-sky-200'
-                } bg-sky-100 text-sky-700`}
-              >
-                {t}
-              </button>
-            )
-          })}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-slate-700">效力状态</span>
+            {TIMELINESS_OPTIONS.map((t) => {
+              const selected = timeliness.includes(t)
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTimeliness((prev) => toggleInArray(prev, t))}
+                  className={`rounded-full border px-3 py-1.5 text-sm ${
+                    selected ? 'border-sky-500 bg-sky-500 text-white' : 'border-sky-200 bg-sky-100 text-sky-700'
+                  }`}
+                >
+                  {t}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-slate-700">效力范围</span>
+            {['监管层', '总公司层', '分公司层', '其他'].map((v) => {
+              const selected = sourceLevels.includes(v)
+              return (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => toggleSourceLevel(v)}
+                  className={`rounded-full border px-3 py-1.5 text-sm ${
+                    selected ? 'border-amber-500 bg-amber-500 text-white' : 'border-amber-200 bg-amber-100 text-amber-800'
+                  }`}
+                >
+                  {v}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-slate-700">搜索范围</span>
+            {([
+              { key: 'title', label: '标题' },
+              { key: 'summary', label: '摘要' },
+              { key: 'full', label: '全文' },
+            ] as const).map((item) => {
+              const selected = searchScopes.includes(item.key)
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => toggleSearchScope(item.key)}
+                  className={`rounded-full border px-3 py-1.5 text-sm ${
+                    selected
+                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                      : 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         <div className="space-y-1">
@@ -1082,6 +1158,8 @@ export function PolicyModule() {
                 setKeyword('')
                 setCategory(['全部'])
                 setTimeliness([])
+                setSourceLevels([])
+                setSearchScopes(['title', 'summary', 'full'])
                 setAdvanced(DEFAULT_ADVANCED)
                 setSelectedIds([])
               }}
@@ -1458,58 +1536,6 @@ export function PolicyModule() {
         }
       >
         <div className="space-y-4 text-sm text-slate-700">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-slate-800">搜索范围</p>
-            <div className="flex flex-wrap gap-2">
-              {([
-                { key: 'title', label: '标题' },
-                { key: 'summary', label: '摘要' },
-                { key: 'full', label: '全文' },
-              ] as const).map((item) => (
-                <label key={item.key} className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={advancedDraft.scopes.includes(item.key)}
-                    onChange={() => setAdvancedDraft((prev) => ({ ...prev, scopes: toggleInArray(prev.scopes, item.key) }))}
-                  />
-                  {item.label}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-slate-800">效力范围</p>
-            <div className="flex flex-wrap gap-2">
-              {['监管层', '总公司层', '分公司层', '其他'].map((v) => (
-                <label key={v} className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={advancedDraft.sourceLevels.includes(v)}
-                    onChange={() => setAdvancedDraft((prev) => ({ ...prev, sourceLevels: toggleInArray(prev.sourceLevels, v) }))}
-                  />
-                  {v}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-slate-800">效力状态</p>
-            <div className="flex flex-wrap gap-2">
-              {TIMELINESS_OPTIONS.map((v) => (
-                <label key={v} className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={advancedDraft.timeliness.includes(v)}
-                    onChange={() => setAdvancedDraft((prev) => ({ ...prev, timeliness: toggleInArray(prev.timeliness, v) }))}
-                  />
-                  {v}
-                </label>
-              ))}
-            </div>
-          </div>
-
           <div className="space-y-2">
             <p className="text-sm font-medium text-slate-800">发文部门 / 作者</p>
             <select
@@ -1921,7 +1947,14 @@ export function PolicyModule() {
                     effectiveDate: importEffectiveDate,
                     summary: '',
                     content: importContent.trim(),
-                    sourceLevel: '',
+                    sourceLevel:
+                      importCategory === '法律法规'
+                        ? '监管层'
+                        : importCategory === '流程'
+                          ? '分公司层'
+                          : importCategory === '内控制度'
+                            ? '总公司层'
+                            : '其他',
                   }
                   setLocalDocs((prev) => [newDoc, ...prev])
                   setImportOpen(false)
@@ -2057,7 +2090,14 @@ export function PolicyModule() {
                     effectiveDate: pasteEffectiveDate,
                     summary: '',
                     content: pasteContent.trim(),
-                    sourceLevel: '',
+                    sourceLevel:
+                      pasteCategory === '法律法规'
+                        ? '监管层'
+                        : pasteCategory === '流程'
+                          ? '分公司层'
+                          : pasteCategory === '内控制度'
+                            ? '总公司层'
+                            : '其他',
                   }
                   setLocalDocs((prev) => [newDoc, ...prev])
                   setPasteOpen(false)
