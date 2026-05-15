@@ -97,6 +97,7 @@ export default function TrainingDetail() {
 
   const [rightCollapsed, setRightCollapsed] = useState(false)
   const [stagePickerOpen, setStagePickerOpen] = useState(false)
+  const [selectedStage, setSelectedStage] = useState<StageKey>('需求立项')
   const [stageUpdating, setStageUpdating] = useState(false)
   const [stageUpdateError, setStageUpdateError] = useState<string | null>(null)
   const [creatingTask, setCreatingTask] = useState(false)
@@ -181,6 +182,11 @@ export default function TrainingDetail() {
 
   const stageIdx = useMemo(() => stageIndex(stage), [stage])
 
+  useEffect(() => {
+    if (!stagePickerOpen) return
+    setSelectedStage(stage)
+  }, [stage, stagePickerOpen])
+
   return (
     <section className="space-y-4">
       {stagePickerOpen ? (
@@ -206,42 +212,63 @@ export default function TrainingDetail() {
                   key={s}
                   type="button"
                   disabled={stageUpdating}
-                  onClick={async () => {
-                    const workUnitId = safeText(id)
-                    if (!workUnitId) return
-                    setStageUpdating(true)
-                    setStageUpdateError(null)
-                    try {
-                      const res = await fetch(`/api/workunit/${encodeURIComponent(workUnitId)}/stage`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ stage: s }),
-                      })
-                      if (!res.ok) throw new Error(String(res.status))
-
-                      setWorkUnitLoading(true)
-                      setWorkUnitError(null)
-                      try {
-                        await refreshWorkUnit(workUnitId)
-                        setStagePickerOpen(false)
-                      } catch (e) {
-                        setWorkUnitError(e instanceof Error ? e.message : String(e))
-                      } finally {
-                        setWorkUnitLoading(false)
-                      }
-                    } catch (e) {
-                      setStageUpdateError(e instanceof Error ? e.message : String(e))
-                    } finally {
-                      setStageUpdating(false)
-                    }
-                  }}
+                  onClick={() => setSelectedStage(s)}
                   className={`rounded-lg border px-3 py-2 text-left text-sm ${
-                    s === stage ? 'border-orange-200 bg-orange-50 text-orange-800' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    s === selectedStage
+                      ? 'border-orange-200 bg-orange-50 text-orange-800'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   {s}
                 </button>
               ))}
+            </div>
+
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => (stageUpdating ? null : setStagePickerOpen(false))}
+                disabled={stageUpdating}
+                className="rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={stageUpdating}
+                onClick={async () => {
+                  const workUnitId = safeText(id)
+                  if (!workUnitId) return
+                  setStageUpdating(true)
+                  setStageUpdateError(null)
+                  try {
+                    const res = await fetch(`/api/workunit/${encodeURIComponent(workUnitId)}/stage`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ stage: selectedStage }),
+                    })
+                    if (!res.ok) throw new Error(String(res.status))
+
+                    setWorkUnitLoading(true)
+                    setWorkUnitError(null)
+                    try {
+                      await refreshWorkUnit(workUnitId)
+                      setStagePickerOpen(false)
+                    } catch (e) {
+                      setWorkUnitError(e instanceof Error ? e.message : String(e))
+                    } finally {
+                      setWorkUnitLoading(false)
+                    }
+                  } catch (e) {
+                    setStageUpdateError(e instanceof Error ? e.message : String(e))
+                  } finally {
+                    setStageUpdating(false)
+                  }
+                }}
+                className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+              >
+                确认
+              </button>
             </div>
 
             {stageUpdating ? <div className="mt-3 text-sm text-slate-500">更新中...</div> : null}
@@ -392,7 +419,7 @@ export default function TrainingDetail() {
                     onClick={() => {
                       const run = async () => {
                         const v = newTaskTitle.trim()
-                        const workUnitId = safeText(id)
+                        const workUnitId = safeText((workUnit as any)?.id) || safeText(id)
                         if (!v || !workUnitId) return
                         setCreatingTask(true)
                         setCreateTaskError(null)
@@ -400,7 +427,7 @@ export default function TrainingDetail() {
                           const res = await fetch('/api/nodes/create', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ name: v, workUnitId, stage }),
+                            body: JSON.stringify({ title: v, workUnitId, stage }),
                           })
                           if (!res.ok) throw new Error(String(res.status))
                           setNewTaskTitle('')
@@ -433,8 +460,8 @@ export default function TrainingDetail() {
                     <Plus className="h-4 w-4" />
                     添加
                   </button>
+                  {createTaskError ? <span className="self-center text-xs text-red-700">{createTaskError}</span> : null}
                 </div>
-                {createTaskError ? <div className="mt-2 text-sm text-red-700">创建失败：{createTaskError}</div> : null}
               </article>
 
               <article className="rounded-xl border border-slate-200 bg-white p-4">

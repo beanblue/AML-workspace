@@ -632,13 +632,13 @@ const notionApiProxyPlugin = (env: Record<string, string>): Plugin => {
 
         try {
           const body = await readJsonBody(req)
-          const name = String((body as any)?.name ?? '').trim()
+          const name = String((body as any)?.title ?? (body as any)?.name ?? '').trim()
           const workUnitIdRaw = String((body as any)?.workUnitId ?? '').trim()
           const stage = String((body as any)?.stage ?? '').trim()
           if (!name || !workUnitIdRaw || !stage) {
             res.statusCode = 400
             res.setHeader('Content-Type', 'application/json')
-            res.end(JSON.stringify({ message: '缺少 name / workUnitId / stage。' }))
+            res.end(JSON.stringify({ message: '缺少 title / workUnitId / stage。' }))
             return
           }
 

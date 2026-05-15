@@ -662,11 +662,11 @@ const server = http.createServer(async (req, res) => {
       }
 
       const body = await readJson(req)
-      const name = String(body?.name ?? '').trim()
+      const name = String(body?.title ?? body?.name ?? '').trim()
       const workUnitIdRaw = String(body?.workUnitId ?? '').trim()
       const stage = String(body?.stage ?? '').trim()
       if (!name) {
-        sendJson(res, 400, { message: '缺少 name。' })
+        sendJson(res, 400, { message: '缺少 title。' })
         return
       }
       if (!workUnitIdRaw) {
