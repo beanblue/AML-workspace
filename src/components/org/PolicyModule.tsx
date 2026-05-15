@@ -31,6 +31,7 @@ type LibraryDoc = {
   summary: string
   content: string
   sourceLevel: string
+  topics: string[]
 }
 
 const CATEGORY_OPTIONS: LibraryCategory[] = ['全部', '内控制度', '法律法规', '流程', '图书', '论文', '其他']
@@ -178,6 +179,8 @@ type NotionDocumentRow = {
   发文部门?: string
   效力范围?: string
   来源层级?: string
+  标签?: string[] | string
+  主题?: string[] | string
   '生效/发布日期'?: string
   发布日期?: string
   生效日期?: string
@@ -251,6 +254,16 @@ function parseFileNameTitle(name: string): string {
   return name.replace(/\.[^/.]+$/, '').trim()
 }
 
+function normalizeTopics(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((v) => String(v ?? '').trim()).filter(Boolean)
+  const raw = String(value ?? '').trim()
+  if (!raw) return []
+  return raw
+    .split(/[,，;；]/g)
+    .map((v) => v.trim())
+    .filter(Boolean)
+}
+
 function normalizeNotionCategory(typeValue: string): Exclude<LibraryCategory, '全部'> {
   const raw = typeValue.trim()
   const normalized = raw.toLowerCase()
@@ -293,6 +306,7 @@ export function PolicyModule() {
   const [keyword, setKeyword] = useState('')
   const [sourceLevels, setSourceLevels] = useState<string[]>([])
   const [searchScopes, setSearchScopes] = useState<SearchScope[]>(['title', 'summary', 'full'])
+  const [topicTags, setTopicTags] = useState<string[]>([])
 
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [advancedDraft, setAdvancedDraft] = useState<AdvancedFilters>(DEFAULT_ADVANCED)
@@ -400,6 +414,7 @@ export function PolicyModule() {
     const scope = safeText(row.适用范围)
     const content = [summary, keyPoints, scope].filter(Boolean).join('\n')
     const sourceLevelRaw = safeText((row as any).效力范围 ?? (row as any).来源层级 ?? '')
+    const topics = normalizeTopics((row as any).标签 ?? (row as any).主题 ?? '')
     const guessedSourceLevel = (() => {
       const raw = sourceLevelRaw || dept
       if (raw.includes('监管') || raw.includes('人行') || raw.includes('央行')) return '监管层'
@@ -425,6 +440,7 @@ export function PolicyModule() {
       summary,
       content,
       sourceLevel: guessedSourceLevel,
+      topics,
     }
   }
 
@@ -517,6 +533,14 @@ export function PolicyModule() {
   }, [docsForStats])
 
   const departments = useMemo(() => Array.from(new Set(docsForStats.map((d) => d.dept).filter(Boolean))).sort(), [docsForStats])
+  const topicOptions = useMemo(() => {
+    const set = new Set<string>()
+    docsForStats.forEach((d) => {
+      if (d.source !== 'notion') return
+      d.topics.forEach((t) => set.add(t))
+    })
+    return Array.from(set).sort()
+  }, [docsForStats])
 
   const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase()
@@ -526,6 +550,7 @@ export function PolicyModule() {
       .filter((d) => (category.length === 0 || category.includes('全部') ? true : category.includes(d.category)))
       .filter((d) => (timeliness.length === 0 ? true : timeliness.includes(d.timeliness)))
       .filter((d) => (sourceLevels.length === 0 ? true : sourceLevels.includes(d.sourceLevel || '其他')))
+      .filter((d) => (topicTags.length === 0 ? true : d.topics.some((t) => topicTags.includes(t))))
       .filter((d) => (advanced.departments.length === 0 ? true : advanced.departments.includes(d.dept)))
       .filter((d) => inDateRange(d.publishDate, advanced.publishStart, advanced.publishEnd))
       .filter((d) => inDateRange(d.effectiveDate, advanced.effectiveStart, advanced.effectiveEnd))
@@ -562,7 +587,7 @@ export function PolicyModule() {
     })
 
     return sorted
-  }, [advanced, category, docsForFilter, keyword, searchScopes, sortBy, sourceLevels, timeliness])
+  }, [advanced, category, docsForFilter, keyword, searchScopes, sortBy, sourceLevels, timeliness, topicTags])
 
   const pageRows = useMemo(() => {
     if (pageSize === 'all') return filtered
@@ -948,6 +973,10 @@ export function PolicyModule() {
     })
   }
 
+  const toggleTopicTag = (value: string) => {
+    setTopicTags((prev) => toggleInArray(prev, value))
+  }
+
   const handleImportFile = async (file: File) => {
     setImportError(null)
     setImportLoading(true)
@@ -1044,87 +1073,110 @@ export function PolicyModule() {
       </div>
 
       <div className="space-y-3">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-slate-700">内容类别</span>
-            {CATEGORY_OPTIONS.map((c) => {
-              const selected = category.includes(c)
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => toggleCategory(c)}
-                  className={`rounded-full border px-3 py-1.5 text-sm ${
-                    selected ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-indigo-200 bg-indigo-100 text-indigo-700'
-                  }`}
-                >
-                  {c}
-                </button>
-              )
-            })}
-          </div>
+        <div className="rounded-xl border border-gray-200 bg-slate-50 px-4 py-3">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-slate-700">内容类别</span>
+              {CATEGORY_OPTIONS.map((c) => {
+                const selected = category.includes(c)
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => toggleCategory(c)}
+                    className={`rounded-full border px-3 py-1.5 text-sm ${
+                      selected ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-indigo-200 bg-indigo-100 text-indigo-700'
+                    }`}
+                  >
+                    {c}
+                  </button>
+                )
+              })}
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-slate-700">效力状态</span>
-            {TIMELINESS_OPTIONS.map((t) => {
-              const selected = timeliness.includes(t)
-              return (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTimeliness((prev) => toggleInArray(prev, t))}
-                  className={`rounded-full border px-3 py-1.5 text-sm ${
-                    selected ? 'border-sky-500 bg-sky-500 text-white' : 'border-sky-200 bg-sky-100 text-sky-700'
-                  }`}
-                >
-                  {t}
-                </button>
-              )
-            })}
-          </div>
+              <span className="mx-2 text-slate-300">|</span>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-slate-700">效力范围</span>
-            {['监管层', '总公司层', '分公司层', '其他'].map((v) => {
-              const selected = sourceLevels.includes(v)
-              return (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => toggleSourceLevel(v)}
-                  className={`rounded-full border px-3 py-1.5 text-sm ${
-                    selected ? 'border-amber-500 bg-amber-500 text-white' : 'border-amber-200 bg-amber-100 text-amber-800'
-                  }`}
-                >
-                  {v}
-                </button>
-              )
-            })}
-          </div>
+              <span className="text-sm font-medium text-slate-700">搜索范围</span>
+              {([
+                { key: 'title', label: '标题' },
+                { key: 'summary', label: '摘要' },
+                { key: 'full', label: '全文' },
+              ] as const).map((item) => {
+                const selected = searchScopes.includes(item.key)
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => toggleSearchScope(item.key)}
+                    className={`rounded-full border px-3 py-1.5 text-sm ${
+                      selected
+                        ? 'border-emerald-600 bg-emerald-600 text-white'
+                        : 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-slate-700">搜索范围</span>
-            {([
-              { key: 'title', label: '标题' },
-              { key: 'summary', label: '摘要' },
-              { key: 'full', label: '全文' },
-            ] as const).map((item) => {
-              const selected = searchScopes.includes(item.key)
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => toggleSearchScope(item.key)}
-                  className={`rounded-full border px-3 py-1.5 text-sm ${
-                    selected
-                      ? 'border-emerald-600 bg-emerald-600 text-white'
-                      : 'border-emerald-200 bg-emerald-100 text-emerald-700'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              )
-            })}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-slate-700">效力状态</span>
+              {TIMELINESS_OPTIONS.map((t) => {
+                const selected = timeliness.includes(t)
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTimeliness((prev) => toggleInArray(prev, t))}
+                    className={`rounded-full border px-3 py-1.5 text-sm ${
+                      selected ? 'border-sky-500 bg-sky-500 text-white' : 'border-sky-200 bg-sky-100 text-sky-700'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                )
+              })}
+
+              <span className="mx-2 text-slate-300">|</span>
+
+              <span className="text-sm font-medium text-slate-700">效力范围</span>
+              {['监管层', '总公司层', '分公司层', '其他'].map((v) => {
+                const selected = sourceLevels.includes(v)
+                return (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => toggleSourceLevel(v)}
+                    className={`rounded-full border px-3 py-1.5 text-sm ${
+                      selected ? 'border-amber-500 bg-amber-500 text-white' : 'border-amber-200 bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {v}
+                  </button>
+                )
+              })}
+            </div>
+
+            {topicOptions.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-slate-700">主题标签</span>
+                {topicOptions.map((t) => {
+                  const selected = topicTags.includes(t)
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => toggleTopicTag(t)}
+                      className={`rounded-full border px-3 py-1.5 text-sm ${
+                        selected ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-indigo-200 bg-indigo-100 text-indigo-700'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -1160,6 +1212,7 @@ export function PolicyModule() {
                 setTimeliness([])
                 setSourceLevels([])
                 setSearchScopes(['title', 'summary', 'full'])
+                setTopicTags([])
                 setAdvanced(DEFAULT_ADVANCED)
                 setSelectedIds([])
               }}
@@ -1955,6 +2008,7 @@ export function PolicyModule() {
                           : importCategory === '内控制度'
                             ? '总公司层'
                             : '其他',
+                    topics: [],
                   }
                   setLocalDocs((prev) => [newDoc, ...prev])
                   setImportOpen(false)
@@ -2098,6 +2152,7 @@ export function PolicyModule() {
                           : pasteCategory === '内控制度'
                             ? '总公司层'
                             : '其他',
+                    topics: [],
                   }
                   setLocalDocs((prev) => [newDoc, ...prev])
                   setPasteOpen(false)
