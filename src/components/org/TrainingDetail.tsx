@@ -2,13 +2,13 @@ import {
   Check,
   ChevronRight,
   FileText,
-  PanelRightClose,
-  PanelRightOpen,
   Plus,
   Upload,
+  X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Modal } from '../shared/Modal'
 
 type NotionWorkUnitRow = {
   id: string
@@ -29,6 +29,106 @@ type NotionNodeRow = {
 type StageKey = '需求立项' | '计划设计' | '材料准备' | '培训实施' | '归档评估'
 
 const STAGES: StageKey[] = ['需求立项', '计划设计', '材料准备', '培训实施', '归档评估']
+
+type DemandStatus = '待开始' | '进行中' | '已完成'
+
+type DemandMethodKind = '政策' | '指令' | '岗位' | '计划' | '日常' | '问卷' | '访谈' | '座谈' | '复盘' | '自定义'
+
+type DemandOption = {
+  id: string
+  label: string
+  kind: DemandMethodKind
+  recommended?: boolean
+}
+
+type DemandDetail =
+  | {
+      kind: '政策'
+      fileName: string
+      issuer: string
+      issueDate: string
+      keyRequirements: string
+      remark: string
+    }
+  | {
+      kind: '指令'
+      sourceType: '监管机构' | '总公司' | '省公司' | '其他'
+      fileName: string
+      issueDate: string
+      contentSummary: string
+      responseDueDate: string
+      remark: string
+    }
+  | {
+      kind: '岗位'
+      scope: string
+      dimensions: string
+      conclusion: string
+      remark: string
+    }
+  | {
+      kind: '计划'
+      planFileName: string
+      relatedRequirements: string
+      direction: string
+      remark: string
+    }
+  | {
+      kind: '日常'
+      description: string
+      source: string
+      priority: '高' | '中' | '低'
+      remark: string
+    }
+  | {
+      kind: '问卷'
+      title: string
+      target: string
+      toolLink: string
+      dueDate: string
+      collectedCount: string
+      conclusion: string
+      remark: string
+    }
+  | {
+      kind: '访谈'
+      interviewee: string
+      interviewTime: string
+      outlineItems: string[]
+      record: string
+      remark: string
+    }
+  | {
+      kind: '座谈'
+      departments: string[]
+      meetingTime: string
+      topics: string[]
+      minutes: string
+      remark: string
+    }
+  | {
+      kind: '复盘'
+      projectName: string
+      dimensions: string
+      conclusion: string
+      remark: string
+    }
+  | {
+      kind: '自定义'
+      name: string
+      description: string
+      remark: string
+    }
+
+type DemandMatrixRow = {
+  optionId: string
+  label: string
+  kind: DemandMethodKind
+  status: DemandStatus
+  owner: string
+  dueDate: string
+  detail: DemandDetail
+}
 
 function safeText(value: unknown): string {
   return String(value ?? '').trim()
@@ -74,6 +174,165 @@ function getWorkUnitPlanDate(row: NotionWorkUnitRow | null): string {
   return safeText((row as any)?.planDate) || safeText(row?.计划日期) || safeText(row?.计划开始) || safeText(row?.开始日期) || ''
 }
 
+function createEmptyDemandDetail(kind: DemandMethodKind, label: string): DemandDetail {
+  if (kind === '政策') {
+    return { kind, fileName: '', issuer: '', issueDate: '', keyRequirements: '', remark: '' }
+  }
+  if (kind === '指令') {
+    return { kind, sourceType: '监管机构', fileName: '', issueDate: '', contentSummary: '', responseDueDate: '', remark: '' }
+  }
+  if (kind === '岗位') {
+    return { kind, scope: '', dimensions: '', conclusion: '', remark: '' }
+  }
+  if (kind === '计划') {
+    return { kind, planFileName: '', relatedRequirements: '', direction: '', remark: '' }
+  }
+  if (kind === '日常') {
+    return { kind, description: '', source: '', priority: '中', remark: '' }
+  }
+  if (kind === '问卷') {
+    return { kind, title: '', target: '', toolLink: '', dueDate: '', collectedCount: '', conclusion: '', remark: '' }
+  }
+  if (kind === '访谈') {
+    return { kind, interviewee: '', interviewTime: '', outlineItems: [], record: '', remark: '' }
+  }
+  if (kind === '座谈') {
+    return { kind, departments: [], meetingTime: '', topics: [], minutes: '', remark: '' }
+  }
+  if (kind === '复盘') {
+    return { kind, projectName: '', dimensions: '', conclusion: '', remark: '' }
+  }
+  return { kind: '自定义', name: label, description: '', remark: '' }
+}
+
+function createDemandMatrixRow(option: DemandOption): DemandMatrixRow {
+  return {
+    optionId: option.id,
+    label: option.label,
+    kind: option.kind,
+    status: '待开始',
+    owner: '',
+    dueDate: '',
+    detail: createEmptyDemandDetail(option.kind, option.label),
+  }
+}
+
+function buildPlanRange(start: string, end: string): string {
+  const s = safeText(start)
+  const e = safeText(end)
+  if (s && e) return `${s} - ${e}`
+  if (s) return s
+  if (e) return e
+  return ''
+}
+
+function StringListEditor({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string[]
+  onChange: (next: string[]) => void
+  placeholder?: string
+}) {
+  const [input, setInput] = useState('')
+  return (
+    <div className="space-y-2">
+      <div className="space-y-2">
+        {value.length === 0 ? <div className="text-sm text-slate-500">暂无条目</div> : null}
+        <div className="space-y-2">
+          {value.map((item, idx) => (
+            <div key={`${item}-${idx}`} className="flex items-center gap-2">
+              <div className="flex-1 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">{item}</div>
+              <button
+                type="button"
+                onClick={() => onChange(value.filter((_, i) => i !== idx))}
+                className="inline-flex h-9 w-9 items-center justify-center rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={placeholder || '输入后添加'}
+          className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            const v = input.trim()
+            if (!v) return
+            onChange([...value, v])
+            setInput('')
+          }}
+          className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+        >
+          添加
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function TagEditor({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string[]
+  onChange: (next: string[]) => void
+  placeholder?: string
+}) {
+  const [input, setInput] = useState('')
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {value.map((t) => (
+          <span key={t} className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">
+            {t}
+            <button type="button" onClick={() => onChange(value.filter((x) => x !== t))} className="text-slate-500 hover:text-slate-900">
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter') return
+            e.preventDefault()
+            const v = input.trim()
+            if (!v) return
+            onChange(value.includes(v) ? value : [...value, v])
+            setInput('')
+          }}
+          placeholder={placeholder || '输入后回车'}
+          className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            const v = input.trim()
+            if (!v) return
+            onChange(value.includes(v) ? value : [...value, v])
+            setInput('')
+          }}
+          className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+        >
+          添加
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function TrainingDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -99,7 +358,6 @@ export default function TrainingDetail() {
   }
   const [activeTab, setActiveTab] = useState<string>(tabAlias(initialTab) || '')
 
-  const [rightCollapsed, setRightCollapsed] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
   const [aiInput, setAiInput] = useState('')
   const [stageUpdating, setStageUpdating] = useState(false)
@@ -130,28 +388,24 @@ export default function TrainingDetail() {
     }
   }, [])
 
-  const [demandMethodChecked, setDemandMethodChecked] = useState<Record<string, boolean>>({
-    问卷调查: false,
-    一对一访谈: false,
-    部门座谈会: false,
-    监管文件分析: false,
-    历史培训分析: false,
-    岗位分析: false,
-    年度计划分析: false,
-    自定义: false,
-  })
-  const [demandRows, setDemandRows] = useState<
-    Array<{
-      id: string
-      method: string
-      tool: string
-      target: string
-      dueDate: string
-      status: '待开始' | '进行中' | '已完成'
-      owner: string
-      preset: boolean
-    }>
-  >([])
+  const [demandOptions, setDemandOptions] = useState<DemandOption[]>([
+    { id: 'policy', label: '政策', kind: '政策', recommended: true },
+    { id: 'directive', label: '指令', kind: '指令', recommended: true },
+    { id: 'role', label: '岗位', kind: '岗位' },
+    { id: 'plan', label: '计划', kind: '计划' },
+    { id: 'daily', label: '日常', kind: '日常' },
+    { id: 'questionnaire', label: '问卷', kind: '问卷' },
+    { id: 'interview', label: '访谈', kind: '访谈' },
+    { id: 'symposium', label: '座谈', kind: '座谈' },
+    { id: 'review', label: '复盘', kind: '复盘' },
+  ])
+  const [selectedDemandOptionIds, setSelectedDemandOptionIds] = useState<string[]>([])
+  const [demandMatrix, setDemandMatrix] = useState<Record<string, DemandMatrixRow>>({})
+  const [customMethodOpen, setCustomMethodOpen] = useState(false)
+  const [customMethodName, setCustomMethodName] = useState('')
+  const [demandDetailOpen, setDemandDetailOpen] = useState(false)
+  const [demandDetailOptionId, setDemandDetailOptionId] = useState<string | null>(null)
+  const [demandDetailDraft, setDemandDetailDraft] = useState<DemandDetail | null>(null)
 
   const [summaryGoal, setSummaryGoal] = useState('')
   const [summaryTarget, setSummaryTarget] = useState('')
@@ -228,11 +482,11 @@ export default function TrainingDetail() {
   const department = safeText((workUnit as any)?.department) || safeText((workUnit as any)?.牵头部门)
   const planStartDate = safeText((workUnit as any)?.planStartDate) || planDate
   const planEndDate = safeText((workUnit as any)?.planEndDate)
-  const target = safeText((workUnit as any)?.target)
   const summary = safeText((workUnit as any)?.summary)
+  const planRange = buildPlanRange(planStartDate, planEndDate)
 
   const stageTabs = useMemo(() => {
-    if (stage === '需求立项') return ['需求收集', '需求汇总', '历史参考']
+    if (stage === '需求立项') return ['需求收集', '需求汇总', '参考历史']
     if (stage === '计划设计') return ['方案设计', '资源计划', '需求回顾']
     if (stage === '材料准备') return ['任务清单', '课件材料', '审核状态']
     if (stage === '培训实施') return ['任务清单', '参训人员', '签到记录']
@@ -333,31 +587,31 @@ export default function TrainingDetail() {
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
-            <button type="button" onClick={() => navigate('/org/training')} className="hover:text-slate-900">
-              组织类
-            </button>
-            <ChevronRight className="h-4 w-4" />
-            <button type="button" onClick={() => navigate('/org/training')} className="hover:text-slate-900">
-              培训管理
-            </button>
-          </div>
-
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <h2 className="min-w-0 truncate text-xl font-semibold text-slate-900">{title}</h2>
-            <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">{type}</span>
-            <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">{stage}</span>
-          </div>
-
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
-            {owner ? <span>负责人：{owner}</span> : null}
-            {planDate ? <span>计划日期：{planDate}</span> : null}
-          </div>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+          <button type="button" onClick={() => navigate('/org/training')} className="hover:text-slate-900">
+            组织类
+          </button>
+          <ChevronRight className="h-4 w-4" />
+          <button type="button" onClick={() => navigate('/org/training')} className="hover:text-slate-900">
+            培训管理
+          </button>
         </div>
+      </div>
 
-        <div />
+      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="min-w-0 truncate text-xl font-semibold text-slate-900">{title}</h2>
+          <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">{type || '—'}</span>
+          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">{stage || '—'}</span>
+          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-700">{status || '—'}</span>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
+          <span>负责人：{owner || '—'}</span>
+          <span>牵头部门：{department || '—'}</span>
+          <span>计划：{planRange || '—'}</span>
+          <span className="min-w-0 flex-1 truncate">摘要：{summary || '—'}</span>
+        </div>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -418,15 +672,7 @@ export default function TrainingDetail() {
             onClick={() => setAiOpen((prev) => !prev)}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
           >
-            🤖 AI助手
-          </button>
-          <button
-            type="button"
-            onClick={() => setRightCollapsed((prev) => !prev)}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-          >
-            {rightCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
-            侧栏
+            🤖 人工智能助手
           </button>
         </div>
       </div>
@@ -435,7 +681,7 @@ export default function TrainingDetail() {
       {workUnitError ? <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{workUnitError}</div> : null}
 
       {aiOpen ? (
-        <div className="fixed bottom-6 right-4 top-24 z-40 w-[320px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+        <div className="fixed bottom-6 right-4 top-24 z-40 w-[300px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div className="text-sm font-semibold text-slate-900">AI助手 · 当前阶段：【{stage}】</div>
             <button type="button" onClick={() => setAiOpen(false)} className="text-sm text-slate-500 hover:text-slate-900">
@@ -479,479 +725,929 @@ export default function TrainingDetail() {
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 xl:flex-row">
-        <div className="min-w-0 flex-1">
-          {activeTab === '任务清单' ? (
-            <article className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-900">任务清单</h3>
-                <span className="text-xs text-slate-500">
-                  {localTasks.filter((t) => t.done).length}/{localTasks.length}
-                </span>
-              </div>
-              {nodesLoading ? <div className="mt-3 text-sm text-slate-500">加载任务中...</div> : null}
-              {nodesError ? <div className="mt-3 text-sm text-red-700">任务加载失败：{nodesError}</div> : null}
-              <div className="mt-3 space-y-2">
-                {localTasks.length === 0 ? (
-                  <div className="rounded border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                    暂无任务
+      <div className="min-w-0">
+        {activeTab === '任务清单' ? (
+          <article className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-900">任务清单</h3>
+              <span className="text-xs text-slate-500">
+                {localTasks.filter((t) => t.done).length}/{localTasks.length}
+              </span>
+            </div>
+            {nodesLoading ? <div className="mt-3 text-sm text-slate-500">加载任务中...</div> : null}
+            {nodesError ? <div className="mt-3 text-sm text-red-700">任务加载失败：{nodesError}</div> : null}
+            <div className="mt-3 space-y-2">
+              {localTasks.length === 0 ? (
+                <div className="rounded border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">暂无任务</div>
+              ) : (
+                localTasks.map((t) => (
+                  <label key={t.id} className="flex items-start gap-2 rounded border border-slate-200 bg-white p-3 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={t.done}
+                      onChange={() => setLocalTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)))}
+                      className="mt-1"
+                    />
+                    <span className={`flex-1 ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{t.title}</span>
+                  </label>
+                ))
+              )}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <input
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                placeholder="添加任务..."
+                className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  console.log('add task clicked')
+                  const run = async () => {
+                    const v = newTaskTitle.trim()
+                    const workUnitId = safeText((workUnit as any)?.id) || safeText(id)
+                    if (!v || !workUnitId) return
+                    setCreatingTask(true)
+                    setCreateTaskError(null)
+                    try {
+                      const res = await fetch('/api/nodes/create', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title: v, workUnitId, stage }),
+                      })
+                      if (!res.ok) throw new Error(String(res.status))
+                      setNewTaskTitle('')
+
+                      setNodesLoading(true)
+                      setNodesError(null)
+                      try {
+                        const listRes = await fetch(`/api/nodes/list?workUnitId=${encodeURIComponent(workUnitId)}`)
+                        if (!listRes.ok) throw new Error(String(listRes.status))
+                        const data = await listRes.json()
+                        setNodes((Array.isArray(data) ? data : []) as NotionNodeRow[])
+                      } catch (e) {
+                        setNodesError(e instanceof Error ? e.message : String(e))
+                      } finally {
+                        setNodesLoading(false)
+                      }
+                    } catch (e) {
+                      setCreateTaskError(e instanceof Error ? e.message : String(e))
+                    } finally {
+                      setCreatingTask(false)
+                    }
+                  }
+                  run()
+                }}
+                disabled={creatingTask}
+                className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm text-white ${
+                  creatingTask ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                <Plus className="h-4 w-4" />
+                添加
+              </button>
+              {createTaskError ? <span className="self-center text-xs text-red-700">{createTaskError}</span> : null}
+            </div>
+          </article>
+        ) : activeTab === '课件材料' ? (
+          <article className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-900">课件材料</h3>
+              <span className="text-xs text-slate-500">{localMaterials.length} 份</span>
+            </div>
+            <div className="mt-3 space-y-2">
+              {localMaterials.length === 0 ? (
+                <div className="rounded border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">暂无材料</div>
+              ) : (
+                localMaterials.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between rounded border border-slate-200 bg-white p-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-slate-800">{m.name}</p>
+                      <p className="mt-1 text-xs text-slate-500">上传时间：{m.uploadedAt}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => window.alert('Mock：查看材料')}
+                      className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      查看
+                    </button>
                   </div>
-                ) : (
-                  localTasks.map((t) => (
-                    <label key={t.id} className="flex items-start gap-2 rounded border border-slate-200 bg-white p-3 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={t.done}
-                        onChange={() => setLocalTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, done: !x.done } : x)))}
-                        className="mt-1"
-                      />
-                      <span className={`flex-1 ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{t.title}</span>
-                    </label>
-                  ))
-                )}
-              </div>
-              <div className="mt-3 flex gap-2">
-                <input
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                  placeholder="添加任务..."
-                  className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                />
+                ))
+              )}
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (!f) return
+                setLocalMaterials((prev) => [
+                  { id: `file-${Date.now()}`, name: f.name, uploadedAt: new Date().toISOString().slice(0, 16).replace('T', ' ') },
+                  ...prev,
+                ])
+                e.target.value = ''
+              }}
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <Upload className="h-4 w-4" />
+                上传新材料
+              </button>
+              <button
+                type="button"
+                onClick={() => window.alert('Mock：从材料仓库选取')}
+                className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <FileText className="h-4 w-4" />
+                从材料仓库选取
+              </button>
+            </div>
+          </article>
+        ) : stage === '需求立项' && activeTab === '需求收集' ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div className="text-sm font-semibold text-slate-900">收集方式</div>
+              <div className="mt-3 flex items-center gap-2 overflow-x-auto">
+                {demandOptions.map((opt) => {
+                  const selected = selectedDemandOptionIds.includes(opt.id)
+                  const base = opt.recommended ? 'border-orange-300 text-orange-700' : 'border-slate-200 text-slate-700'
+                  const cls = selected ? 'border-blue-600 bg-blue-600 text-white' : `bg-white hover:bg-slate-50 ${base}`
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => {
+                        const isSelected = selectedDemandOptionIds.includes(opt.id)
+                        if (isSelected) {
+                          const ok = window.confirm('确定移除该收集方式？')
+                          if (!ok) return
+                          setSelectedDemandOptionIds((prev) => prev.filter((x) => x !== opt.id))
+                          setDemandMatrix((prev) => {
+                            const next = { ...prev }
+                            delete next[opt.id]
+                            return next
+                          })
+                          return
+                        }
+                        setSelectedDemandOptionIds((prev) => (prev.includes(opt.id) ? prev : [...prev, opt.id]))
+                        setDemandMatrix((prev) => (prev[opt.id] ? prev : { ...prev, [opt.id]: createDemandMatrixRow(opt) }))
+                      }}
+                      className={`shrink-0 rounded-full border px-3 py-1.5 text-sm ${cls}`}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
                 <button
                   type="button"
                   onClick={() => {
-                    console.log('add task clicked')
-                    const run = async () => {
-                      const v = newTaskTitle.trim()
-                      const workUnitId = safeText((workUnit as any)?.id) || safeText(id)
-                      if (!v || !workUnitId) return
-                      setCreatingTask(true)
-                      setCreateTaskError(null)
-                      try {
-                        const res = await fetch('/api/nodes/create', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ title: v, workUnitId, stage }),
-                        })
-                        if (!res.ok) throw new Error(String(res.status))
-                        setNewTaskTitle('')
-
-                        setNodesLoading(true)
-                        setNodesError(null)
-                        try {
-                          const listRes = await fetch(`/api/nodes/list?workUnitId=${encodeURIComponent(workUnitId)}`)
-                          if (!listRes.ok) throw new Error(String(listRes.status))
-                          const data = await listRes.json()
-                          setNodes((Array.isArray(data) ? data : []) as NotionNodeRow[])
-                        } catch (e) {
-                          setNodesError(e instanceof Error ? e.message : String(e))
-                        } finally {
-                          setNodesLoading(false)
-                        }
-                      } catch (e) {
-                        setCreateTaskError(e instanceof Error ? e.message : String(e))
-                      } finally {
-                        setCreatingTask(false)
-                      }
-                    }
-                    run()
+                    setCustomMethodName('')
+                    setCustomMethodOpen(true)
                   }}
-                  disabled={creatingTask}
-                  className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm text-white ${
-                    creatingTask ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700'
-                  }`}
+                  className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  <Plus className="h-4 w-4" />
-                  添加
+                  自定义
                 </button>
-                {createTaskError ? <span className="self-center text-xs text-red-700">{createTaskError}</span> : null}
               </div>
-            </article>
-          ) : activeTab === '课件材料' ? (
-            <article className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-900">课件材料</h3>
-                <span className="text-xs text-slate-500">{localMaterials.length} 份</span>
-              </div>
-              <div className="mt-3 space-y-2">
-                {localMaterials.length === 0 ? (
-                  <div className="rounded border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                    暂无材料
-                  </div>
-                ) : (
-                  localMaterials.map((m) => (
-                    <div key={m.id} className="flex items-center justify-between rounded border border-slate-200 bg-white p-3 text-sm">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-slate-800">{m.name}</p>
-                        <p className="mt-1 text-xs text-slate-500">上传时间：{m.uploadedAt}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => window.alert('Mock：查看材料')}
-                        className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-                      >
-                        查看
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
+              <div className="mt-3 text-xs text-slate-500">提示：政策 / 指令 为建议优先选择项</div>
+            </div>
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (!f) return
-                  setLocalMaterials((prev) => [
-                    { id: `file-${Date.now()}`, name: f.name, uploadedAt: new Date().toISOString().slice(0, 16).replace('T', ' ') },
-                    ...prev,
-                  ])
-                  e.target.value = ''
-                }}
-              />
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <Upload className="h-4 w-4" />
-                  上传新材料
-                </button>
-                <button
-                  type="button"
-                  onClick={() => window.alert('Mock：从材料仓库选取')}
-                  className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <FileText className="h-4 w-4" />
-                  从材料仓库选取
-                </button>
-              </div>
-            </article>
-          ) : stage === '需求立项' && activeTab === '需求收集' ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {[
-                  '问卷调查',
-                  '一对一访谈',
-                  '部门座谈会',
-                  '监管文件分析',
-                  '历史培训分析',
-                  '岗位分析',
-                  '年度计划分析',
-                  '自定义',
-                ].map((method) => {
-                  const checked = Boolean(demandMethodChecked[method])
-                  return (
-                    <label
-                      key={method}
-                      className={`flex cursor-pointer items-start gap-3 rounded-xl border bg-white p-4 ${
-                        checked ? 'border-blue-300 ring-1 ring-blue-200' : 'border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) => {
-                          const next = e.target.checked
-                          setDemandMethodChecked((prev) => ({ ...prev, [method]: next }))
-                          setDemandRows((prev) => {
-                            const rowId = `preset-${method}`
-                            const exists = prev.some((r) => r.id === rowId)
-                            if (next && !exists) {
-                              return [
-                                ...prev,
-                                {
-                                  id: rowId,
-                                  method,
-                                  tool: '',
-                                  target: '',
-                                  dueDate: '',
-                                  status: '待开始',
-                                  owner: '',
-                                  preset: method !== '自定义',
-                                },
-                              ]
-                            }
-                            if (!next && exists) {
-                              return prev.filter((r) => r.id !== rowId)
-                            }
-                            return prev
-                          })
-                        }}
-                        className="mt-1"
-                      />
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-slate-900">{method}</div>
-                        <div className="mt-1 text-xs text-slate-500">勾选后加入矩阵</div>
-                      </div>
-                    </label>
-                  )
-                })}
-              </div>
-
-              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                <table className="w-full min-w-[900px] text-left text-sm">
-                  <thead className="bg-slate-50 text-xs text-slate-600">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className="bg-slate-50 text-xs text-slate-600">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">序号</th>
+                    <th className="px-3 py-2 font-medium">收集方式</th>
+                    <th className="px-3 py-2 font-medium">状态</th>
+                    <th className="px-3 py-2 font-medium">负责人</th>
+                    <th className="px-3 py-2 font-medium">截止日期</th>
+                    <th className="px-3 py-2 font-medium">详情</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {selectedDemandOptionIds.length === 0 ? (
                     <tr>
-                      <th className="px-3 py-2 font-medium">收集方式</th>
-                      <th className="px-3 py-2 font-medium">使用工具</th>
-                      <th className="px-3 py-2 font-medium">对象</th>
-                      <th className="px-3 py-2 font-medium">截止日期</th>
-                      <th className="px-3 py-2 font-medium">状态</th>
-                      <th className="px-3 py-2 font-medium">负责人</th>
+                      <td colSpan={6} className="px-3 py-6 text-center text-sm text-slate-500">
+                        暂无数据
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {demandRows.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="px-3 py-6 text-center text-sm text-slate-500">
-                          暂无数据
-                        </td>
-                      </tr>
-                    ) : (
-                      demandRows.map((row) => (
-                        <tr key={row.id}>
-                          <td className="px-3 py-2">
-                            {row.preset ? (
-                              <div className="text-slate-900">{row.method}</div>
-                            ) : (
+                  ) : (
+                    demandOptions
+                      .filter((o) => selectedDemandOptionIds.includes(o.id))
+                      .map((opt, idx) => {
+                        const row = demandMatrix[opt.id]
+                        if (!row) return null
+                        return (
+                          <tr key={opt.id}>
+                            <td className="px-3 py-2 text-slate-600">{idx + 1}</td>
+                            <td className="px-3 py-2 text-slate-900">{row.label}</td>
+                            <td className="px-3 py-2">
+                              <select
+                                value={row.status}
+                                onChange={(e) => {
+                                  const v = e.target.value as DemandStatus
+                                  setDemandMatrix((prev) => ({ ...prev, [opt.id]: { ...prev[opt.id], status: v } }))
+                                }}
+                                className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-blue-300"
+                              >
+                                <option value="待开始">待开始</option>
+                                <option value="进行中">进行中</option>
+                                <option value="已完成">已完成</option>
+                              </select>
+                            </td>
+                            <td className="px-3 py-2">
                               <input
-                                value={row.method}
+                                value={row.owner}
                                 onChange={(e) => {
                                   const v = e.target.value
-                                  setDemandRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, method: v } : r)))
+                                  setDemandMatrix((prev) => ({ ...prev, [opt.id]: { ...prev[opt.id], owner: v } }))
                                 }}
                                 className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-300"
-                                placeholder="输入方式"
+                                placeholder="负责人"
                               />
-                            )}
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              value={row.tool}
-                              onChange={(e) => {
-                                const v = e.target.value
-                                setDemandRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, tool: v } : r)))
-                              }}
-                              className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-300"
-                              placeholder="工具/系统"
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              value={row.target}
-                              onChange={(e) => {
-                                const v = e.target.value
-                                setDemandRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, target: v } : r)))
-                              }}
-                              className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-300"
-                              placeholder="对象/范围"
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="date"
-                              value={row.dueDate}
-                              onChange={(e) => {
-                                const v = e.target.value
-                                setDemandRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, dueDate: v } : r)))
-                              }}
-                              className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-300"
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <select
-                              value={row.status}
-                              onChange={(e) => {
-                                const v = e.target.value as '待开始' | '进行中' | '已完成'
-                                setDemandRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, status: v } : r)))
-                              }}
-                              className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-blue-300"
-                            >
-                              <option value="待开始">待开始</option>
-                              <option value="进行中">进行中</option>
-                              <option value="已完成">已完成</option>
-                            </select>
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              value={row.owner}
-                              onChange={(e) => {
-                                const v = e.target.value
-                                setDemandRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, owner: v } : r)))
-                              }}
-                              className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-300"
-                              placeholder="负责人"
-                            />
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                type="date"
+                                value={row.dueDate}
+                                onChange={(e) => {
+                                  const v = e.target.value
+                                  setDemandMatrix((prev) => ({ ...prev, [opt.id]: { ...prev[opt.id], dueDate: v } }))
+                                }}
+                                className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-300"
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const current = demandMatrix[opt.id]
+                                  if (!current) return
+                                  setDemandDetailOptionId(opt.id)
+                                  setDemandDetailDraft(JSON.parse(JSON.stringify(current.detail)) as DemandDetail)
+                                  setDemandDetailOpen(true)
+                                }}
+                                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                              >
+                                详情
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : stage === '需求立项' && activeTab === '需求汇总' ? (
+          <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-slate-700">培训目标</div>
+                <input
+                  value={summaryGoal}
+                  onChange={(e) => setSummaryGoal(e.target.value)}
+                  className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                />
               </div>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setDemandRows((prev) => [
-                    ...prev,
-                    { id: `custom-${Date.now()}`, method: '', tool: '', target: '', dueDate: '', status: '待开始', owner: '', preset: false },
-                  ])
-                }
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-              >
-                <Plus className="h-4 w-4" /> 添加自定义方式
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-slate-700">目标对象</div>
+                <input
+                  value={summaryTarget}
+                  onChange={(e) => setSummaryTarget(e.target.value)}
+                  className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-slate-700">预计参训人数</div>
+                <input
+                  type="number"
+                  value={summaryParticipants}
+                  onChange={(e) => setSummaryParticipants(e.target.value)}
+                  className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  min={0}
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-slate-700">核心培训主题</div>
+                <div className="flex flex-wrap gap-2">
+                  {summaryTopics.map((t) => (
+                    <span key={t} className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">
+                      {t}
+                      <button type="button" onClick={() => setSummaryTopics((prev) => prev.filter((x) => x !== t))} className="text-slate-500 hover:text-slate-900">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={summaryTopicInput}
+                    onChange={(e) => setSummaryTopicInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter') return
+                      e.preventDefault()
+                      const v = summaryTopicInput.trim()
+                      if (!v) return
+                      setSummaryTopics((prev) => (prev.includes(v) ? prev : [...prev, v]))
+                      setSummaryTopicInput('')
+                    }}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                    placeholder="输入主题后回车"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const v = summaryTopicInput.trim()
+                      if (!v) return
+                      setSummaryTopics((prev) => (prev.includes(v) ? prev : [...prev, v]))
+                      setSummaryTopicInput('')
+                    }}
+                    className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+                  >
+                    添加
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-slate-700">备注</div>
+              <textarea
+                value={summaryRemark}
+                onChange={(e) => setSummaryRemark(e.target.value)}
+                className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+              />
+            </div>
+            <div className="flex justify-end">
+              <button type="button" onClick={() => showToast('已保存汇总')} className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
+                保存汇总
               </button>
             </div>
-          ) : stage === '需求立项' && activeTab === '需求汇总' ? (
-            <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+          </div>
+        ) : (
+          <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">该视图正在建设中</div>
+        )}
+      </div>
+
+      <Modal
+        open={customMethodOpen}
+        title="新增自定义收集方式"
+        onClose={() => setCustomMethodOpen(false)}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setCustomMethodOpen(false)}
+              className="rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const v = customMethodName.trim()
+                if (!v) return
+                const id = `custom-${Date.now()}`
+                const option: DemandOption = { id, label: v, kind: '自定义' }
+                setDemandOptions((prev) => [...prev, option])
+                setSelectedDemandOptionIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
+                setDemandMatrix((prev) => ({ ...prev, [id]: createDemandMatrixRow(option) }))
+                setCustomMethodOpen(false)
+              }}
+              className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+            >
+              确认
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-2">
+          <div className="text-sm text-slate-700">方式名称</div>
+          <input
+            value={customMethodName}
+            onChange={(e) => setCustomMethodName(e.target.value)}
+            className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+            placeholder="例如：专项调研"
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        open={demandDetailOpen}
+        title={
+          demandDetailDraft
+            ? `${demandDetailDraft.kind}详情`
+            : demandDetailOptionId
+              ? `${demandMatrix[demandDetailOptionId]?.kind || '详情'}详情`
+              : '详情'
+        }
+        onClose={() => {
+          setDemandDetailOpen(false)
+          setDemandDetailOptionId(null)
+          setDemandDetailDraft(null)
+        }}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setDemandDetailOpen(false)
+                setDemandDetailOptionId(null)
+                setDemandDetailDraft(null)
+              }}
+              className="rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const optionId = demandDetailOptionId
+                const draft = demandDetailDraft
+                if (!optionId || !draft) return
+                setDemandMatrix((prev) => {
+                  const current = prev[optionId]
+                  if (!current) return prev
+                  const nextLabel = draft.kind === '自定义' ? safeText(draft.name) || current.label : current.label
+                  return { ...prev, [optionId]: { ...current, label: nextLabel, detail: draft } }
+                })
+                if (demandDetailDraft.kind === '自定义') {
+                  const nextLabel = safeText(demandDetailDraft.name)
+                  if (nextLabel) {
+                    setDemandOptions((prev) => prev.map((o) => (o.id === optionId ? { ...o, label: nextLabel } : o)))
+                  }
+                }
+                setDemandDetailOpen(false)
+                setDemandDetailOptionId(null)
+                setDemandDetailDraft(null)
+              }}
+              className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+            >
+              保存
+            </button>
+          </div>
+        }
+      >
+        {demandDetailDraft ? (
+          <div className="space-y-4">
+            {demandDetailDraft.kind === '政策' ? (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="space-y-2">
-                  <div className="text-sm font-medium text-slate-700">培训目标</div>
+                  <div className="text-sm text-slate-700">文件名称</div>
                   <input
-                    value={summaryGoal}
-                    onChange={(e) => setSummaryGoal(e.target.value)}
+                    value={demandDetailDraft.fileName}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, fileName: e.target.value })}
                     className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
                   />
                 </div>
                 <div className="space-y-2">
-                  <div className="text-sm font-medium text-slate-700">目标对象</div>
+                  <div className="text-sm text-slate-700">发文机关</div>
                   <input
-                    value={summaryTarget}
-                    onChange={(e) => setSummaryTarget(e.target.value)}
+                    value={demandDetailDraft.issuer}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, issuer: e.target.value })}
                     className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
                   />
                 </div>
                 <div className="space-y-2">
-                  <div className="text-sm font-medium text-slate-700">预计参训人数</div>
+                  <div className="text-sm text-slate-700">发文日期</div>
+                  <input
+                    type="date"
+                    value={demandDetailDraft.issueDate}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, issueDate: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <div className="text-sm text-slate-700">关键要求提取</div>
+                  <textarea
+                    value={demandDetailDraft.keyRequirements}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, keyRequirements: e.target.value })}
+                    className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <div className="text-sm text-slate-700">备注</div>
+                  <textarea
+                    value={demandDetailDraft.remark}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
+                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {demandDetailDraft.kind === '指令' ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">来源类型</div>
+                  <select
+                    value={demandDetailDraft.sourceType}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, sourceType: e.target.value as any })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-300"
+                  >
+                    <option value="监管机构">监管机构</option>
+                    <option value="总公司">总公司</option>
+                    <option value="省公司">省公司</option>
+                    <option value="其他">其他</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">文件/通知名称</div>
+                  <input
+                    value={demandDetailDraft.fileName}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, fileName: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">发文日期</div>
+                  <input
+                    type="date"
+                    value={demandDetailDraft.issueDate}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, issueDate: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">截止响应日期</div>
+                  <input
+                    type="date"
+                    value={demandDetailDraft.responseDueDate}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, responseDueDate: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <div className="text-sm text-slate-700">要求内容摘要</div>
+                  <textarea
+                    value={demandDetailDraft.contentSummary}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, contentSummary: e.target.value })}
+                    className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <div className="text-sm text-slate-700">备注</div>
+                  <textarea
+                    value={demandDetailDraft.remark}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
+                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {demandDetailDraft.kind === '岗位' ? (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">分析岗位范围</div>
+                  <input
+                    value={demandDetailDraft.scope}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, scope: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">分析维度</div>
+                  <input
+                    value={demandDetailDraft.dimensions}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, dimensions: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">分析结论</div>
+                  <textarea
+                    value={demandDetailDraft.conclusion}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, conclusion: e.target.value })}
+                    className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">备注</div>
+                  <textarea
+                    value={demandDetailDraft.remark}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
+                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {demandDetailDraft.kind === '计划' ? (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">计划文件名</div>
+                  <input
+                    value={demandDetailDraft.planFileName}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, planFileName: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">关联要求</div>
+                  <textarea
+                    value={demandDetailDraft.relatedRequirements}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, relatedRequirements: e.target.value })}
+                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">培训方向提取</div>
+                  <textarea
+                    value={demandDetailDraft.direction}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, direction: e.target.value })}
+                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">备注</div>
+                  <textarea
+                    value={demandDetailDraft.remark}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
+                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {demandDetailDraft.kind === '日常' ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
+                  <div className="text-sm text-slate-700">反映问题/需求描述</div>
+                  <textarea
+                    value={demandDetailDraft.description}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, description: e.target.value })}
+                    className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">来源部门/人员</div>
+                  <input
+                    value={demandDetailDraft.source}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, source: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">优先级</div>
+                  <select
+                    value={demandDetailDraft.priority}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, priority: e.target.value as any })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-300"
+                  >
+                    <option value="高">高</option>
+                    <option value="中">中</option>
+                    <option value="低">低</option>
+                  </select>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <div className="text-sm text-slate-700">备注</div>
+                  <textarea
+                    value={demandDetailDraft.remark}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
+                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {demandDetailDraft.kind === '问卷' ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">问卷标题</div>
+                  <input
+                    value={demandDetailDraft.title}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, title: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">发放对象</div>
+                  <input
+                    value={demandDetailDraft.target}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, target: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <div className="text-sm text-slate-700">使用工具/链接</div>
+                  <input
+                    value={demandDetailDraft.toolLink}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, toolLink: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">截止日期</div>
+                  <input
+                    type="date"
+                    value={demandDetailDraft.dueDate}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, dueDate: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">回收数量</div>
                   <input
                     type="number"
-                    value={summaryParticipants}
-                    onChange={(e) => setSummaryParticipants(e.target.value)}
+                    value={demandDetailDraft.collectedCount}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, collectedCount: e.target.value })}
                     className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
                     min={0}
                   />
                 </div>
-                <div className="space-y-2">
-                  <div className="text-sm font-medium text-slate-700">核心培训主题</div>
-                  <div className="flex flex-wrap gap-2">
-                    {summaryTopics.map((t) => (
-                      <span key={t} className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">
-                        {t}
-                        <button type="button" onClick={() => setSummaryTopics((prev) => prev.filter((x) => x !== t))} className="text-slate-500 hover:text-slate-900">
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
+                <div className="space-y-2 md:col-span-2">
+                  <div className="text-sm text-slate-700">结论摘要</div>
+                  <textarea
+                    value={demandDetailDraft.conclusion}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, conclusion: e.target.value })}
+                    className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <div className="text-sm text-slate-700">备注</div>
+                  <textarea
+                    value={demandDetailDraft.remark}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
+                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {demandDetailDraft.kind === '访谈' ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <div className="text-sm text-slate-700">访谈对象姓名/部门</div>
                     <input
-                      value={summaryTopicInput}
-                      onChange={(e) => setSummaryTopicInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key !== 'Enter') return
-                        e.preventDefault()
-                        const v = summaryTopicInput.trim()
-                        if (!v) return
-                        setSummaryTopics((prev) => (prev.includes(v) ? prev : [...prev, v]))
-                        setSummaryTopicInput('')
-                      }}
+                      value={demandDetailDraft.interviewee}
+                      onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, interviewee: e.target.value })}
                       className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                      placeholder="输入主题后回车"
                     />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const v = summaryTopicInput.trim()
-                        if (!v) return
-                        setSummaryTopics((prev) => (prev.includes(v) ? prev : [...prev, v]))
-                        setSummaryTopicInput('')
-                      }}
-                      className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
-                    >
-                      添加
-                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-sm text-slate-700">访谈时间</div>
+                    <input
+                      type="datetime-local"
+                      value={demandDetailDraft.interviewTime}
+                      onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, interviewTime: e.target.value })}
+                      className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                    />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">访谈提纲</div>
+                  <StringListEditor
+                    value={demandDetailDraft.outlineItems}
+                    onChange={(next) => setDemandDetailDraft({ ...demandDetailDraft, outlineItems: next })}
+                    placeholder="输入提纲条目"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">访谈记录</div>
+                  <textarea
+                    value={demandDetailDraft.record}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, record: e.target.value })}
+                    className="h-28 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">备注</div>
+                  <textarea
+                    value={demandDetailDraft.remark}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
+                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-slate-700">备注</div>
-                <textarea
-                  value={summaryRemark}
-                  onChange={(e) => setSummaryRemark(e.target.value)}
-                  className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                />
-              </div>
-              <div className="flex justify-end">
-                <button type="button" onClick={() => showToast('已保存汇总')} className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
-                  保存汇总
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">该视图正在建设中</div>
-          )}
-        </div>
+            ) : null}
 
-        {!rightCollapsed && (
-          <aside className="w-full shrink-0 xl:w-80">
-            <div className="space-y-3">
-              <article className="rounded-xl border border-slate-200 bg-white p-4">
-                <h3 className="text-sm font-semibold text-slate-900">项目详情</h3>
-                <div className="mt-3 space-y-3 text-sm text-slate-700">
-                  <div>
-                    <p className="text-xs text-slate-500">项目名称</p>
-                    <p className="mt-1 text-slate-900">{title}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-slate-500">项目类型</p>
-                    <p className="mt-1 text-slate-900">{type || '—'}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-slate-500">当前阶段</p>
-                    <p className="mt-1 text-slate-900">{stage || '—'}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-slate-500">状态</p>
-                    <p className="mt-1 text-slate-900">{status || '—'}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-slate-500">负责人 / 牵头部门</p>
-                    <p className="mt-1 text-slate-900">
-                      {owner || '—'} / {department || '—'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-slate-500">计划开始日期 / 计划完成日期</p>
-                    <p className="mt-1 text-slate-900">
-                      {planStartDate || '—'} / {planEndDate || '—'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-slate-500">目标对象/参与范围</p>
-                    <p className="mt-1 whitespace-pre-wrap text-slate-900">{target || '—'}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-slate-500">项目摘要</p>
-                    <p className="mt-1 whitespace-pre-wrap text-slate-900">{summary || '—'}</p>
+            {demandDetailDraft.kind === '座谈' ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <div className="text-sm text-slate-700">召开时间</div>
+                    <input
+                      type="datetime-local"
+                      value={demandDetailDraft.meetingTime}
+                      onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, meetingTime: e.target.value })}
+                      className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                    />
                   </div>
                 </div>
-              </article>
-            </div>
-          </aside>
-        )}
-      </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">参与部门</div>
+                  <TagEditor
+                    value={demandDetailDraft.departments}
+                    onChange={(next) => setDemandDetailDraft({ ...demandDetailDraft, departments: next })}
+                    placeholder="输入部门后回车"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">议题列表</div>
+                  <StringListEditor
+                    value={demandDetailDraft.topics}
+                    onChange={(next) => setDemandDetailDraft({ ...demandDetailDraft, topics: next })}
+                    placeholder="输入议题后添加"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">会议纪要</div>
+                  <textarea
+                    value={demandDetailDraft.minutes}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, minutes: e.target.value })}
+                    className="h-28 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">备注</div>
+                  <textarea
+                    value={demandDetailDraft.remark}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
+                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {demandDetailDraft.kind === '复盘' ? (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">项目名称</div>
+                  <input
+                    value={demandDetailDraft.projectName}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, projectName: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">分析维度</div>
+                  <input
+                    value={demandDetailDraft.dimensions}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, dimensions: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">参考结论</div>
+                  <textarea
+                    value={demandDetailDraft.conclusion}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, conclusion: e.target.value })}
+                    className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">备注</div>
+                  <textarea
+                    value={demandDetailDraft.remark}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
+                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {demandDetailDraft.kind === '自定义' ? (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">方式名称</div>
+                  <input
+                    value={demandDetailDraft.name}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, name: e.target.value })}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">说明</div>
+                  <textarea
+                    value={demandDetailDraft.description}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, description: e.target.value })}
+                    className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-slate-700">备注</div>
+                  <textarea
+                    value={demandDetailDraft.remark}
+                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
+                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </Modal>
     </section>
   )
 }
