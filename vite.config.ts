@@ -767,6 +767,15 @@ export default defineConfig(({ mode }) => {
   return {
     base: isGitHubPages ? '/AML-workspace/' : '/',
     plugins: [react(), tailwindcss(), notionApiProxyPlugin(env), notionLocalRoutePlugin(env)],
+    build: {
+      rollupOptions: {
+        output: {
+          entryFileNames: 'assets/[name].[hash].js',
+          chunkFileNames: 'assets/[name].[hash].js',
+          assetFileNames: 'assets/[name].[hash].[ext]',
+        },
+      },
+    },
     server: {
       proxy: {
         '/notion-api': {
