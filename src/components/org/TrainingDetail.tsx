@@ -59,12 +59,18 @@ type DocSourceKind = '政策' | '指令' | '岗位' | '日常'
 type SurveyKind = '问卷' | '访谈' | '座谈'
 
 type SurveyEntry = {
+  // Step 1 – design
   topic: string
+  purpose: string
   items: { id: string; text: string }[]
+  outputFormat: string
+  // Step 2 – arrangement
   targetScope: string
+  deliveryMethod: string
   planDate: string
   responsible: string
-  execution: string
+  // Step 3 – results
+  resultSummary: string
   findings: string
   trainingRequirements: { id: string; text: string }[]
   remark: string
@@ -84,8 +90,8 @@ type PlanEntry = {
 
 type ReviewEntry = {
   selectedHistory: string
-  completion: string
-  problems: string
+  positives: string
+  pitfalls: string
   suggestions: string
   trainingRequirements: { id: string; text: string }[]
   remark: string
@@ -197,11 +203,14 @@ function createEmptyDemandDetail(kind: DemandMethodKind, label: string): DemandD
     return {
       kind,
       topic: '',
+      purpose: '',
       items: [],
+      outputFormat: '线上电子问卷',
       targetScope: '',
+      deliveryMethod: '',
       planDate: '',
       responsible: '',
-      execution: '',
+      resultSummary: '',
       findings: '',
       trainingRequirements: [],
       remark: '',
@@ -211,8 +220,8 @@ function createEmptyDemandDetail(kind: DemandMethodKind, label: string): DemandD
     return {
       kind,
       selectedHistory: '',
-      completion: '',
-      problems: '',
+      positives: '',
+      pitfalls: '',
       suggestions: '',
       trainingRequirements: [],
       remark: '',
@@ -662,35 +671,32 @@ function TrainingReviewDialog({
                 style={{ width: `${card.rate}%` }}
               />
             </div>
-            <div>
-              <span className="text-xs text-slate-500">主要问题</span>
-              <ul className="mt-1 space-y-1">
-                {card.issues.map((issue, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-sm text-slate-700">
-                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
-                    {issue}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <button
+              type="button"
+              disabled
+              title="归档模块上线后可用"
+              className="mt-1 cursor-not-allowed text-xs text-slate-400 hover:no-underline"
+            >
+              查看完整归档详情 →
+            </button>
           </div>
         ) : null}
       </section>
 
-      {/* 复盘分析 */}
+      {/* 经验参考 */}
       <section className="space-y-3">
-        <h4 className="text-sm font-semibold text-slate-800">复盘分析</h4>
+        <h4 className="text-sm font-semibold text-slate-800">经验参考</h4>
         <div className="space-y-1.5">
-          <label className={labelCls}>完成情况评估</label>
-          <textarea value={local.completion} onChange={(e) => setLocal({ ...local, completion: e.target.value })} rows={3} placeholder="上次培训的整体完成情况…" className={textareaCls} />
+          <label className={labelCls}>正面借鉴</label>
+          <textarea value={local.positives} onChange={(e) => setLocal({ ...local, positives: e.target.value })} rows={3} placeholder="上次培训哪些做法值得延续和参考…" className={textareaCls} />
         </div>
         <div className="space-y-1.5">
-          <label className={labelCls}>存在问题</label>
-          <textarea value={local.problems} onChange={(e) => setLocal({ ...local, problems: e.target.value })} rows={3} placeholder="上次培训发现的主要问题…" className={textareaCls} />
+          <label className={labelCls}>需要避坑</label>
+          <textarea value={local.pitfalls} onChange={(e) => setLocal({ ...local, pitfalls: e.target.value })} rows={3} placeholder="上次培训踩过哪些坑，本次需要提前规避…" className={textareaCls} />
         </div>
         <div className="space-y-1.5">
           <label className={labelCls}>改进建议</label>
-          <textarea value={local.suggestions} onChange={(e) => setLocal({ ...local, suggestions: e.target.value })} rows={3} placeholder="针对问题提出的改进方向…" className={textareaCls} />
+          <textarea value={local.suggestions} onChange={(e) => setLocal({ ...local, suggestions: e.target.value })} rows={3} placeholder="针对上次不足，本次可以如何改进…" className={textareaCls} />
         </div>
       </section>
 
@@ -780,26 +786,58 @@ const SURVEY_STEPS: Record<SurveyKind, [string, string, string]> = {
 }
 
 const SURVEY_ITEM_LABELS: Record<SurveyKind, string> = {
-  问卷: '问题列表',
-  访谈: '访谈问题/提纲',
-  座谈: '议题列表',
+  问卷: '问卷题目',
+  访谈: '访谈问题',
+  座谈: '讨论议题',
 }
 
+const SURVEY_ITEM_PLACEHOLDERS: Record<SurveyKind, string> = {
+  问卷: '输入问卷题目…',
+  访谈: '输入访谈问题…',
+  座谈: '输入讨论议题…',
+}
+
+const SURVEY_PURPOSE_PLACEHOLDERS: Record<SurveyKind, string> = {
+  问卷: '希望通过此次问卷了解哪些问题…',
+  访谈: '希望通过此次访谈了解哪些问题…',
+  座谈: '希望通过此次座谈了解哪些问题…',
+}
+
+const SURVEY_OUTPUT_FORMATS = ['线上电子问卷', '线下 Word 文档', '线下 PDF 文档'] as const
+
 const SURVEY_TARGET_LABELS: Record<SurveyKind, string> = {
-  问卷: '发放范围',
-  访谈: '访谈对象',
-  座谈: '参与人员',
+  问卷: '发放/参与对象',
+  访谈: '发放/参与对象',
+  座谈: '发放/参与对象',
 }
 
 const SURVEY_TARGET_PLACEHOLDERS: Record<SurveyKind, string> = {
-  问卷: '如：全体员工 / 合规部门 / 指定名单…',
-  访谈: '如：各部门负责人、新入职员工…',
-  座谈: '如：部门代表、管理层…',
+  问卷: '发放范围，如：全体员工 / 合规部门…',
+  访谈: '访谈对象，如：各部门负责人…',
+  座谈: '参与人员，如：部门代表、管理层…',
+}
+
+const SURVEY_DELIVERY_METHODS: Record<SurveyKind, string[]> = {
+  问卷: ['线上发送', '现场填写', '邮件发送'],
+  访谈: ['一对一访谈', '小组访谈'],
+  座谈: ['线下会议', '线上会议', '混合'],
+}
+
+const SURVEY_RESULT_LABELS: Record<SurveyKind, string> = {
+  问卷: '回收情况',
+  访谈: '访谈情况',
+  座谈: '会议情况',
+}
+
+const SURVEY_RESULT_PLACEHOLDERS: Record<SurveyKind, string> = {
+  问卷: '共发放X份，回收X份，回收率X%…',
+  访谈: '完成访谈人数、访谈时长等…',
+  座谈: '参与人数、会议时长、出席率等…',
 }
 
 const SURVEY_MOCK_REQS: Record<SurveyKind, string[]> = {
   问卷: ['员工对合规流程理解存在偏差', '需加强反洗钱实操培训', '新员工入职培训需系统化'],
-  访谈: ['中层管理者需提升合规意识', '部门间协作流程不清晰', '需针对岗位设计差异化课程'],
+  访谈: ['中层管理者需提升合规意识', '部门间协作流程不清晰', '需针对岗位差异化设计课程'],
   座谈: ['现有培训形式参与度低', '建议增加案例讨论环节', '需定期复盘培训效果'],
 }
 
@@ -822,6 +860,7 @@ function SurveyActivityDialog({
 
   const inputCls = 'w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100'
   const textareaCls = `${inputCls} resize-none`
+  const labelCls = 'block text-sm font-medium text-slate-700'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
@@ -874,11 +913,12 @@ function SurveyActivityDialog({
 
         {/* Content area */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {/* ── Step 1: Topic + items ── */}
+
+          {/* ── Step 1: Design ── */}
           {step === 1 && (
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">主题</label>
+                <label className={labelCls}>主题</label>
                 <input
                   value={local.topic}
                   onChange={(e) => setLocal({ ...local, topic: e.target.value })}
@@ -886,8 +926,20 @@ function SurveyActivityDialog({
                   className={inputCls}
                 />
               </div>
+
+              <div className="space-y-1.5">
+                <label className={labelCls}>调查目的</label>
+                <textarea
+                  value={local.purpose}
+                  onChange={(e) => setLocal({ ...local, purpose: e.target.value })}
+                  rows={2}
+                  placeholder={SURVEY_PURPOSE_PLACEHOLDERS[kind]}
+                  className={textareaCls}
+                />
+              </div>
+
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">{SURVEY_ITEM_LABELS[kind]}</label>
+                <label className={labelCls}>{SURVEY_ITEM_LABELS[kind]}</label>
                 <div className="space-y-2">
                   {local.items.map((item, idx) => (
                     <div key={item.id} className="flex items-center gap-2">
@@ -899,147 +951,11 @@ function SurveyActivityDialog({
                           setLocal({ ...local, items: local.items.map((it) => (it.id === item.id ? { ...it, text: v } : it)) })
                         }}
                         className="flex-1 rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
-                        placeholder={`条目 ${idx + 1}`}
+                        placeholder={SURVEY_ITEM_PLACEHOLDERS[kind]}
                       />
                       <button
                         type="button"
                         onClick={() => setLocal({ ...local, items: local.items.filter((it) => it.id !== item.id) })}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-200 text-slate-400 hover:border-red-200 hover:text-red-500"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center gap-3 pt-1">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setLocal({
-                        ...local,
-                        items: [...local.items, { id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: '' }],
-                      })
-                    }
-                    className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    {kind === '问卷' ? '添加问题' : kind === '访谈' ? '添加条目' : '添加议题'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled
-                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-400"
-                  >
-                    ✨ AI辅助生成（即将上线）
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Step 2: Target + date + owner ── */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">{SURVEY_TARGET_LABELS[kind]}</label>
-                <textarea
-                  value={local.targetScope}
-                  onChange={(e) => setLocal({ ...local, targetScope: e.target.value })}
-                  rows={3}
-                  placeholder={SURVEY_TARGET_PLACEHOLDERS[kind]}
-                  className={textareaCls}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">计划时间</label>
-                  <input
-                    type="date"
-                    value={local.planDate}
-                    onChange={(e) => setLocal({ ...local, planDate: e.target.value })}
-                    className={inputCls}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700">负责人</label>
-                  <input
-                    value={local.responsible}
-                    onChange={(e) => setLocal({ ...local, responsible: e.target.value })}
-                    placeholder="请填写负责人姓名"
-                    className={inputCls}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Step 3: Execution + findings + requirements ── */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">执行情况</label>
-                <textarea
-                  value={local.execution}
-                  onChange={(e) => setLocal({ ...local, execution: e.target.value })}
-                  rows={3}
-                  placeholder="简述执行过程、参与情况…"
-                  className={textareaCls}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">关键发现</label>
-                <textarea
-                  value={local.findings}
-                  onChange={(e) => setLocal({ ...local, findings: e.target.value })}
-                  rows={3}
-                  placeholder="记录重要反馈和发现…"
-                  className={textareaCls}
-                />
-              </div>
-
-              {/* Training requirements */}
-              <div className="space-y-3 rounded-lg border border-slate-200 p-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-slate-700">培训需求</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const count = 2 + Math.floor(Math.random() * 2)
-                      const reqs = mockReqs.slice(0, count).map((t) => ({
-                        id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                        text: t,
-                      }))
-                      setLocal({ ...local, trainingRequirements: reqs })
-                    }}
-                    className="inline-flex items-center gap-1 rounded bg-blue-600 px-2.5 py-1 text-xs text-white hover:bg-blue-700"
-                  >
-                    ✨ 提取培训需求
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {local.trainingRequirements.map((req, idx) => (
-                    <div key={req.id} className="flex items-center gap-2">
-                      <span className="w-5 shrink-0 text-center text-xs text-slate-400">{idx + 1}</span>
-                      <input
-                        value={req.text}
-                        onChange={(e) => {
-                          const v = e.target.value
-                          setLocal({
-                            ...local,
-                            trainingRequirements: local.trainingRequirements.map((r) => (r.id === req.id ? { ...r, text: v } : r)),
-                          })
-                        }}
-                        className="flex-1 rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
-                        placeholder={`需求条目 ${idx + 1}`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setLocal({
-                            ...local,
-                            trainingRequirements: local.trainingRequirements.filter((r) => r.id !== req.id),
-                          })
-                        }
                         className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-200 text-slate-400 hover:border-red-200 hover:text-red-500"
                       >
                         <X className="h-3.5 w-3.5" />
@@ -1052,22 +968,141 @@ function SurveyActivityDialog({
                   onClick={() =>
                     setLocal({
                       ...local,
-                      trainingRequirements: [
-                        ...local.trainingRequirements,
-                        { id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: '' },
-                      ],
+                      items: [...local.items, { id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: '' }],
                     })
                   }
                   className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  新增需求
+                  添加条目
                 </button>
               </div>
 
-              {/* Remark */}
+              <div className="space-y-2">
+                <label className={labelCls}>输出格式</label>
+                <div className="flex flex-wrap gap-3">
+                  {SURVEY_OUTPUT_FORMATS.map((fmt) => (
+                    <label key={fmt} className="flex cursor-pointer items-center gap-1.5 text-sm text-slate-700">
+                      <input
+                        type="radio"
+                        name={`outputFormat-${kind}`}
+                        value={fmt}
+                        checked={local.outputFormat === fmt}
+                        onChange={() => setLocal({ ...local, outputFormat: fmt })}
+                        className="accent-blue-600"
+                      />
+                      {fmt}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled
+                className="inline-flex cursor-not-allowed items-center gap-1.5 rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-400"
+              >
+                ✨ AI辅助生成内容（即将上线）
+              </button>
+            </div>
+          )}
+
+          {/* ── Step 2: Arrangement ── */}
+          {step === 2 && (
+            <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700">备注（选填）</label>
+                <label className={labelCls}>{SURVEY_TARGET_LABELS[kind]}</label>
+                <textarea
+                  value={local.targetScope}
+                  onChange={(e) => setLocal({ ...local, targetScope: e.target.value })}
+                  rows={3}
+                  placeholder={SURVEY_TARGET_PLACEHOLDERS[kind]}
+                  className={textareaCls}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className={labelCls}>发放/执行方式</label>
+                <select
+                  value={local.deliveryMethod}
+                  onChange={(e) => setLocal({ ...local, deliveryMethod: e.target.value })}
+                  className={inputCls}
+                >
+                  <option value="">-- 请选择 --</option>
+                  {SURVEY_DELIVERY_METHODS[kind].map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className={labelCls}>计划时间</label>
+                  <input
+                    type="date"
+                    value={local.planDate}
+                    onChange={(e) => setLocal({ ...local, planDate: e.target.value })}
+                    className={inputCls}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className={labelCls}>负责人</label>
+                  <input
+                    value={local.responsible}
+                    onChange={(e) => setLocal({ ...local, responsible: e.target.value })}
+                    placeholder="请填写负责人姓名"
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Step 3: Results & requirements ── */}
+          {step === 3 && (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className={labelCls}>{SURVEY_RESULT_LABELS[kind]}</label>
+                <textarea
+                  value={local.resultSummary}
+                  onChange={(e) => setLocal({ ...local, resultSummary: e.target.value })}
+                  rows={3}
+                  placeholder={SURVEY_RESULT_PLACEHOLDERS[kind]}
+                  className={textareaCls}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className={labelCls}>主要发现</label>
+                <textarea
+                  value={local.findings}
+                  onChange={(e) => setLocal({ ...local, findings: e.target.value })}
+                  rows={3}
+                  placeholder="记录本次调查/访谈/座谈中发现的主要问题和共识…"
+                  className={textareaCls}
+                />
+              </div>
+
+              <ReqListBlock
+                reqs={local.trainingRequirements}
+                onChange={(next) => setLocal({ ...local, trainingRequirements: next })}
+                onExtract={() => {
+                  const count = 2 + Math.floor(Math.random() * 2)
+                  setLocal({
+                    ...local,
+                    trainingRequirements: mockReqs.slice(0, count).map((t) => ({
+                      id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                      text: t,
+                    })),
+                  })
+                }}
+                extractLabel="根据结论提炼需求"
+              />
+
+              <div className="space-y-1.5">
+                <label className={labelCls}>备注（选填）</label>
                 <textarea
                   value={local.remark}
                   onChange={(e) => setLocal({ ...local, remark: e.target.value })}
