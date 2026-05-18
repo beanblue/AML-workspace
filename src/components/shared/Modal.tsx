@@ -24,7 +24,7 @@ export function Modal({ open, title, onClose, footer, children }: ModalProps) {
           </button>
         </div>
 
-        <div className="max-h-[65vh] overflow-y-auto px-5 py-4">{children}</div>
+        <div className="max-h-[75vh] overflow-y-auto px-5 py-4">{children}</div>
 
         {footer ? <div className="border-t border-slate-200 px-5 py-3">{footer}</div> : null}
       </div>

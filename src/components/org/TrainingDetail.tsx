@@ -54,9 +54,11 @@ type DemandDetail =
       kind: '指令'
       sourceType: '监管机构' | '总公司' | '省公司' | '其他'
       fileName: string
-      issueDate: string
-      contentSummary: string
-      responseDueDate: string
+      contentTab: '资料库' | '上传文件' | '粘贴文本'
+      libraryItem: string
+      uploadedFile: { name: string; size: number } | null
+      pastedText: string
+      trainingRequirements: { id: string; text: string }[]
       remark: string
     }
   | {
@@ -179,7 +181,17 @@ function createEmptyDemandDetail(kind: DemandMethodKind, label: string): DemandD
     return { kind, fileName: '', issuer: '', issueDate: '', keyRequirements: '', remark: '' }
   }
   if (kind === '指令') {
-    return { kind, sourceType: '监管机构', fileName: '', issueDate: '', contentSummary: '', responseDueDate: '', remark: '' }
+    return {
+      kind,
+      sourceType: '监管机构',
+      fileName: '',
+      contentTab: '资料库' as const,
+      libraryItem: '',
+      uploadedFile: null,
+      pastedText: '',
+      trainingRequirements: [{ id: `req-${Date.now()}`, text: '' }],
+      remark: '',
+    }
   }
   if (kind === '岗位') {
     return { kind, scope: '', dimensions: '', conclusion: '', remark: '' }
@@ -372,6 +384,7 @@ export default function TrainingDetail() {
   const [newTaskTitle, setNewTaskTitle] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const directiveFileInputRef = useRef<HTMLInputElement | null>(null)
   const [localMaterials, setLocalMaterials] = useState<Array<{ id: string; name: string; uploadedAt: string }>>([])
   const toastTimerRef = useRef<number | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -1246,61 +1259,212 @@ export default function TrainingDetail() {
             ) : null}
 
             {demandDetailDraft.kind === '指令' ? (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">来源类型</div>
-                  <select
-                    value={demandDetailDraft.sourceType}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, sourceType: e.target.value as any })}
-                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-300"
+              <div>
+                {/* 区域一：来源标注 */}
+                <div className="grid grid-cols-2 gap-3 pb-4">
+                  <div className="space-y-1.5">
+                    <div className="text-sm font-medium text-slate-700">来源类型</div>
+                    <select
+                      value={demandDetailDraft.sourceType}
+                      onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, sourceType: e.target.value as any })}
+                      className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-300"
+                    >
+                      <option value="监管机构">监管机构</option>
+                      <option value="总公司">总公司</option>
+                      <option value="省公司">省公司</option>
+                      <option value="其他">其他</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="text-sm font-medium text-slate-700">文件/通知名称</div>
+                    <input
+                      value={demandDetailDraft.fileName}
+                      onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, fileName: e.target.value })}
+                      placeholder="可手动填写"
+                      className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-100" />
+
+                {/* 区域二：内容输入（三个 Tab） */}
+                <div className="space-y-3 py-4">
+                  <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                    {(
+                      [
+                        { key: '资料库' as const, icon: '📂', label: '从资料库选取' },
+                        { key: '上传文件' as const, icon: '📎', label: '上传文件' },
+                        { key: '粘贴文本' as const, icon: '📝', label: '粘贴文本' },
+                      ] as const
+                    ).map(({ key, icon, label }) => {
+                      const selected = demandDetailDraft.contentTab === key
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setDemandDetailDraft({ ...demandDetailDraft, contentTab: key })}
+                          className={`rounded-md px-3 py-1.5 text-sm transition-colors ${selected ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                          {icon} {label}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {demandDetailDraft.contentTab === '资料库' ? (
+                    <select
+                      value={demandDetailDraft.libraryItem}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        setDemandDetailDraft({ ...demandDetailDraft, libraryItem: v, fileName: v || demandDetailDraft.fileName })
+                      }}
+                      className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-300"
+                    >
+                      <option value="">— 搜索或选择资料库文件 —</option>
+                      {[
+                        '反洗钱法（2024修订）',
+                        '金融机构反洗钱监督管理办法',
+                        '关于加强客户身份识别工作的通知',
+                        '年度合规培训工作方案',
+                      ].map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  ) : demandDetailDraft.contentTab === '上传文件' ? (
+                    <div className="space-y-2">
+                      {demandDetailDraft.uploadedFile ? (
+                        <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 shrink-0 text-slate-400" />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-slate-700">{demandDetailDraft.uploadedFile.name}</p>
+                              <p className="text-xs text-slate-400">{(demandDetailDraft.uploadedFile.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setDemandDetailDraft({ ...demandDetailDraft, uploadedFile: null })}
+                            className="ml-2 shrink-0 rounded border border-slate-200 p-1 text-slate-400 hover:bg-white hover:text-slate-700"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => directiveFileInputRef.current?.click()}
+                          className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 py-6 text-sm text-slate-500 hover:border-blue-300 hover:bg-blue-50"
+                        >
+                          <Upload className="h-5 w-5" />
+                          <span>点击上传文件</span>
+                          <span className="text-xs text-slate-400">.pdf .doc .docx .txt，最大 10MB</span>
+                        </button>
+                      )}
+                      <input
+                        ref={directiveFileInputRef}
+                        type="file"
+                        accept=".pdf,.doc,.docx,.txt"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0]
+                          if (!f) return
+                          if (f.size > 10 * 1024 * 1024) {
+                            showToast('文件大小不能超过 10MB')
+                            e.target.value = ''
+                            return
+                          }
+                          setDemandDetailDraft({ ...demandDetailDraft, uploadedFile: { name: f.name, size: f.size } })
+                          e.target.value = ''
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <textarea
+                      value={demandDetailDraft.pastedText}
+                      onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, pastedText: e.target.value })}
+                      rows={8}
+                      placeholder="请粘贴通知原文、领导要求或已转录的会议内容..."
+                      className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                    />
+                  )}
+                </div>
+
+                <div className="border-t border-slate-100" />
+
+                {/* 区域三：培训需求提炼 */}
+                <div className="space-y-3 pt-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-slate-800">培训需求</span>
+                    <button
+                      type="button"
+                      disabled
+                      className="inline-flex cursor-not-allowed items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-400"
+                    >
+                      ✨ AI提炼（即将上线）
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {demandDetailDraft.trainingRequirements.map((req, idx) => (
+                      <div key={req.id} className="flex items-center gap-2">
+                        <span className="w-5 shrink-0 text-center text-xs text-slate-400">{idx + 1}</span>
+                        <input
+                          value={req.text}
+                          onChange={(e) => {
+                            const v = e.target.value
+                            setDemandDetailDraft({
+                              ...demandDetailDraft,
+                              trainingRequirements: demandDetailDraft.trainingRequirements.map((r) =>
+                                r.id === req.id ? { ...r, text: v } : r,
+                              ),
+                            })
+                          }}
+                          placeholder="输入培训需求条目"
+                          className="flex-1 rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                        />
+                        <button
+                          type="button"
+                          disabled={demandDetailDraft.trainingRequirements.length <= 1}
+                          onClick={() =>
+                            setDemandDetailDraft({
+                              ...demandDetailDraft,
+                              trainingRequirements: demandDetailDraft.trainingRequirements.filter((r) => r.id !== req.id),
+                            })
+                          }
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-30"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDemandDetailDraft({
+                        ...demandDetailDraft,
+                        trainingRequirements: [...demandDetailDraft.trainingRequirements, { id: `req-${Date.now()}`, text: '' }],
+                      })
+                    }
+                    className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700"
                   >
-                    <option value="监管机构">监管机构</option>
-                    <option value="总公司">总公司</option>
-                    <option value="省公司">省公司</option>
-                    <option value="其他">其他</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">文件/通知名称</div>
-                  <input
-                    value={demandDetailDraft.fileName}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, fileName: e.target.value })}
-                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">发文日期</div>
-                  <input
-                    type="date"
-                    value={demandDetailDraft.issueDate}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, issueDate: e.target.value })}
-                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">截止响应日期</div>
-                  <input
-                    type="date"
-                    value={demandDetailDraft.responseDueDate}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, responseDueDate: e.target.value })}
-                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <div className="text-sm text-slate-700">要求内容摘要</div>
-                  <textarea
-                    value={demandDetailDraft.contentSummary}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, contentSummary: e.target.value })}
-                    className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <div className="text-sm text-slate-700">备注</div>
-                  <textarea
-                    value={demandDetailDraft.remark}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
-                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
+                    <Plus className="h-3.5 w-3.5" />
+                    新增需求
+                  </button>
+
+                  <div className="space-y-1.5">
+                    <div className="text-sm text-slate-600">备注</div>
+                    <input
+                      value={demandDetailDraft.remark}
+                      onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
+                      placeholder="备注信息（选填）"
+                      className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                    />
+                  </div>
                 </div>
               </div>
             ) : null}
