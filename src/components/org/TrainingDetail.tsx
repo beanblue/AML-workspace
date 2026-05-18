@@ -6,7 +6,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Modal } from '../shared/Modal'
@@ -70,34 +70,45 @@ type SurveyEntry = {
   remark: string
 }
 
+type ScheduleItem = { id: string; topic: string; date: string; format: string }
+
+type PlanEntry = {
+  planName: string
+  periodStart: string
+  periodEnd: string
+  scope: string
+  scheduleItems: ScheduleItem[]
+  trainingRequirements: { id: string; text: string }[]
+  remark: string
+}
+
+type ReviewEntry = {
+  selectedHistory: string
+  completion: string
+  problems: string
+  suggestions: string
+  trainingRequirements: { id: string; text: string }[]
+  remark: string
+}
+
+type CustomEntry = {
+  name: string
+  sourceDesc: string
+  trainingRequirements: { id: string; text: string }[]
+  remark: string
+}
+
 type DemandDetail =
   | ({ kind: '政策' } & DocSourceEntry)
   | ({ kind: '指令' } & DocSourceEntry)
   | ({ kind: '岗位' } & DocSourceEntry)
-  | {
-      kind: '计划'
-      planFileName: string
-      relatedRequirements: string
-      direction: string
-      remark: string
-    }
+  | ({ kind: '计划' } & PlanEntry)
   | ({ kind: '日常' } & DocSourceEntry)
   | ({ kind: '问卷' } & SurveyEntry)
   | ({ kind: '访谈' } & SurveyEntry)
   | ({ kind: '座谈' } & SurveyEntry)
-  | {
-      kind: '复盘'
-      projectName: string
-      dimensions: string
-      conclusion: string
-      remark: string
-    }
-  | {
-      kind: '自定义'
-      name: string
-      description: string
-      remark: string
-    }
+  | ({ kind: '复盘' } & ReviewEntry)
+  | ({ kind: '自定义' } & CustomEntry)
 
 type DemandMatrixRow = {
   optionId: string
@@ -168,7 +179,19 @@ function createEmptyDemandDetail(kind: DemandMethodKind, label: string): DemandD
     }
   }
   if (kind === '计划') {
-    return { kind, planFileName: '', relatedRequirements: '', direction: '', remark: '' }
+    return {
+      kind,
+      planName: '',
+      periodStart: '',
+      periodEnd: '',
+      scope: '',
+      scheduleItems: [
+        { id: 'si-mock-1', topic: '年度反洗钱基础知识培训', date: '', format: '集中培训' },
+        { id: 'si-mock-2', topic: '合规操作规程考核测评', date: '', format: '考试测评' },
+      ],
+      trainingRequirements: [],
+      remark: '',
+    }
   }
   if (kind === '问卷' || kind === '访谈' || kind === '座谈') {
     return {
@@ -185,9 +208,23 @@ function createEmptyDemandDetail(kind: DemandMethodKind, label: string): DemandD
     }
   }
   if (kind === '复盘') {
-    return { kind, projectName: '', dimensions: '', conclusion: '', remark: '' }
+    return {
+      kind,
+      selectedHistory: '',
+      completion: '',
+      problems: '',
+      suggestions: '',
+      trainingRequirements: [],
+      remark: '',
+    }
   }
-  return { kind: '自定义', name: label, description: '', remark: '' }
+  return {
+    kind: '自定义',
+    name: label,
+    sourceDesc: '',
+    trainingRequirements: [{ id: `req-${Date.now()}`, text: '' }],
+    remark: '',
+  }
 }
 
 const MOCK_CONVERTED_COUNT: Record<string, number> = {
@@ -367,6 +404,478 @@ function getTrainingReqs(detail: DemandDetail): { id: string; text: string }[] {
   if ('trainingRequirements' in detail) return (detail as any).trainingRequirements as { id: string; text: string }[]
   return []
 }
+
+// ── Plan / Review / Custom mock data ─────────────────────────────────────────
+
+const PLAN_MOCK_REQS = ['梳理全年合规培训重点方向', '建立分层分类培训体系', '制定各阶段考核标准']
+
+const REVIEW_HISTORY_OPTIONS = [
+  '2024年反洗钱合规培训（已归档）',
+  '2024年新员工入职培训（已归档）',
+  '2023年操作规程专项培训（已归档）',
+  '2023年年度综合培训（已归档）',
+]
+
+type HistoryCard = { date: string; count: number; rate: number; issues: string[] }
+const REVIEW_HISTORY_CARDS: Record<string, HistoryCard> = {
+  '2024年反洗钱合规培训（已归档）': { date: '2024-09', count: 186, rate: 94, issues: ['部分员工对可疑交易判断标准理解不清', '线上学习平台操作不熟练'] },
+  '2024年新员工入职培训（已归档）': { date: '2024-03', count: 42, rate: 100, issues: ['新员工对内控流程掌握程度有限', '实操演练时间不足'] },
+  '2023年操作规程专项培训（已归档）': { date: '2023-11', count: 210, rate: 88, issues: ['操作规程记忆效果一般，需反复复习', '考核通过率偏低，需加强辅导'] },
+  '2023年年度综合培训（已归档）': { date: '2023-06', count: 230, rate: 92, issues: ['培训时间过于集中，学员吸收效果有限', '考试题库未能覆盖新法规内容'] },
+}
+
+const REVIEW_MOCK_REQS = ['针对上次薄弱环节加强专项培训', '优化培训形式提升参与度', '建立培训效果跟踪机制']
+
+const SCHEDULE_FORMATS = ['集中培训', '在线学习', '考试测评', '其他'] as const
+
+// ── Shared inner component: requirement list block ────────────────────────────
+
+function ReqListBlock({
+  reqs,
+  onChange,
+  onExtract,
+  extractLabel,
+}: {
+  reqs: { id: string; text: string }[]
+  onChange: (next: { id: string; text: string }[]) => void
+  onExtract?: () => void
+  extractLabel?: string
+}) {
+  return (
+    <div className="space-y-3 rounded-lg border border-slate-200 p-3">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium text-slate-700">培训需求</span>
+        {onExtract && (
+          <button
+            type="button"
+            onClick={onExtract}
+            className="inline-flex items-center gap-1 rounded bg-blue-600 px-2.5 py-1 text-xs text-white hover:bg-blue-700"
+          >
+            ✨ {extractLabel ?? '提取培训需求'}
+          </button>
+        )}
+      </div>
+      <div className="space-y-2">
+        {reqs.map((req, idx) => (
+          <div key={req.id} className="flex items-center gap-2">
+            <span className="w-5 shrink-0 text-center text-xs text-slate-400">{idx + 1}</span>
+            <input
+              value={req.text}
+              onChange={(e) => {
+                const v = e.target.value
+                onChange(reqs.map((r) => (r.id === req.id ? { ...r, text: v } : r)))
+              }}
+              className="flex-1 rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+              placeholder={`需求条目 ${idx + 1}`}
+            />
+            <button
+              type="button"
+              onClick={() => onChange(reqs.filter((r) => r.id !== req.id))}
+              className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-200 text-slate-400 hover:border-red-200 hover:text-red-500"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange([...reqs, { id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: '' }])}
+        className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        新增需求
+      </button>
+    </div>
+  )
+}
+
+// ── Shared overlay wrapper ─────────────────────────────────────────────────────
+
+function DialogOverlay({
+  title,
+  onClose,
+  onSave,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  onSave: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+      <div className="flex w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl" style={{ maxHeight: '90vh' }}>
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
+          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded border border-slate-200 px-4 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── TrainingPlanDialog ────────────────────────────────────────────────────────
+
+type PlanDraft = { kind: '计划' } & PlanEntry
+
+function TrainingPlanDialog({
+  draft,
+  onClose,
+  onSave,
+}: {
+  draft: PlanDraft
+  onClose: () => void
+  onSave: (d: PlanDraft) => void
+}) {
+  const [local, setLocal] = useState<PlanDraft>(draft)
+  const inputCls = 'w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100'
+  const labelCls = 'block text-sm font-medium text-slate-700'
+
+  return (
+    <DialogOverlay title="年度计划" onClose={onClose} onSave={() => onSave(local)}>
+      {/* 基本信息 */}
+      <section className="space-y-3">
+        <h4 className="text-sm font-semibold text-slate-800">基本信息</h4>
+        <div className="space-y-1.5">
+          <label className={labelCls}>计划名称</label>
+          <input
+            value={local.planName}
+            onChange={(e) => setLocal({ ...local, planName: e.target.value })}
+            placeholder="如：2025年度合规培训计划"
+            className={inputCls}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className={labelCls}>开始日期</label>
+            <input
+              type="date"
+              value={local.periodStart}
+              onChange={(e) => setLocal({ ...local, periodStart: e.target.value })}
+              className={inputCls}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className={labelCls}>结束日期</label>
+            <input
+              type="date"
+              value={local.periodEnd}
+              onChange={(e) => setLocal({ ...local, periodEnd: e.target.value })}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <label className={labelCls}>覆盖范围</label>
+          <textarea
+            value={local.scope}
+            onChange={(e) => setLocal({ ...local, scope: e.target.value })}
+            rows={2}
+            placeholder="如：全员 / 合规部 / 新入职员工…"
+            className={`${inputCls} resize-none`}
+          />
+        </div>
+      </section>
+
+      {/* 培训安排 */}
+      <section className="space-y-3">
+        <h4 className="text-sm font-semibold text-slate-800">培训安排</h4>
+        <div className="space-y-2">
+          {local.scheduleItems.map((item, idx) => (
+            <div key={item.id} className="space-y-2 rounded-lg border border-slate-200 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-400">项目 {idx + 1}</span>
+                <button
+                  type="button"
+                  onClick={() => setLocal({ ...local, scheduleItems: local.scheduleItems.filter((it) => it.id !== item.id) })}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:text-red-500"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <input
+                value={item.topic}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setLocal({ ...local, scheduleItems: local.scheduleItems.map((it) => (it.id === item.id ? { ...it, topic: v } : it)) })
+                }}
+                placeholder="培训主题"
+                className={inputCls}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <span className="text-xs text-slate-500">预计时间</span>
+                  <input
+                    type="date"
+                    value={item.date}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      setLocal({ ...local, scheduleItems: local.scheduleItems.map((it) => (it.id === item.id ? { ...it, date: v } : it)) })
+                    }}
+                    className={inputCls}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs text-slate-500">培训形式</span>
+                  <select
+                    value={item.format}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      setLocal({ ...local, scheduleItems: local.scheduleItems.map((it) => (it.id === item.id ? { ...it, format: v } : it)) })
+                    }}
+                    className={inputCls}
+                  >
+                    {SCHEDULE_FORMATS.map((f) => (
+                      <option key={f} value={f}>
+                        {f}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() =>
+            setLocal({
+              ...local,
+              scheduleItems: [
+                ...local.scheduleItems,
+                { id: `si-${Date.now()}-${Math.random().toString(36).slice(2)}`, topic: '', date: '', format: '集中培训' },
+              ],
+            })
+          }
+          className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          添加培训项目
+        </button>
+      </section>
+
+      {/* 培训需求 */}
+      <ReqListBlock
+        reqs={local.trainingRequirements}
+        onChange={(next) => setLocal({ ...local, trainingRequirements: next })}
+        onExtract={() => {
+          const count = 2 + Math.floor(Math.random() * 2)
+          setLocal({
+            ...local,
+            trainingRequirements: PLAN_MOCK_REQS.slice(0, count).map((t) => ({
+              id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              text: t,
+            })),
+          })
+        }}
+      />
+
+      {/* 备注 */}
+      <div className="space-y-1.5">
+        <label className="block text-sm font-medium text-slate-700">备注（选填）</label>
+        <textarea
+          value={local.remark}
+          onChange={(e) => setLocal({ ...local, remark: e.target.value })}
+          rows={2}
+          placeholder="补充说明…"
+          className={`${inputCls} resize-none`}
+        />
+      </div>
+    </DialogOverlay>
+  )
+}
+
+// ── TrainingReviewDialog ──────────────────────────────────────────────────────
+
+type ReviewDraft = { kind: '复盘' } & ReviewEntry
+
+function TrainingReviewDialog({
+  draft,
+  onClose,
+  onSave,
+}: {
+  draft: ReviewDraft
+  onClose: () => void
+  onSave: (d: ReviewDraft) => void
+}) {
+  const [local, setLocal] = useState<ReviewDraft>(draft)
+  const inputCls = 'w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100'
+  const textareaCls = `${inputCls} resize-none`
+  const labelCls = 'block text-sm font-medium text-slate-700'
+  const card = local.selectedHistory ? REVIEW_HISTORY_CARDS[local.selectedHistory] : null
+
+  return (
+    <DialogOverlay title="复盘参考" onClose={onClose} onSave={() => onSave(local)}>
+      {/* 关联历史培训 */}
+      <section className="space-y-3">
+        <h4 className="text-sm font-semibold text-slate-800">关联历史培训</h4>
+        <p className="text-xs text-slate-500">选择同类型历史培训作为复盘参考</p>
+        <select
+          value={local.selectedHistory}
+          onChange={(e) => setLocal({ ...local, selectedHistory: e.target.value })}
+          className={inputCls}
+        >
+          <option value="">-- 请选择历史培训 --</option>
+          {REVIEW_HISTORY_OPTIONS.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+        {card ? (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <div>
+                <span className="text-xs text-slate-500">培训时间</span>
+                <div className="font-medium text-slate-800">{card.date}</div>
+              </div>
+              <div>
+                <span className="text-xs text-slate-500">参与人数</span>
+                <div className="font-medium text-slate-800">{card.count} 人</div>
+              </div>
+              <div>
+                <span className="text-xs text-slate-500">完成率</span>
+                <div className="font-medium text-slate-800">{card.rate}%</div>
+              </div>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                className={`h-full rounded-full ${card.rate === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                style={{ width: `${card.rate}%` }}
+              />
+            </div>
+            <div>
+              <span className="text-xs text-slate-500">主要问题</span>
+              <ul className="mt-1 space-y-1">
+                {card.issues.map((issue, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-sm text-slate-700">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
+                    {issue}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      {/* 复盘分析 */}
+      <section className="space-y-3">
+        <h4 className="text-sm font-semibold text-slate-800">复盘分析</h4>
+        <div className="space-y-1.5">
+          <label className={labelCls}>完成情况评估</label>
+          <textarea value={local.completion} onChange={(e) => setLocal({ ...local, completion: e.target.value })} rows={3} placeholder="上次培训的整体完成情况…" className={textareaCls} />
+        </div>
+        <div className="space-y-1.5">
+          <label className={labelCls}>存在问题</label>
+          <textarea value={local.problems} onChange={(e) => setLocal({ ...local, problems: e.target.value })} rows={3} placeholder="上次培训发现的主要问题…" className={textareaCls} />
+        </div>
+        <div className="space-y-1.5">
+          <label className={labelCls}>改进建议</label>
+          <textarea value={local.suggestions} onChange={(e) => setLocal({ ...local, suggestions: e.target.value })} rows={3} placeholder="针对问题提出的改进方向…" className={textareaCls} />
+        </div>
+      </section>
+
+      {/* 培训需求 */}
+      <ReqListBlock
+        reqs={local.trainingRequirements}
+        onChange={(next) => setLocal({ ...local, trainingRequirements: next })}
+        onExtract={() => {
+          const count = 2 + Math.floor(Math.random() * 2)
+          setLocal({
+            ...local,
+            trainingRequirements: REVIEW_MOCK_REQS.slice(0, count).map((t) => ({
+              id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              text: t,
+            })),
+          })
+        }}
+        extractLabel="根据复盘提取需求"
+      />
+
+      {/* 备注 */}
+      <div className="space-y-1.5">
+        <label className="block text-sm font-medium text-slate-700">备注（选填）</label>
+        <textarea value={local.remark} onChange={(e) => setLocal({ ...local, remark: e.target.value })} rows={2} placeholder="补充说明…" className={textareaCls} />
+      </div>
+    </DialogOverlay>
+  )
+}
+
+// ── CustomDemandDialog ────────────────────────────────────────────────────────
+
+type CustomDraft = { kind: '自定义' } & CustomEntry
+
+function CustomDemandDialog({
+  draft,
+  onClose,
+  onSave,
+}: {
+  draft: CustomDraft
+  onClose: () => void
+  onSave: (d: CustomDraft) => void
+}) {
+  const [local, setLocal] = useState<CustomDraft>(draft)
+  const inputCls = 'w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100'
+
+  return (
+    <DialogOverlay title="自定义需求" onClose={onClose} onSave={() => onSave(local)}>
+      {/* 来源说明 */}
+      <section className="space-y-3">
+        <h4 className="text-sm font-semibold text-slate-800">来源说明</h4>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-slate-700">来源描述</label>
+          <input
+            value={local.sourceDesc}
+            onChange={(e) => setLocal({ ...local, sourceDesc: e.target.value })}
+            placeholder="简述该需求的来源背景…"
+            className={inputCls}
+          />
+        </div>
+      </section>
+
+      {/* 培训需求 */}
+      <ReqListBlock reqs={local.trainingRequirements} onChange={(next) => setLocal({ ...local, trainingRequirements: next })} />
+
+      {/* 备注 */}
+      <div className="space-y-1.5">
+        <label className="block text-sm font-medium text-slate-700">备注（选填）</label>
+        <textarea
+          value={local.remark}
+          onChange={(e) => setLocal({ ...local, remark: e.target.value })}
+          rows={2}
+          placeholder="补充说明…"
+          className={`${inputCls} resize-none`}
+        />
+      </div>
+    </DialogOverlay>
+  )
+}
+
 
 // ── Survey mock data ──────────────────────────────────────────────────────────
 
@@ -1075,6 +1584,9 @@ export default function TrainingDetail() {
   const [demandDetailOptionId, setDemandDetailOptionId] = useState<string | null>(null)
   const [progressPopoverId, setProgressPopoverId] = useState<string | null>(null)
   const [surveyDialogOptId, setSurveyDialogOptId] = useState<string | null>(null)
+  const [planDialogOptId, setPlanDialogOptId] = useState<string | null>(null)
+  const [reviewDialogOptId, setReviewDialogOptId] = useState<string | null>(null)
+  const [customDialogOptId, setCustomDialogOptId] = useState<string | null>(null)
   const [demandDetailDraft, setDemandDetailDraft] = useState<DemandDetail | null>(null)
 
   const [summaryGoal, setSummaryGoal] = useState('')
@@ -1631,6 +2143,12 @@ export default function TrainingDetail() {
                                   if (!current) return
                                   if (row.kind === '问卷' || row.kind === '访谈' || row.kind === '座谈') {
                                     setSurveyDialogOptId(opt.id)
+                                  } else if (row.kind === '计划') {
+                                    setPlanDialogOptId(opt.id)
+                                  } else if (row.kind === '复盘') {
+                                    setReviewDialogOptId(opt.id)
+                                  } else if (row.kind === '自定义') {
+                                    setCustomDialogOptId(opt.id)
                                   } else {
                                     setDemandDetailOptionId(opt.id)
                                     setDemandDetailDraft(JSON.parse(JSON.stringify(current.detail)) as DemandDetail)
@@ -1918,109 +2436,6 @@ export default function TrainingDetail() {
               />
             ) : null}
 
-            {demandDetailDraft.kind === '计划' ? (
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">计划文件名</div>
-                  <input
-                    value={demandDetailDraft.planFileName}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, planFileName: e.target.value })}
-                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">关联要求</div>
-                  <textarea
-                    value={demandDetailDraft.relatedRequirements}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, relatedRequirements: e.target.value })}
-                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">培训方向提取</div>
-                  <textarea
-                    value={demandDetailDraft.direction}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, direction: e.target.value })}
-                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">备注</div>
-                  <textarea
-                    value={demandDetailDraft.remark}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
-                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-              </div>
-            ) : null}
-
-
-            {demandDetailDraft.kind === '复盘' ? (
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">项目名称</div>
-                  <input
-                    value={demandDetailDraft.projectName}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, projectName: e.target.value })}
-                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">分析维度</div>
-                  <input
-                    value={demandDetailDraft.dimensions}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, dimensions: e.target.value })}
-                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">参考结论</div>
-                  <textarea
-                    value={demandDetailDraft.conclusion}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, conclusion: e.target.value })}
-                    className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">备注</div>
-                  <textarea
-                    value={demandDetailDraft.remark}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
-                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-              </div>
-            ) : null}
-
-            {demandDetailDraft.kind === '自定义' ? (
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">方式名称</div>
-                  <input
-                    value={demandDetailDraft.name}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, name: e.target.value })}
-                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">说明</div>
-                  <textarea
-                    value={demandDetailDraft.description}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, description: e.target.value })}
-                    className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <div className="text-sm text-slate-700">备注</div>
-                  <textarea
-                    value={demandDetailDraft.remark}
-                    onChange={(e) => setDemandDetailDraft({ ...demandDetailDraft, remark: e.target.value })}
-                    className="h-20 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  />
-                </div>
-              </div>
-            ) : null}
           </div>
         ) : null}
       </Modal>
@@ -2037,6 +2452,54 @@ export default function TrainingDetail() {
               [optId]: { ...prev[optId], detail: d },
             }))
             setSurveyDialogOptId(null)
+          }}
+        />
+      ) : null}
+
+      {/* ── TrainingPlanDialog for 计划 ── */}
+      {planDialogOptId !== null && demandMatrix[planDialogOptId] ? (
+        <TrainingPlanDialog
+          draft={demandMatrix[planDialogOptId].detail as PlanDraft}
+          onClose={() => setPlanDialogOptId(null)}
+          onSave={(d) => {
+            const optId = planDialogOptId
+            setDemandMatrix((prev) => ({
+              ...prev,
+              [optId]: { ...prev[optId], detail: d },
+            }))
+            setPlanDialogOptId(null)
+          }}
+        />
+      ) : null}
+
+      {/* ── TrainingReviewDialog for 复盘 ── */}
+      {reviewDialogOptId !== null && demandMatrix[reviewDialogOptId] ? (
+        <TrainingReviewDialog
+          draft={demandMatrix[reviewDialogOptId].detail as ReviewDraft}
+          onClose={() => setReviewDialogOptId(null)}
+          onSave={(d) => {
+            const optId = reviewDialogOptId
+            setDemandMatrix((prev) => ({
+              ...prev,
+              [optId]: { ...prev[optId], detail: d },
+            }))
+            setReviewDialogOptId(null)
+          }}
+        />
+      ) : null}
+
+      {/* ── CustomDemandDialog for 自定义 ── */}
+      {customDialogOptId !== null && demandMatrix[customDialogOptId] ? (
+        <CustomDemandDialog
+          draft={demandMatrix[customDialogOptId].detail as CustomDraft}
+          onClose={() => setCustomDialogOptId(null)}
+          onSave={(d) => {
+            const optId = customDialogOptId
+            setDemandMatrix((prev) => ({
+              ...prev,
+              [optId]: { ...prev[optId], detail: d },
+            }))
+            setCustomDialogOptId(null)
           }}
         />
       ) : null}
