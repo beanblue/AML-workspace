@@ -1,10 +1,10 @@
 import {
+  Check,
   ChevronRight,
   FileText,
   PanelRightClose,
   PanelRightOpen,
   Plus,
-  Sparkles,
   Upload,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -95,16 +95,18 @@ export default function TrainingDetail() {
     if (t === 'participants') return '参训人员'
     if (t === 'records') return '数据记录'
     if (t === 'review') return '效果评估'
-    if (t === 'ai') return 'AI助手'
     return t
   }
   const [activeTab, setActiveTab] = useState<string>(tabAlias(initialTab) || '')
 
   const [rightCollapsed, setRightCollapsed] = useState(false)
-  const [stagePickerOpen, setStagePickerOpen] = useState(false)
-  const [selectedStage, setSelectedStage] = useState<StageKey>('需求立项')
+  const [aiOpen, setAiOpen] = useState(false)
+  const [aiInput, setAiInput] = useState('')
   const [stageUpdating, setStageUpdating] = useState(false)
   const [stageUpdateError, setStageUpdateError] = useState<string | null>(null)
+  const [stageConfirmOpen, setStageConfirmOpen] = useState(false)
+  const [stageConfirmMessage, setStageConfirmMessage] = useState('')
+  const [stageConfirmTarget, setStageConfirmTarget] = useState<StageKey>('需求立项')
   const [creatingTask, setCreatingTask] = useState(false)
   const [createTaskError, setCreateTaskError] = useState<string | null>(null)
 
@@ -136,6 +138,7 @@ export default function TrainingDetail() {
     历史培训分析: false,
     岗位分析: false,
     年度计划分析: false,
+    自定义: false,
   })
   const [demandRows, setDemandRows] = useState<
     Array<{
@@ -229,12 +232,12 @@ export default function TrainingDetail() {
   const summary = safeText((workUnit as any)?.summary)
 
   const stageTabs = useMemo(() => {
-    if (stage === '需求立项') return ['需求收集', '需求汇总', '历史参考', 'AI助手']
-    if (stage === '计划设计') return ['方案设计', '资源计划', '需求回顾', 'AI助手']
-    if (stage === '材料准备') return ['任务清单', '课件材料', '审核状态', 'AI助手']
-    if (stage === '培训实施') return ['任务清单', '参训人员', '签到记录', 'AI助手']
-    if (stage === '归档评估') return ['效果评估', '数据记录', '证据归档', 'AI助手']
-    return ['任务清单', 'AI助手']
+    if (stage === '需求立项') return ['需求收集', '需求汇总', '历史参考']
+    if (stage === '计划设计') return ['方案设计', '资源计划', '需求回顾']
+    if (stage === '材料准备') return ['任务清单', '课件材料', '审核状态']
+    if (stage === '培训实施') return ['任务清单', '参训人员', '签到记录']
+    if (stage === '归档评估') return ['效果评估', '数据记录', '证据归档']
+    return ['任务清单']
   }, [stage])
 
   useEffect(() => {
@@ -244,10 +247,53 @@ export default function TrainingDetail() {
 
   const stageIdx = useMemo(() => stageIndex(stage), [stage])
 
-  useEffect(() => {
-    if (!stagePickerOpen) return
-    setSelectedStage(stage)
-  }, [stage, stagePickerOpen])
+  const updateStage = async (nextStage: StageKey) => {
+    const workUnitId = safeText(id)
+    if (!workUnitId) return
+    setStageUpdating(true)
+    setStageUpdateError(null)
+    try {
+      const res = await fetch(`/api/workunit/${encodeURIComponent(workUnitId)}/stage`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: nextStage }),
+      })
+      if (!res.ok) throw new Error(String(res.status))
+      setWorkUnitLoading(true)
+      setWorkUnitError(null)
+      try {
+        await refreshWorkUnit(workUnitId)
+      } catch (e) {
+        setWorkUnitError(e instanceof Error ? e.message : String(e))
+      } finally {
+        setWorkUnitLoading(false)
+      }
+    } catch (e) {
+      setStageUpdateError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setStageUpdating(false)
+    }
+  }
+
+  const onClickStage = (nextStage: StageKey) => {
+    const currentIndex = stageIdx
+    const nextIndex = stageIndex(nextStage)
+    if (nextIndex === -1 || currentIndex === -1) return
+    if (nextIndex === currentIndex) return
+    if (nextIndex < currentIndex) {
+      updateStage(nextStage)
+      return
+    }
+    if (nextIndex === currentIndex + 1) {
+      setStageConfirmTarget(nextStage)
+      setStageConfirmMessage(`当前阶段内容将标记为完成，是否进入【${nextStage}】？进入后仍可返回本阶段。`)
+      setStageConfirmOpen(true)
+      return
+    }
+    setStageConfirmTarget(nextStage)
+    setStageConfirmMessage('将跳过中间阶段，确认继续？')
+    setStageConfirmOpen(true)
+  }
 
   return (
     <section className="space-y-4">
@@ -256,46 +302,16 @@ export default function TrainingDetail() {
           {toastMessage}
         </div>
       ) : null}
-      {stagePickerOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
-          onClick={() => (stageUpdating ? null : setStagePickerOpen(false))}
-        >
-          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-semibold text-slate-900">选择阶段</h3>
+      {stageConfirmOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => (stageUpdating ? null : setStageConfirmOpen(false))}>
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="text-sm font-semibold text-slate-900">确认进入阶段</div>
+            <div className="mt-2 text-sm text-slate-700">{stageConfirmMessage}</div>
+            <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => (stageUpdating ? null : setStagePickerOpen(false))}
-                className="text-sm text-slate-500 hover:text-slate-900"
-              >
-                关闭
-              </button>
-            </div>
-
-            <div className="mt-3 grid grid-cols-1 gap-2">
-              {STAGES.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  disabled={stageUpdating}
-                  onClick={() => setSelectedStage(s)}
-                  className={`rounded-lg border px-3 py-2 text-left text-sm ${
-                    s === selectedStage
-                      ? 'border-orange-200 bg-orange-50 text-orange-800'
-                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-3 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => (stageUpdating ? null : setStagePickerOpen(false))}
                 disabled={stageUpdating}
+                onClick={() => setStageConfirmOpen(false)}
                 className="rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
                 取消
@@ -304,42 +320,15 @@ export default function TrainingDetail() {
                 type="button"
                 disabled={stageUpdating}
                 onClick={async () => {
-                  const workUnitId = safeText(id)
-                  if (!workUnitId) return
-                  setStageUpdating(true)
-                  setStageUpdateError(null)
-                  try {
-                    const res = await fetch(`/api/workunit/${encodeURIComponent(workUnitId)}/stage`, {
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ stage: selectedStage }),
-                    })
-                    if (!res.ok) throw new Error(String(res.status))
-
-                    setWorkUnitLoading(true)
-                    setWorkUnitError(null)
-                    try {
-                      await refreshWorkUnit(workUnitId)
-                      setStagePickerOpen(false)
-                    } catch (e) {
-                      setWorkUnitError(e instanceof Error ? e.message : String(e))
-                    } finally {
-                      setWorkUnitLoading(false)
-                    }
-                  } catch (e) {
-                    setStageUpdateError(e instanceof Error ? e.message : String(e))
-                  } finally {
-                    setStageUpdating(false)
-                  }
+                  const targetStage = stageConfirmTarget
+                  setStageConfirmOpen(false)
+                  await updateStage(targetStage)
                 }}
                 className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
               >
                 确认
               </button>
             </div>
-
-            {stageUpdating ? <div className="mt-3 text-sm text-slate-500">更新中...</div> : null}
-            {stageUpdateError ? <div className="mt-3 text-sm text-red-700">更新失败：{stageUpdateError}</div> : null}
           </div>
         </div>
       ) : null}
@@ -368,15 +357,7 @@ export default function TrainingDetail() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setStagePickerOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-          >
-            推进阶段 <ChevronRight className="h-4 w-4 text-slate-400" />
-          </button>
-        </div>
+        <div />
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -385,20 +366,33 @@ export default function TrainingDetail() {
             const done = idx < stageIdx
             const current = idx === stageIdx
             return (
-              <div key={s} className="flex min-w-0 flex-1 items-center gap-2">
+              <button
+                key={s}
+                type="button"
+                disabled={stageUpdating}
+                onClick={() => onClickStage(s)}
+                className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-50 disabled:opacity-70"
+              >
                 <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
-                    done ? 'bg-emerald-600 text-white' : current ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-600'
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                    done ? 'bg-emerald-600 text-white' : current ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'
                   }`}
                 >
-                  {done ? '✓' : idx + 1}
+                  {done ? <Check className="h-4 w-4" /> : idx + 1}
                 </div>
-                <div className={`min-w-0 truncate text-sm ${current ? 'font-semibold text-orange-700' : 'text-slate-700'}`}>{s}</div>
+                <div
+                  className={`min-w-0 truncate text-sm ${
+                    done ? 'text-emerald-700' : current ? 'font-semibold text-blue-700' : 'text-slate-600'
+                  }`}
+                >
+                  {s}
+                </div>
                 {idx < STAGES.length - 1 ? <div className="h-[2px] flex-1 bg-slate-200" /> : null}
-              </div>
+              </button>
             )
           })}
         </div>
+        {stageUpdateError ? <div className="mt-3 text-sm text-red-700">阶段切换失败：{stageUpdateError}</div> : null}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -418,18 +412,72 @@ export default function TrainingDetail() {
           })}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setRightCollapsed((prev) => !prev)}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-        >
-          {rightCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
-          侧栏
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setAiOpen((prev) => !prev)}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+          >
+            🤖 AI助手
+          </button>
+          <button
+            type="button"
+            onClick={() => setRightCollapsed((prev) => !prev)}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+          >
+            {rightCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
+            侧栏
+          </button>
+        </div>
       </div>
 
       {workUnitLoading ? <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">加载中...</div> : null}
       {workUnitError ? <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{workUnitError}</div> : null}
+
+      {aiOpen ? (
+        <div className="fixed bottom-6 right-4 top-24 z-40 w-[320px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <div className="text-sm font-semibold text-slate-900">AI助手 · 当前阶段：【{stage}】</div>
+            <button type="button" onClick={() => setAiOpen(false)} className="text-sm text-slate-500 hover:text-slate-900">
+              ×
+            </button>
+          </div>
+
+          <div className="space-y-2 p-3">
+            {['生成本阶段任务建议', '查找历史同类项目', '起草工作通知'].map((label) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => showToast('AI功能即将上线，敬请期待')}
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="absolute bottom-0 left-0 right-0 border-t border-slate-200 bg-white p-3">
+            <div className="flex gap-2">
+              <input
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                placeholder="输入问题..."
+                className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setAiInput('')
+                  showToast('AI功能即将上线，敬请期待')
+                }}
+                className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+              >
+                发送
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-3 xl:flex-row">
         <div className="min-w-0 flex-1">
@@ -593,6 +641,7 @@ export default function TrainingDetail() {
                   '历史培训分析',
                   '岗位分析',
                   '年度计划分析',
+                  '自定义',
                 ].map((method) => {
                   const checked = Boolean(demandMethodChecked[method])
                   return (
@@ -609,24 +658,25 @@ export default function TrainingDetail() {
                           const next = e.target.checked
                           setDemandMethodChecked((prev) => ({ ...prev, [method]: next }))
                           setDemandRows((prev) => {
-                            const exists = prev.some((r) => r.preset && r.method === method)
+                            const rowId = `preset-${method}`
+                            const exists = prev.some((r) => r.id === rowId)
                             if (next && !exists) {
                               return [
                                 ...prev,
                                 {
-                                  id: `preset-${method}`,
+                                  id: rowId,
                                   method,
                                   tool: '',
                                   target: '',
                                   dueDate: '',
                                   status: '待开始',
                                   owner: '',
-                                  preset: true,
+                                  preset: method !== '自定义',
                                 },
                               ]
                             }
                             if (!next && exists) {
-                              return prev.filter((r) => !(r.preset && r.method === method))
+                              return prev.filter((r) => r.id !== rowId)
                             }
                             return prev
                           })
@@ -833,32 +883,13 @@ export default function TrainingDetail() {
                 <textarea
                   value={summaryRemark}
                   onChange={(e) => setSummaryRemark(e.target.value)}
-                  className="h-28 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
                 />
               </div>
               <div className="flex justify-end">
                 <button type="button" onClick={() => showToast('已保存汇总')} className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
                   保存汇总
                 </button>
-              </div>
-            </div>
-          ) : activeTab === 'AI助手' ? (
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                <Sparkles className="h-4 w-4 text-slate-500" />
-                AI 助手
-              </div>
-              <div className="mt-3 grid grid-cols-1 gap-2">
-                {['根据项目信息生成任务清单', '生成本阶段工作建议', '查找历史同类项目'].map((label) => (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => showToast('AI功能即将上线，敬请期待')}
-                    className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm text-slate-600 hover:bg-slate-100"
-                  >
-                    {label}
-                  </button>
-                ))}
               </div>
             </div>
           ) : (
