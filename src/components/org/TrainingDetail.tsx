@@ -46,9 +46,10 @@ type DocSourceTab = '资料库' | '上传文件' | '粘贴文本'
 
 type DocSourceEntry = {
   sourceTab: DocSourceTab
-  libraryItem: string
-  uploadedFile: { name: string; size: number } | null
-  pastedText: string
+  libraryDb: string
+  librarySelectedItems: string[]
+  uploadedFiles: { id: string; name: string; size: number }[]
+  pastedTexts: { id: string; text: string }[]
   trainingRequirements: { id: string; text: string }[]
   remark: string
 }
@@ -115,6 +116,7 @@ type DemandMatrixRow = {
   owner: string
   dueDate: string
   detail: DemandDetail
+  convertedCount: number
 }
 
 function safeText(value: unknown): string {
@@ -166,9 +168,10 @@ function createEmptyDemandDetail(kind: DemandMethodKind, label: string): DemandD
     return {
       kind,
       sourceTab: '资料库' as const,
-      libraryItem: '',
-      uploadedFile: null,
-      pastedText: '',
+      libraryDb: '',
+      librarySelectedItems: [],
+      uploadedFiles: [],
+      pastedTexts: [],
       trainingRequirements: [],
       remark: '',
     }
@@ -191,6 +194,13 @@ function createEmptyDemandDetail(kind: DemandMethodKind, label: string): DemandD
   return { kind: '自定义', name: label, description: '', remark: '' }
 }
 
+const MOCK_CONVERTED_COUNT: Record<string, number> = {
+  policy: 2,
+  directive: 0,
+  role: 1,
+  daily: 0,
+}
+
 function createDemandMatrixRow(option: DemandOption): DemandMatrixRow {
   return {
     optionId: option.id,
@@ -200,6 +210,7 @@ function createDemandMatrixRow(option: DemandOption): DemandMatrixRow {
     owner: '',
     dueDate: '',
     detail: createEmptyDemandDetail(option.kind, option.label),
+    convertedCount: MOCK_CONVERTED_COUNT[option.id] ?? 0,
   }
 }
 
@@ -319,18 +330,46 @@ function TagEditor({
   )
 }
 
-const DOC_SOURCE_LIBRARY: Record<DocSourceKind, string[]> = {
-  政策: ['反洗钱法（2024修订）', '金融机构反洗钱监督管理办法', '关于加强客户身份识别工作的通知', '年度合规培训工作方案'],
-  指令: ['关于开展年度合规培训的通知', '总公司合规工作要求2024', '省公司监管整改通知', '监管机构现场检查意见'],
-  岗位: ['员工手册v3', '合规操作规程', '岗位职责说明书', '柜面业务操作手册'],
-  日常: ['日常合规操作规程', '问题报告与处理流程', '案例警示教育材料', '年度工作总结报告'],
-}
+const LIBRARY_DBS = [
+  {
+    id: 'aml',
+    name: '反洗钱合规库',
+    items: ['反洗钱法（2024修订）', '金融机构反洗钱监督管理办法', '关于加强客户身份识别工作的通知', '年度合规培训工作方案'],
+  },
+  {
+    id: 'training',
+    name: '员工培训资料库',
+    items: ['反洗钱基础知识培训材料', '员工合规意识提升手册', '案例分析：可疑交易识别', '新员工入职合规培训课件'],
+  },
+  {
+    id: 'ops',
+    name: '操作规程文档库',
+    items: ['柜面操作合规规程', '客户开户流程规范', '大额交易申报操作指引', '可疑交易报告填报规范'],
+  },
+]
 
 const DOC_SOURCE_MOCK_REQS: Record<DocSourceKind, string[]> = {
   政策: ['了解反洗钱法最新修订内容', '掌握客户身份识别流程', '熟悉可疑交易报告规范'],
   指令: ['理解监管指令核心要求', '落实合规整改具体事项', '建立合规跟踪与反馈机制'],
   岗位: ['识别本岗位主要合规风险点', '掌握岗位日常操作规范', '了解违规行为处理流程'],
   日常: ['熟悉日常合规操作要点', '掌握问题发现与上报流程', '了解违规案例与警示教训'],
+}
+
+function extractKeywords(reqs: { id: string; text: string }[], max = 3): string[] {
+  const result: string[] = []
+  for (const r of reqs) {
+    const t = r.text.trim()
+    if (!t) continue
+    // Take first 5–6 Chinese chars as a keyword chip
+    result.push(t.slice(0, 6).replace(/[，。、：；！？]/g, ''))
+    if (result.length >= max) break
+  }
+  return result.filter(Boolean)
+}
+
+function getTrainingReqs(detail: DemandDetail): { id: string; text: string }[] {
+  if ('trainingRequirements' in detail) return (detail as any).trainingRequirements as { id: string; text: string }[]
+  return []
 }
 
 function DocumentSourcePanel({
@@ -344,8 +383,9 @@ function DocumentSourcePanel({
   fileInputRef: MutableRefObject<HTMLInputElement | null>
   onToast: (msg: string) => void
 }) {
-  const library = DOC_SOURCE_LIBRARY[draft.kind] ?? []
+  const [pasteInput, setPasteInput] = useState('')
   const mockReqs = DOC_SOURCE_MOCK_REQS[draft.kind] ?? []
+  const selectedDb = LIBRARY_DBS.find((db) => db.id === draft.libraryDb)
 
   return (
     <div className="space-y-5">
@@ -355,7 +395,7 @@ function DocumentSourcePanel({
         <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
           {(
             [
-              { key: '资料库' as const, icon: '📁', label: '从资料库选取' },
+              { key: '资料库' as const, icon: '📁', label: '系统资料库' },
               { key: '上传文件' as const, icon: '⬆', label: '上传文件' },
               { key: '粘贴文本' as const, icon: '📋', label: '粘贴文本' },
             ] as const
@@ -373,75 +413,160 @@ function DocumentSourcePanel({
           ))}
         </div>
 
+        {/* ── Tab 1: 系统资料库（两步选择） ── */}
         {draft.sourceTab === '资料库' ? (
-          <select
-            value={draft.libraryItem}
-            onChange={(e) => onChange({ ...draft, libraryItem: e.target.value })}
-            className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-300"
-          >
-            <option value="">— 请选择文件 —</option>
-            {library.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        ) : draft.sourceTab === '上传文件' ? (
-          <div className="space-y-2">
-            {draft.uploadedFile ? (
-              <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 shrink-0 text-slate-400" />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-700">{draft.uploadedFile.name}</p>
-                    <p className="text-xs text-slate-400">{(draft.uploadedFile.size / 1024).toFixed(1)} KB</p>
-                  </div>
+          <div className="space-y-3">
+            <select
+              value={draft.libraryDb}
+              onChange={(e) => onChange({ ...draft, libraryDb: e.target.value, librarySelectedItems: [] })}
+              className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-300"
+            >
+              <option value="">— 选择数据库 —</option>
+              {LIBRARY_DBS.map((db) => (
+                <option key={db.id} value={db.id}>
+                  {db.name}
+                </option>
+              ))}
+            </select>
+
+            {selectedDb ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 text-xs text-slate-500">
+                  {selectedDb.name}（{selectedDb.items.length} 条记录）
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onChange({ ...draft, uploadedFile: null })}
-                  className="ml-2 shrink-0 rounded border border-slate-200 p-1 text-slate-400 hover:bg-white hover:text-slate-700"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
+                <div className="space-y-1.5">
+                  {selectedDb.items.map((item) => {
+                    const checked = draft.librarySelectedItems.includes(item)
+                    return (
+                      <label key={item} className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const next = checked
+                              ? draft.librarySelectedItems.filter((x) => x !== item)
+                              : [...draft.librarySelectedItems, item]
+                            onChange({ ...draft, librarySelectedItems: next })
+                          }}
+                          className="accent-blue-600"
+                        />
+                        <span className="text-sm text-slate-700">{item}</span>
+                      </label>
+                    )
+                  })}
+                </div>
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 py-7 text-sm text-slate-500 hover:border-blue-300 hover:bg-blue-50"
-              >
-                <Upload className="h-5 w-5" />
-                <span>点击或拖拽文件到此处</span>
-                <span className="text-xs text-slate-400">.pdf .doc .docx .txt，最大 10MB</span>
-              </button>
-            )}
+            ) : null}
+
+            {draft.librarySelectedItems.length > 0 ? (
+              <div className="space-y-1.5">
+                <div className="text-xs text-slate-500">已选 {draft.librarySelectedItems.length} 条</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {draft.librarySelectedItems.map((item) => (
+                    <span key={item} className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700">
+                      {item}
+                      <button
+                        type="button"
+                        onClick={() => onChange({ ...draft, librarySelectedItems: draft.librarySelectedItems.filter((x) => x !== item) })}
+                        className="hover:text-blue-900"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : /* ── Tab 2: 上传文件（多文件） ── */ draft.sourceTab === '上传文件' ? (
+          <div className="space-y-2">
+            {draft.uploadedFiles.length > 0 ? (
+              <div className="space-y-1.5">
+                {draft.uploadedFiles.map((f) => (
+                  <div key={f.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 shrink-0 text-slate-400" />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-700">{f.name}</p>
+                        <p className="text-xs text-slate-400">{(f.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onChange({ ...draft, uploadedFiles: draft.uploadedFiles.filter((x) => x.id !== f.id) })}
+                      className="ml-2 shrink-0 rounded border border-slate-200 p-1 text-slate-400 hover:bg-white hover:text-slate-700"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 py-6 text-sm text-slate-500 hover:border-blue-300 hover:bg-blue-50"
+            >
+              <Upload className="h-5 w-5" />
+              <span>点击或拖拽文件到此处</span>
+              <span className="text-xs text-slate-400">支持多选 · .pdf .doc .docx .txt · 每个最大 10MB</span>
+            </button>
             <input
               ref={fileInputRef}
               type="file"
               accept=".pdf,.doc,.docx,.txt"
+              multiple
               className="hidden"
               onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (!f) return
-                if (f.size > 10 * 1024 * 1024) {
-                  onToast('文件大小不能超过 10MB')
-                  e.target.value = ''
-                  return
-                }
-                onChange({ ...draft, uploadedFile: { name: f.name, size: f.size } })
+                const files = Array.from(e.target.files ?? [])
+                const valid = files.filter((f) => f.size <= 10 * 1024 * 1024)
+                if (valid.length < files.length) onToast('部分文件超过 10MB，已忽略')
+                if (valid.length === 0) { e.target.value = ''; return }
+                const entries = valid.map((f) => ({ id: `file-${Date.now()}-${Math.random().toString(36).slice(2)}`, name: f.name, size: f.size }))
+                onChange({ ...draft, uploadedFiles: [...draft.uploadedFiles, ...entries] })
                 e.target.value = ''
               }}
             />
           </div>
         ) : (
-          <textarea
-            value={draft.pastedText}
-            onChange={(e) => onChange({ ...draft, pastedText: e.target.value })}
-            rows={5}
-            placeholder="请粘贴相关文字内容…"
-            className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-          />
+          /* ── Tab 3: 粘贴文本（多卡片） ── */
+          <div className="space-y-2">
+            {draft.pastedTexts.length > 0 ? (
+              <div className="space-y-2">
+                {draft.pastedTexts.map((card) => (
+                  <div key={card.id} className="relative rounded-lg border border-slate-200 bg-slate-50 p-3 pr-8">
+                    <p className="whitespace-pre-wrap text-sm text-slate-700">{card.text}</p>
+                    <button
+                      type="button"
+                      onClick={() => onChange({ ...draft, pastedTexts: draft.pastedTexts.filter((x) => x.id !== card.id) })}
+                      className="absolute right-2 top-2 text-slate-400 hover:text-slate-700"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <textarea
+              value={pasteInput}
+              onChange={(e) => setPasteInput(e.target.value)}
+              rows={5}
+              placeholder="请粘贴相关文字内容…"
+              className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const text = pasteInput.trim()
+                if (!text) return
+                onChange({ ...draft, pastedTexts: [...draft.pastedTexts, { id: `paste-${Date.now()}`, text }] })
+                setPasteInput('')
+              }}
+              className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              添加这段文本
+            </button>
+          </div>
         )}
 
         <button
@@ -523,6 +648,7 @@ function DocumentSourcePanel({
   )
 }
 
+
 export default function TrainingDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -596,6 +722,7 @@ export default function TrainingDetail() {
   const [customMethodName, setCustomMethodName] = useState('')
   const [demandDetailOpen, setDemandDetailOpen] = useState(false)
   const [demandDetailOptionId, setDemandDetailOptionId] = useState<string | null>(null)
+  const [progressPopoverId, setProgressPopoverId] = useState<string | null>(null)
   const [demandDetailDraft, setDemandDetailDraft] = useState<DemandDetail | null>(null)
 
   const [summaryGoal, setSummaryGoal] = useState('')
@@ -1065,7 +1192,7 @@ export default function TrainingDetail() {
         ) : stage === '需求立项' && activeTab === '需求收集' ? (
           <div className="space-y-4">
             <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="text-sm font-semibold text-slate-900">收集方式</div>
+              <div className="text-sm font-semibold text-slate-900">需求来源</div>
               <div className="mt-3 flex items-center gap-2 overflow-x-auto">
                 {demandOptions.map((opt) => {
                   const selected = selectedDemandOptionIds.includes(opt.id)
@@ -1112,21 +1239,20 @@ export default function TrainingDetail() {
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-              <table className="w-full min-w-[760px] text-left text-sm">
+              <table className="w-full min-w-[540px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs text-slate-600">
                   <tr>
-                    <th className="px-3 py-2 font-medium">序号</th>
-                    <th className="px-3 py-2 font-medium">收集方式</th>
-                    <th className="px-3 py-2 font-medium">状态</th>
-                    <th className="px-3 py-2 font-medium">负责人</th>
-                    <th className="px-3 py-2 font-medium">截止日期</th>
-                    <th className="px-3 py-2 font-medium">详情</th>
+                    <th className="w-10 px-3 py-2 font-medium">序号</th>
+                    <th className="px-3 py-2 font-medium">来源</th>
+                    <th className="w-16 px-3 py-2 font-medium">需求数</th>
+                    <th className="px-3 py-2 font-medium">关键词</th>
+                    <th className="px-3 py-2 font-medium">转化进度</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {selectedDemandOptionIds.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-3 py-6 text-center text-sm text-slate-500">
+                      <td colSpan={5} className="px-3 py-6 text-center text-sm text-slate-500">
                         暂无数据
                       </td>
                     </tr>
@@ -1136,47 +1262,16 @@ export default function TrainingDetail() {
                       .map((opt, idx) => {
                         const row = demandMatrix[opt.id]
                         if (!row) return null
+                        const reqs = getTrainingReqs(row.detail)
+                        const reqCount = reqs.length
+                        const keywords = extractKeywords(reqs, 3)
+                        const converted = row.convertedCount
+                        const pct = reqCount > 0 ? Math.round((converted / reqCount) * 100) : 0
+                        const showPopover = progressPopoverId === opt.id
                         return (
-                          <tr key={opt.id}>
-                            <td className="px-3 py-2 text-slate-600">{idx + 1}</td>
-                            <td className="px-3 py-2 text-slate-900">{row.label}</td>
-                            <td className="px-3 py-2">
-                              <select
-                                value={row.status}
-                                onChange={(e) => {
-                                  const v = e.target.value as DemandStatus
-                                  setDemandMatrix((prev) => ({ ...prev, [opt.id]: { ...prev[opt.id], status: v } }))
-                                }}
-                                className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-blue-300"
-                              >
-                                <option value="待开始">待开始</option>
-                                <option value="进行中">进行中</option>
-                                <option value="已完成">已完成</option>
-                              </select>
-                            </td>
-                            <td className="px-3 py-2">
-                              <input
-                                value={row.owner}
-                                onChange={(e) => {
-                                  const v = e.target.value
-                                  setDemandMatrix((prev) => ({ ...prev, [opt.id]: { ...prev[opt.id], owner: v } }))
-                                }}
-                                className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-300"
-                                placeholder="负责人"
-                              />
-                            </td>
-                            <td className="px-3 py-2">
-                              <input
-                                type="date"
-                                value={row.dueDate}
-                                onChange={(e) => {
-                                  const v = e.target.value
-                                  setDemandMatrix((prev) => ({ ...prev, [opt.id]: { ...prev[opt.id], dueDate: v } }))
-                                }}
-                                className="w-full rounded border border-slate-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-blue-300"
-                              />
-                            </td>
-                            <td className="px-3 py-2">
+                          <tr key={opt.id} className="hover:bg-slate-50/50">
+                            <td className="px-3 py-2.5 text-slate-500">{idx + 1}</td>
+                            <td className="px-3 py-2.5">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1186,10 +1281,75 @@ export default function TrainingDetail() {
                                   setDemandDetailDraft(JSON.parse(JSON.stringify(current.detail)) as DemandDetail)
                                   setDemandDetailOpen(true)
                                 }}
-                                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                                className="cursor-pointer text-sm text-slate-800 underline decoration-slate-300 hover:text-blue-600 hover:decoration-blue-400"
                               >
-                                详情
+                                {row.label}
                               </button>
+                            </td>
+                            <td className="px-3 py-2.5 text-slate-600">
+                              {reqCount > 0 ? `${reqCount} 条` : '—'}
+                            </td>
+                            <td className="px-3 py-2.5">
+                              {keywords.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {keywords.map((kw) => (
+                                    <span key={kw} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                                      {kw}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  onClick={() => setProgressPopoverId(showPopover ? null : opt.id)}
+                                  className="flex items-center gap-2"
+                                >
+                                  <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-100">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${
+                                        pct === 0 ? 'bg-slate-300' : pct === 100 ? 'bg-emerald-500' : 'bg-blue-500'
+                                      }`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  <span
+                                    className={`text-xs ${
+                                      reqCount === 0
+                                        ? 'text-slate-400'
+                                        : pct === 100
+                                          ? 'text-emerald-600'
+                                          : pct === 0
+                                            ? 'text-slate-400'
+                                            : 'text-blue-600'
+                                    }`}
+                                  >
+                                    {reqCount > 0 ? `已转化 ${converted}/${reqCount} · ${pct}%` : '—'}
+                                  </span>
+                                </button>
+                                {showPopover && reqCount > 0 ? (
+                                  <div className="absolute left-0 top-full z-30 mt-1 min-w-[220px] rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
+                                    <div className="mb-2 text-xs font-medium text-slate-700">需求转化情况</div>
+                                    <div className="space-y-1.5">
+                                      {reqs.map((req, i) => (
+                                        <label key={req.id} className="flex items-start gap-2">
+                                          <input
+                                            type="checkbox"
+                                            readOnly
+                                            checked={i < converted}
+                                            className="mt-0.5 accent-blue-600"
+                                          />
+                                          <span className="text-xs text-slate-600">{req.text || `需求 ${i + 1}`}</span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
                             </td>
                           </tr>
                         )
