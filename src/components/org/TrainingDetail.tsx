@@ -2268,15 +2268,6 @@ export default function TrainingDetail() {
             <button
               type="button"
               onClick={() => {
-                const _srcLabel = demandMatrix[optionId]?.label ?? (draft as any).kind
-                const _reqs: { id: string; text: string }[] = 'trainingRequirements' in draft ? (draft as any).trainingRequirements : []
-                setReqList((prev) => {
-                  const filtered = prev.filter((r) => r.sourceKey !== _srcLabel)
-                  const newRows = _reqs.filter((r) => r.text.trim()).map((r) => ({
-                    id: Date.now() + Math.random(), title: r.text.trim(), desc: '', sourceKey: _srcLabel, priority: '重要', status: '待转化', expanded: false,
-                  }))
-                  return [...filtered, ...newRows]
-                })
                 setDemandDetailOpen(false)
                 setDemandDetailOptionId(null)
                 setDemandDetailDraft(null)
@@ -2303,6 +2294,15 @@ export default function TrainingDetail() {
                     setDemandOptions((prev) => prev.map((o) => (o.id === optionId ? { ...o, label: nextLabel } : o)))
                   }
                 }
+                const _srcLabel = demandMatrix[optionId]?.label ?? (draft as any).kind
+                const _reqs: { id: string; text: string }[] = 'trainingRequirements' in draft ? (draft as any).trainingRequirements : []
+                setReqList((prev) => {
+                  const filtered = prev.filter((r) => r.sourceKey !== _srcLabel)
+                  const newRows = _reqs.filter((r) => r.text.trim()).map((r) => ({
+                    id: Date.now() + Math.random(), title: r.text.trim(), desc: '', sourceKey: _srcLabel, priority: '重要', status: '待转化', expanded: false,
+                  }))
+                  return [...filtered, ...newRows]
+                })
                 setDemandDetailOpen(false)
                 setDemandDetailOptionId(null)
                 setDemandDetailDraft(null)
