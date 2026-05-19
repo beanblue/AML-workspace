@@ -219,10 +219,15 @@ function UnifiedSourcePanel({
   const mockReqs = UNIFIED_MOCK_REQS[local.kind] ?? []
   const selectedDb = LIBRARY_DBS.find((db) => db.id === local.libraryDb)
 
+  const [aiError, setAiError] = useState<string | null>(null)
+
   const handleExtract = async () => {
+    setAiError(null)
+
+    // Collect content from ALL three tabs (not just the active one)
     const parts: string[] = []
     if (local.librarySelectedItems.length > 0) {
-      parts.push('系统数据库选中条目：\n' + local.librarySelectedItems.map((x, i) => `${i + 1}. ${x}`).join('\n'))
+      parts.push('系统数据库已选条目：\n' + local.librarySelectedItems.map((x, i) => `${i + 1}. ${x}`).join('\n'))
     }
     if (local.uploadedFiles.length > 0) {
       parts.push('已上传文件：\n' + local.uploadedFiles.map((f, i) => `${i + 1}. ${f.name}`).join('\n'))
@@ -232,14 +237,16 @@ function UnifiedSourcePanel({
     }
 
     if (parts.length === 0) {
-      const count = 3 + Math.floor(Math.random() * 2)
-      const reqs = mockReqs.slice(0, count).map((t) => ({ id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: t }))
-      setLocal((prev) => ({ ...prev, trainingRequirements: reqs }))
+      setAiError('请先添加资料内容，再提取需求')
       return
     }
 
     const content = parts.join('\n\n---\n\n')
-    const prompt = `你是一名培训需求分析专家。以下是从【${label}】来源收集的相关资料内容：\n\n${content}\n\n请根据以上内容，提炼出3~5条具体的员工培训需求，每条需求用一句话表达，直接输出编号列表。`
+    const prompt =
+      `你是一名合规培训需求分析专家。以下是从【${label}】来源收集的相关资料内容：\n\n` +
+      `${content}\n\n` +
+      `请根据以上内容，提炼出3~5条具体的员工培训需求，每条需求用一句话表达，要求具体、可操作、与内容直接相关。` +
+      `直接输出编号列表，格式为：1. xxx 2. xxx`
 
     setAiLoading(true)
     try {
@@ -248,21 +255,25 @@ function UnifiedSourcePanel({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
       })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as any).message ?? `HTTP ${res.status}`)
+      }
       const data = await res.json()
-      const text = String(data.text ?? '')
-      const lines = text
-        .split('\n')
-        .map((l: string) => l.replace(/^\d+[.、）\)]\s*/, '').trim())
-        .filter((l: string) => l.length > 0)
+      const raw = String((data as any).result ?? (data as any).text ?? '')
+      // Parse numbered list: accept "1." "1、" "1）" etc.
+      const lines = raw
+        .split(/\n/)
+        .map((l: string) => l.replace(/^\s*\d+[.、）)。]\s*/, '').trim())
+        .filter((l: string) => l.length > 4)
       const reqs =
         lines.length > 0
           ? lines.map((t: string) => ({ id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: t }))
           : mockReqs.slice(0, 3).map((t) => ({ id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: t }))
       setLocal((prev) => ({ ...prev, trainingRequirements: reqs }))
-    } catch {
-      const count = 3 + Math.floor(Math.random() * 2)
-      const reqs = mockReqs.slice(0, count).map((t) => ({ id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: t }))
-      setLocal((prev) => ({ ...prev, trainingRequirements: reqs }))
+    } catch (e) {
+      setAiError('AI 分析失败，请稍后重试')
+      console.error('[handleExtract]', e)
     } finally {
       setAiLoading(false)
     }
@@ -481,6 +492,9 @@ function UnifiedSourcePanel({
             {/* ── 培训需求 ── */}
             <div className="space-y-3">
               <div className="text-sm font-medium text-slate-700">培训需求</div>
+              {aiError ? (
+                <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{aiError}</div>
+              ) : null}
               {local.trainingRequirements.length === 0 ? (
                 <div className="rounded border border-dashed border-slate-200 bg-slate-50 py-4 text-center text-sm text-slate-400">
                   暂无需求，可点击上方「✨ 提取培训需求」自动生成
