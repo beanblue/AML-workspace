@@ -601,7 +601,8 @@ export default function TrainingDetail() {
   const [progressPopoverId, setProgressPopoverId] = useState<string | null>(null)
   const [unifiedDialogOptId, setUnifiedDialogOptId] = useState<string | null>(null)
 
-  const [reqList, setReqList] = useState<Array<{id:number;title:string;desc:string;sourceKey:string;priority:string;status:string;expanded:boolean}>>([])
+  const [reqList, setReqList] = useState<Array<{id:number;title:string;desc:string;sources:string[];priority:string;status:string;expanded:boolean}>>([])
+  const [sourceDropdownRowId, setSourceDropdownRowId] = useState<number | null>(null)
   const [ideaText, setIdeaText] = useState('')
   const [ideaLogs, setIdeaLogs] = useState<Array<{id:number;seq:number;time:string;text:string;aiSources:string[]|null;selectedSources:string[]}>>([])  
   const [ideaCollapsed, setIdeaCollapsed] = useState(false)
@@ -1447,7 +1448,7 @@ export default function TrainingDetail() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setReqList((prev) => [...prev, { id: Date.now(), title: '', desc: '', sourceKey: '', priority: '重要', status: '待转化', expanded: false }])}
+                  onClick={() => setReqList((prev) => [...prev, { id: Date.now(), title: '', desc: '', sources: [], priority: '重要', status: '待转化', expanded: false }])}
                   className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
                 >
                   + 新增需求
@@ -1506,9 +1507,59 @@ export default function TrainingDetail() {
                             )}
                           </td>
                           <td className="py-2.5 pl-3">
-                            {row.sourceKey
-                              ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">{row.sourceKey}</span>
-                              : <span className="rounded-full bg-slate-50 px-2 py-0.5 text-slate-400">手动添加</span>}
+                            <div className="relative flex flex-wrap items-center gap-1">
+                              {row.sources.length === 0 && (
+                                <span className="rounded-full bg-slate-50 px-2 py-0.5 text-xs text-slate-400">手动添加</span>
+                              )}
+                              {row.sources.map((src) => (
+                                <span key={src} className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
+                                  {src}
+                                  {row.sources.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, sources: r.sources.filter((s) => s !== src) } : r))}
+                                      className="ml-0.5 text-blue-400 hover:text-blue-700"
+                                    >×</button>
+                                  )}
+                                </span>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setSourceDropdownRowId(sourceDropdownRowId === row.id ? null : row.id) }}
+                                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-slate-300 text-xs text-slate-400 hover:border-blue-400 hover:text-blue-500"
+                              >＋</button>
+                              {sourceDropdownRowId === row.id && (
+                                <div className="absolute left-0 top-7 z-30 min-w-[160px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                                  {['政策规则','专项指令','岗位职责','工作计划','日常沟通','问卷调查','人员访谈','专题座谈','项目复盘'].map((label) => {
+                                    const checked = row.sources.includes(label)
+                                    return (
+                                      <button
+                                        key={label}
+                                        type="button"
+                                        onClick={() => {
+                                          setReqList((prev) => prev.map((r) => r.id === row.id
+                                            ? { ...r, sources: checked ? r.sources.filter((s) => s !== label) : [...r.sources, label] }
+                                            : r))
+                                        }}
+                                        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-slate-50"
+                                      >
+                                        <span className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border ${checked ? 'border-blue-500 bg-blue-500 text-white' : 'border-slate-300'}`}>
+                                          {checked && <Check className="h-2.5 w-2.5" />}
+                                        </span>
+                                        {label}
+                                      </button>
+                                    )
+                                  })}
+                                  <div className="border-t border-slate-100 px-3 pt-1 pb-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => setSourceDropdownRowId(null)}
+                                      className="text-xs text-slate-400 hover:text-slate-600"
+                                    >完成</button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="py-2.5 pl-3">
                             <select
@@ -1525,10 +1576,17 @@ export default function TrainingDetail() {
                             <select
                               value={row.status}
                               onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, status: e.target.value } : r))}
-                              className="rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300"
+                              className={`rounded border px-2 py-1 text-xs outline-none focus:ring-1 ${
+                                row.status === '已纳入计划'
+                                  ? 'border-blue-200 bg-blue-50 text-blue-700 focus:ring-blue-100'
+                                  : row.status === '暂不处理'
+                                    ? 'border-orange-200 bg-orange-50 text-orange-700 focus:ring-orange-100'
+                                    : 'border-slate-200 bg-white text-slate-500 focus:ring-slate-100'
+                              }`}
                             >
                               <option value="待转化">待转化</option>
-                              <option value="已进入方案">已进入方案</option>
+                              <option value="已纳入计划">已纳入计划</option>
+                              <option value="暂不处理">暂不处理</option>
                             </select>
                           </td>
                           <td className="py-2.5 text-center">
@@ -1560,10 +1618,10 @@ export default function TrainingDetail() {
                 </button>
                 <button
                   type="button"
-                  disabled
-                  className="inline-flex cursor-not-allowed items-center gap-1.5 rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-400"
+                  onClick={() => alert('报告生成功能即将上线')}
+                  className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-blue-400 hover:text-blue-600"
                 >
-                  📋 生成需求立项报告
+                  📄 生成需求立项报告
                 </button>
               </div>
               <p className="mt-3 text-center text-xs text-slate-400">
@@ -1591,14 +1649,14 @@ export default function TrainingDetail() {
             }))
             const srcLabel = demandMatrix[optId]?.label ?? d.kind
             setReqList((prev) => {
-              const filtered = prev.filter((r) => r.sourceKey !== srcLabel)
+              const filtered = prev.filter((r) => !r.sources.includes(srcLabel))
               const newRows = d.trainingRequirements
                 .filter((r) => r.text.trim())
                 .map((r) => ({
                   id: Date.now() + Math.random(),
                   title: r.text.trim(),
                   desc: '',
-                  sourceKey: srcLabel,
+                  sources: [srcLabel],
                   priority: '重要',
                   status: '待转化',
                   expanded: false,
