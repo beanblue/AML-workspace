@@ -33,7 +33,7 @@ const STAGES: StageKey[] = ['需求立项', '计划设计', '材料准备', '培
 
 type DemandStatus = '待开始' | '进行中' | '已完成'
 
-type DemandMethodKind = '政策' | '指令' | '岗位' | '计划' | '日常' | '问卷' | '访谈' | '座谈' | '复盘' | '自定义'
+type DemandMethodKind = '政策' | '指令' | '岗位' | '计划' | '日常' | '问卷' | '访谈' | '座谈' | '复盘'
 
 type DemandOption = {
   id: string
@@ -85,13 +85,6 @@ type ReviewEntry = {
   remark: string
 }
 
-type CustomEntry = {
-  name: string
-  sourceDesc: string
-  trainingRequirements: { id: string; text: string }[]
-  remark: string
-}
-
 type DemandDetail =
   | ({ kind: '政策' } & DocSourceEntry)
   | ({ kind: '指令' } & DocSourceEntry)
@@ -102,7 +95,6 @@ type DemandDetail =
   | ({ kind: '访谈' } & SurveyEntry)
   | ({ kind: '座谈' } & SurveyEntry)
   | ({ kind: '复盘' } & ReviewEntry)
-  | ({ kind: '自定义' } & CustomEntry)
 
 type DemandMatrixRow = {
   optionId: string
@@ -159,7 +151,7 @@ function getWorkUnitPlanDate(row: NotionWorkUnitRow | null): string {
   return safeText((row as any)?.planDate) || safeText(row?.计划日期) || safeText(row?.计划开始) || safeText(row?.开始日期) || ''
 }
 
-function createEmptyDemandDetail(kind: DemandMethodKind, label: string): DemandDetail {
+function createEmptyDemandDetail(kind: DemandMethodKind, _label?: string): DemandDetail {
   if (kind === '政策' || kind === '指令' || kind === '岗位' || kind === '日常') {
     return {
       kind,
@@ -205,13 +197,8 @@ function createEmptyDemandDetail(kind: DemandMethodKind, label: string): DemandD
       remark: '',
     }
   }
-  return {
-    kind: '自定义',
-    name: label,
-    sourceDesc: '',
-    trainingRequirements: [],
-    remark: '',
-  }
+  // all kinds handled above
+  return null as unknown as DemandDetail
 }
 
 const MOCK_CONVERTED_COUNT: Record<string, number> = {
@@ -324,7 +311,7 @@ function ReqListBlock({
 }) {
   return (
     <div className="space-y-3 rounded-lg border border-slate-200 p-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-slate-700">培训需求</span>
         {(onExtract || extractDisabled) && (
           <button
@@ -480,15 +467,17 @@ function TrainingPlanDialog({
             <textarea value={pasteInput} onChange={(e) => setPasteInput(e.target.value)} rows={5}
               placeholder="粘贴培训计划相关文字资料…"
               className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100" />
-            <button type="button"
-              onClick={() => {
-                if (!pasteInput.trim()) return
-                setLocal({ ...local, pastedTexts: [...local.pastedTexts, { id: `pt-${Date.now()}`, text: pasteInput.trim() }] })
-                setPasteInput('')
-              }}
-              className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">
-              追加
-            </button>
+            <div className="flex justify-end">
+              <button type="button"
+                onClick={() => {
+                  if (!pasteInput.trim()) return
+                  setLocal({ ...local, pastedTexts: [...local.pastedTexts, { id: `pt-${Date.now()}`, text: pasteInput.trim() }] })
+                  setPasteInput('')
+                }}
+                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">
+                追加
+              </button>
+            </div>
             {local.pastedTexts.length > 0 && (
               <div className="space-y-2">
                 {local.pastedTexts.map((pt) => (
@@ -638,55 +627,6 @@ function TrainingReviewDialog({
   )
 }
 
-// ── CustomDemandDialog ────────────────────────────────────────────────────────
-
-type CustomDraft = { kind: '自定义' } & CustomEntry
-
-function CustomDemandDialog({
-  draft,
-  onClose,
-  onSave,
-}: {
-  draft: CustomDraft
-  onClose: () => void
-  onSave: (d: CustomDraft) => void
-}) {
-  const [local, setLocal] = useState<CustomDraft>(draft)
-  const inputCls = 'w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100'
-
-  return (
-    <DialogOverlay title="自定义需求" onClose={onClose} onSave={() => onSave(local)}>
-      {/* 来源说明 */}
-      <section className="space-y-3">
-        <h4 className="text-sm font-semibold text-slate-800">来源说明</h4>
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-slate-700">来源描述</label>
-          <input
-            value={local.sourceDesc}
-            onChange={(e) => setLocal({ ...local, sourceDesc: e.target.value })}
-            placeholder="简述该需求的来源背景…"
-            className={inputCls}
-          />
-        </div>
-      </section>
-
-      {/* 培训需求 */}
-      <ReqListBlock reqs={local.trainingRequirements} onChange={(next) => setLocal({ ...local, trainingRequirements: next })} />
-
-      {/* 备注 */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-slate-700">备注（选填）</label>
-        <textarea
-          value={local.remark}
-          onChange={(e) => setLocal({ ...local, remark: e.target.value })}
-          rows={2}
-          placeholder="补充说明…"
-          className={`${inputCls} resize-none`}
-        />
-      </div>
-    </DialogOverlay>
-  )
-}
 
 
 // ── Survey mock data ──────────────────────────────────────────────────────────
@@ -776,15 +716,17 @@ function SurveySimpleDialog({
                 <textarea value={pasteInput} onChange={(e) => setPasteInput(e.target.value)} rows={5}
                   placeholder={`粘贴与本次${kind}相关的文字资料…`}
                   className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100" />
-                <button type="button"
-                  onClick={() => {
-                    if (!pasteInput.trim()) return
-                    setLocal({ ...local, pastedTexts: [...local.pastedTexts, { id: `pt-${Date.now()}`, text: pasteInput.trim() }] })
-                    setPasteInput('')
-                  }}
-                  className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">
-                  追加
-                </button>
+                <div className="flex justify-end">
+                  <button type="button"
+                    onClick={() => {
+                      if (!pasteInput.trim()) return
+                      setLocal({ ...local, pastedTexts: [...local.pastedTexts, { id: `pt-${Date.now()}`, text: pasteInput.trim() }] })
+                      setPasteInput('')
+                    }}
+                    className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">
+                    追加
+                  </button>
+                </div>
                 {local.pastedTexts.length > 0 && (
                   <div className="space-y-2">
                     {local.pastedTexts.map((pt) => (
@@ -1042,17 +984,19 @@ function DocumentSourcePanel({
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => {
-            const count = 2 + Math.floor(Math.random() * 2)
-            const reqs = mockReqs.slice(0, count).map((t) => ({ id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: t }))
-            onChange({ ...draft, trainingRequirements: reqs })
-          }}
-          className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
-        >
-          ✨ 提取培训需求
-        </button>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              const count = 2 + Math.floor(Math.random() * 2)
+              const reqs = mockReqs.slice(0, count).map((t) => ({ id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: t }))
+              onChange({ ...draft, trainingRequirements: reqs })
+            }}
+            className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+          >
+            ✨ 提取培训需求
+          </button>
+        </div>
       </div>
 
       <div className="border-t border-slate-100" />
@@ -1168,28 +1112,25 @@ export default function TrainingDetail() {
     }
   }, [])
 
-  const [demandOptions, setDemandOptions] = useState<DemandOption[]>([
-    { id: 'policy', label: '政策', kind: '政策', recommended: true },
-    { id: 'directive', label: '指令', kind: '指令', recommended: true },
-    { id: 'role', label: '岗位', kind: '岗位' },
-    { id: 'plan', label: '计划', kind: '计划' },
-    { id: 'daily', label: '日常', kind: '日常' },
-    { id: 'questionnaire', label: '问卷', kind: '问卷' },
-    { id: 'interview', label: '访谈', kind: '访谈' },
-    { id: 'symposium', label: '座谈', kind: '座谈' },
-    { id: 'review', label: '复盘', kind: '复盘' },
+  const [demandOptions] = useState<DemandOption[]>([
+    { id: 'policy', label: '政策规则', kind: '政策', recommended: true },
+    { id: 'directive', label: '专项指令', kind: '指令', recommended: true },
+    { id: 'role', label: '岗位职责', kind: '岗位' },
+    { id: 'plan', label: '工作计划', kind: '计划' },
+    { id: 'daily', label: '日常沟通', kind: '日常' },
+    { id: 'questionnaire', label: '问卷调查', kind: '问卷' },
+    { id: 'interview', label: '人员访谈', kind: '访谈' },
+    { id: 'symposium', label: '专题座谈', kind: '座谈' },
+    { id: 'review', label: '项目复盘', kind: '复盘' },
   ])
   const [selectedDemandOptionIds, setSelectedDemandOptionIds] = useState<string[]>([])
   const [demandMatrix, setDemandMatrix] = useState<Record<string, DemandMatrixRow>>({})
-  const [customMethodOpen, setCustomMethodOpen] = useState(false)
-  const [customMethodName, setCustomMethodName] = useState('')
   const [demandDetailOpen, setDemandDetailOpen] = useState(false)
   const [demandDetailOptionId, setDemandDetailOptionId] = useState<string | null>(null)
   const [progressPopoverId, setProgressPopoverId] = useState<string | null>(null)
   const [surveyDialogOptId, setSurveyDialogOptId] = useState<string | null>(null)
   const [planDialogOptId, setPlanDialogOptId] = useState<string | null>(null)
   const [reviewDialogOptId, setReviewDialogOptId] = useState<string | null>(null)
-  const [customDialogOptId, setCustomDialogOptId] = useState<string | null>(null)
   const [demandDetailDraft, setDemandDetailDraft] = useState<DemandDetail | null>(null)
 
   const [reqList, setReqList] = useState<Array<{id:number;title:string;desc:string;sourceKey:string;priority:string;status:string;expanded:boolean}>>([])
@@ -1198,6 +1139,7 @@ export default function TrainingDetail() {
   const [ideaCollapsed, setIdeaCollapsed] = useState(false)
   const [ideaSuggestionVisible, setIdeaSuggestionVisible] = useState(false)
   const [ideaSuggestionCollapsed, setIdeaSuggestionCollapsed] = useState(false)
+  const [ideaLogsCollapsed, setIdeaLogsCollapsed] = useState(true)
 
   const refreshWorkUnit = async (workUnitId: string) => {
     const res = await fetch('/api/workunit/list?type=%E5%9F%B9%E8%AE%AD')
@@ -1684,7 +1626,7 @@ export default function TrainingDetail() {
                     <textarea
                       value={ideaText}
                       onChange={(e) => setIdeaText(e.target.value)}
-                      rows={5}
+                      rows={3}
                       placeholder="用自己的话描述这次培训的初始想法，方向对了就行。例如：今年监管对反洗钱培训有新要求，需要覆盖全员，重点是识别可疑交易…"
                       className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 pb-7 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
                     />
@@ -1723,33 +1665,42 @@ export default function TrainingDetail() {
                       📝 记录本次想法
                     </button>
                   </div>
-                  {/* 3. Thought logs */}
+                  {/* 3. Thought logs – collapsible */}
                   {ideaLogs.length > 0 && (
                     <div>
-                      <div className="mb-2 text-xs font-medium text-slate-400">思考记录</div>
-                      <div className="space-y-2">
-                        {ideaLogs.map((log) => (
-                          <div key={log.id} className="relative rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
-                            <button
-                              type="button"
-                              onClick={() => setIdeaLogs((prev) => prev.filter((l) => l.id !== log.id))}
-                              className="absolute right-2 top-2 inline-flex h-4 w-4 items-center justify-center rounded text-slate-300 hover:bg-slate-200 hover:text-slate-600"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                            <div className="mb-1.5 text-xs font-medium text-slate-500">第 {log.seq} 次 · {log.time}</div>
-                            <p className="mb-2 rounded bg-white px-2 py-1.5 text-xs leading-relaxed text-slate-700">{log.text}</p>
-                            <div className="flex gap-4 text-xs text-slate-500">
-                              <span>AI 建议来源：{log.aiSources ? log.aiSources.join(' / ') : '—'}</span>
-                              <span>最终选择：{log.selectedSources.length > 0 ? log.selectedSources.join(' / ') : '—'}</span>
+                      <button
+                        type="button"
+                        onClick={() => setIdeaLogsCollapsed((p) => !p)}
+                        className="flex w-full items-center justify-between text-xs font-medium text-slate-400 hover:text-slate-600"
+                      >
+                        <span>思考记录</span>
+                        <span>{ideaLogsCollapsed ? `▼ 展开（共 ${ideaLogs.length} 条）` : '▲ 收起'}</span>
+                      </button>
+                      {!ideaLogsCollapsed && (
+                        <div className="mt-2 space-y-2">
+                          {ideaLogs.map((log) => (
+                            <div key={log.id} className="relative rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
+                              <button
+                                type="button"
+                                onClick={() => setIdeaLogs((prev) => prev.filter((l) => l.id !== log.id))}
+                                className="absolute right-2 top-2 inline-flex h-4 w-4 items-center justify-center rounded text-slate-300 hover:bg-slate-200 hover:text-slate-600"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                              <div className="mb-1.5 text-xs font-medium text-slate-500">第 {log.seq} 次 · {log.time}</div>
+                              <p className="mb-2 rounded bg-white px-2 py-1.5 text-xs leading-relaxed text-slate-700">{log.text}</p>
+                              <div className="flex gap-4 text-xs text-slate-500">
+                                <span>AI 建议来源：{log.aiSources ? log.aiSources.join(' / ') : '—'}</span>
+                                <span>最终选择：{log.selectedSources.length > 0 ? log.selectedSources.join(' / ') : '—'}</span>
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                   {/* 4. Get AI suggestion button */}
-                  <div className="border-t border-slate-100 pt-3">
+                  <div className="flex justify-end border-t border-slate-100 pt-3">
                     <button
                       type="button"
                       onClick={() => {
@@ -1841,16 +1792,7 @@ export default function TrainingDetail() {
                     </button>
                   )
                 })}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomMethodName('')
-                    setCustomMethodOpen(true)
-                  }}
-                  className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  自定义
-                </button>
+
               </div>
               <div className="mt-3 text-xs text-slate-500">提示：政策 / 指令 为建议优先选择项</div>
             </div>
@@ -1900,8 +1842,7 @@ export default function TrainingDetail() {
                                     setPlanDialogOptId(opt.id)
                                   } else if (row.kind === '复盘') {
                                     setReviewDialogOptId(opt.id)
-                                  } else if (row.kind === '自定义') {
-                                    setCustomDialogOptId(opt.id)
+
                                   } else {
                                     setDemandDetailOptionId(opt.id)
                                     setDemandDetailDraft(JSON.parse(JSON.stringify(current.detail)) as DemandDetail)
@@ -2127,48 +2068,6 @@ export default function TrainingDetail() {
         )}
       </div>
 
-      <Modal
-        open={customMethodOpen}
-        title="新增自定义收集方式"
-        onClose={() => setCustomMethodOpen(false)}
-        footer={
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setCustomMethodOpen(false)}
-              className="rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const v = customMethodName.trim()
-                if (!v) return
-                const id = `custom-${Date.now()}`
-                const option: DemandOption = { id, label: v, kind: '自定义' }
-                setDemandOptions((prev) => [...prev, option])
-                setSelectedDemandOptionIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
-                setDemandMatrix((prev) => ({ ...prev, [id]: createDemandMatrixRow(option) }))
-                setCustomMethodOpen(false)
-              }}
-              className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
-            >
-              确认
-            </button>
-          </div>
-        }
-      >
-        <div className="space-y-2">
-          <div className="text-sm text-slate-700">方式名称</div>
-          <input
-            value={customMethodName}
-            onChange={(e) => setCustomMethodName(e.target.value)}
-            className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-            placeholder="例如：专项调研"
-          />
-        </div>
-      </Modal>
 
       <Modal
         open={demandDetailOpen}
@@ -2206,15 +2105,9 @@ export default function TrainingDetail() {
                 setDemandMatrix((prev) => {
                   const current = prev[optionId]
                   if (!current) return prev
-                  const nextLabel = draft.kind === '自定义' ? safeText(draft.name) || current.label : current.label
+                  const nextLabel = current.label
                   return { ...prev, [optionId]: { ...current, label: nextLabel, detail: draft } }
                 })
-                if (demandDetailDraft.kind === '自定义') {
-                  const nextLabel = safeText(demandDetailDraft.name)
-                  if (nextLabel) {
-                    setDemandOptions((prev) => prev.map((o) => (o.id === optionId ? { ...o, label: nextLabel } : o)))
-                  }
-                }
                 const _srcLabel = demandMatrix[optionId]?.label ?? (draft as any).kind
                 const _reqs: { id: string; text: string }[] = 'trainingRequirements' in draft ? (draft as any).trainingRequirements : []
                 setReqList((prev) => {
@@ -2328,30 +2221,6 @@ export default function TrainingDetail() {
         />
       ) : null}
 
-      {/* ── CustomDemandDialog for 自定义 ── */}
-      {customDialogOptId !== null && demandMatrix[customDialogOptId] ? (
-        <CustomDemandDialog
-          draft={demandMatrix[customDialogOptId].detail as CustomDraft}
-          onClose={() => setCustomDialogOptId(null)}
-          onSave={(d) => {
-            const optId = customDialogOptId
-            setDemandMatrix((prev) => ({
-              ...prev,
-              [optId]: { ...prev[optId], detail: d },
-            }))
-            const _srcLabel = demandMatrix[optId]?.label ?? '自定义'
-            const _reqs = d.trainingRequirements
-            setReqList((prev) => {
-              const filtered = prev.filter((r) => r.sourceKey !== _srcLabel)
-              const newRows = _reqs.filter((r: {text:string}) => r.text.trim()).map((r: {id:string;text:string}) => ({
-                id: Date.now() + Math.random(), title: r.text.trim(), desc: '', sourceKey: _srcLabel, priority: '重要', status: '待转化', expanded: false,
-              }))
-              return [...filtered, ...newRows]
-            })
-            setCustomDialogOptId(null)
-          }}
-        />
-      ) : null}
     </section>
   )
 }
