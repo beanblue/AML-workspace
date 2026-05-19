@@ -704,6 +704,44 @@ export default function TrainingDetail() {
   ])
   const [implFailMeasure, setImplFailMeasure] = useState('安排补考，时间2026-06-22，补考前需重新学习录播课程')
 
+  // ── 归档评估 state ────────────────────────────────────────────
+  // 效果评估
+  const [evalStatus, setEvalStatus] = useState<'草稿中'|'已完成'>('草稿中')
+  const [evalSurveyIssued, setEvalSurveyIssued] = useState('已发放')
+  const [evalSurveyLink, setEvalSurveyLink] = useState('https://survey.company.com/aml2026')
+  const [evalSurveyCount, setEvalSurveyCount] = useState('34')
+  const [evalSatisfaction, setEvalSatisfaction] = useState('4.3')
+  const [evalFeedback, setEvalFeedback] = useState('学员普遍反映案例贴近实际，希望增加更多互动环节；部分学员建议缩短理论讲解时间')
+  const [evalGoals, setEvalGoals] = useState<Array<{id:number;goal:string;status:string;note:string}>>(
+    [
+      {id:1,goal:'员工掌握反洗钱交易识别方法',status:'已达成',note:'考核通过率80%，达预期'},
+      {id:2,goal:'了解合规基本框架',status:'部分达成',note:'理念类内容吸收较弱，需跟进'},
+      {id:3,goal:'熟悉KYC风险评级操作规程',status:'已达成',note:'实操演练效果良好'},
+    ]
+  )
+  const [evalWeakPoints, setEvalWeakPoints] = useState('可疑交易金额阈值识别错误率较高，建议在后续培训中重点强化')
+  const [evalConclusion, setEvalConclusion] = useState('本次反洗钱合规培训整体达到预期目标，参训学员满意度较高（4.3/5）。考核通过率80%，符合合规部门要求。建议针对理念类内容优化讲解方式，增加互动环节。')
+  // 归档打包
+  type ArchiveItem = { id:number; name:string; stage:string; status:string }
+  const [archiveItems] = useState<ArchiveItem[]>([
+    {id:1,name:'需求立项报告',stage:'阶段一',status:'已关联'},
+    {id:2,name:'培训方案',stage:'阶段二',status:'已关联'},
+    {id:3,name:'需求覆盖确认表',stage:'阶段二',status:'已关联'},
+    {id:4,name:'审核通过的课件包',stage:'阶段三',status:'已关联'},
+    {id:5,name:'审核记录',stage:'阶段三',status:'已关联'},
+    {id:6,name:'培训通知记录',stage:'阶段四',status:'已关联'},
+    {id:7,name:'签到表',stage:'阶段四',status:'需手动上传'},
+    {id:8,name:'过程记录',stage:'阶段四',status:'已关联'},
+    {id:9,name:'考核成绩单',stage:'阶段四',status:'已关联'},
+    {id:10,name:'效果评估报告',stage:'阶段五',status:'已关联'},
+  ])
+  // 改进建议
+  const [improveHighlights, setImproveHighlights] = useState<string[]>(['案例贴近实际业务，学员参与度高','讲师表达清晰，重难点突出'])
+  const [improveProblems, setImproveProblems] = useState<string[]>(['理念类内容讲解时间偏长，学员注意力下降','签到环节耗时较多，压缩了互动时间'])
+  const [improveSuggestions, setImproveSuggestions] = useState<string[]>(['理念模块压缩至20分钟，增加视频案例替代纯讲授','提前发送电子签到表，节省现场签到时间'])
+  const [improveNextNote, setImproveNextNote] = useState('建议提前2周发送预习材料；考虑将KYC操作规程单独开设专项培训')
+  const [improveCoursewarePolicy, setImproveCoursewarePolicy] = useState('全部纳入')
+
 
   type ReqItem = {
     id: number; title: string; desc: string; keywords: string[];
@@ -3366,6 +3404,357 @@ export default function TrainingDetail() {
             <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm text-xs text-slate-600">
               <span className="font-medium">交付物：考核成绩单 + 通过率统计 + 不合格处理记录</span>
               <span className="rounded-full bg-yellow-50 px-2 py-0.5 text-yellow-600">草稿中</span>
+            </div>
+          </div>
+
+        ) : stage === '归档评估' && activeTab === '效果评估' ? (
+          /* ── 归档评估 / 效果评估 ── */
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              {(['效果评估','归档打包','改进建议'] as const).map((sub, idx) => {
+                const done = sub === '效果评估' && evalStatus === '已完成'
+                const current = activeTab === sub
+                return (
+                  <React.Fragment key={sub}>
+                    {idx > 0 && <div className="h-px flex-1 bg-slate-200" />}
+                    <div className={`flex items-center gap-1.5 text-xs font-medium ${done?'text-green-600':current?'text-blue-600':'text-slate-400'}`}>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${done?'bg-green-100':current?'bg-blue-100':'bg-slate-100'}`}>{done?'✓':idx+1}</span>
+                      {sub}{done&&<span className="text-green-500 ml-0.5">✓</span>}
+                    </div>
+                  </React.Fragment>
+                )
+              })}
+            </div>
+            {/* Status bar */}
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-slate-800">效果评估</span>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${evalStatus==='已完成'?'bg-green-50 text-green-600':'bg-yellow-50 text-yellow-600'}`}>{evalStatus}</span>
+              </div>
+              <button type="button" onClick={()=>setEvalStatus(p=>p==='已完成'?'草稿中':'已完成')}
+                className={`rounded border px-3 py-1.5 text-xs ${evalStatus==='已完成'?'border-slate-200 text-slate-500':'border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
+                {evalStatus==='已完成'?'撤回完成标记':'标记为已完成'}
+              </button>
+            </div>
+
+            {/* 组1: 满意度调查 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="text-sm font-semibold text-slate-700">满意度调查</div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">问卷状态</label>
+                  <div className="flex gap-2">
+                    {(['已发放','未发放'] as const).map(s=>(
+                      <button key={s} type="button" onClick={()=>setEvalSurveyIssued(s)}
+                        className={`rounded-full border px-3 py-1 text-xs ${evalSurveyIssued===s?(s==='已发放'?'border-green-400 bg-green-50 text-green-700':'border-slate-300 bg-slate-50 text-slate-600'):'border-slate-200 text-slate-400 hover:border-slate-300'}`}>{s}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">问卷链接</label>
+                  <input value={evalSurveyLink} onChange={(e)=>setEvalSurveyLink(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs outline-none focus:border-blue-500"/>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">回收数量</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min={0} value={evalSurveyCount} onChange={(e)=>setEvalSurveyCount(e.target.value)}
+                      className="w-24 rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"/>
+                    <span className="text-xs text-slate-500">份</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">总体满意度</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min={0} max={5} step={0.1} value={evalSatisfaction} onChange={(e)=>setEvalSatisfaction(e.target.value)}
+                      className="w-20 rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"/>
+                    <span className="text-xs text-slate-500">/ 5 分</span>
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">关键反馈摘要</label>
+                  <textarea value={evalFeedback} onChange={(e)=>setEvalFeedback(e.target.value)} rows={3}
+                    className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"/>
+                </div>
+              </div>
+            </div>
+
+            {/* 组2: 培训目标达成 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-1 text-sm font-semibold text-slate-700">培训目标达成评估</div>
+              <div className="mb-3 text-xs text-slate-400">以下目标已从阶段二方案设计自动导入</div>
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed'}}>
+                  <colgroup>
+                    <col style={{width:'40px'}}/><col/><col style={{width:'110px'}}/><col style={{width:'200px'}}/>
+                  </colgroup>
+                  <thead className="bg-gray-50">
+                    <tr>{['序号','预期目标','达成情况','说明'].map(h=>(
+                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-slate-600">{h}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody>
+                    {evalGoals.map((g,gi)=>(
+                      <tr key={g.id} className={gi%2===0?'bg-white':'bg-gray-50'} style={{height:'44px'}}>
+                        <td className="border border-gray-200 px-2 py-2 text-center text-slate-400">{gi+1}</td>
+                        <td className="border border-gray-200 px-3 py-2 text-slate-700">{g.goal}</td>
+                        <td className="border border-gray-200 px-3 py-2 text-center">
+                          <select value={g.status} onChange={(e)=>setEvalGoals(p=>p.map(x=>x.id===g.id?{...x,status:e.target.value}:x))}
+                            className={`w-full rounded border px-2 py-0.5 text-xs outline-none ${g.status==='已达成'?'border-green-200 bg-green-50 text-green-700':g.status==='部分达成'?'border-orange-200 bg-orange-50 text-orange-600':'border-red-200 bg-red-50 text-red-600'}`}>
+                            <option>已达成</option><option>部分达成</option><option>未达成</option>
+                          </select>
+                        </td>
+                        <td className="border border-gray-200 px-3 py-2">
+                          <input value={g.note} onChange={(e)=>setEvalGoals(p=>p.map(x=>x.id===g.id?{...x,note:e.target.value}:x))}
+                            className="w-full rounded border-0 bg-transparent text-xs text-slate-600 outline-none focus:ring-0" placeholder="补充说明…"/>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* 组3: 考核数据分析 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="text-sm font-semibold text-slate-700">考核数据分析</div>
+              <div className="text-xs text-slate-400">以下数据已从阶段四考核测试自动导入</div>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  {label:'参测人数',value:`${implScores.length} 人`},
+                  {label:'平均分',value:`${implScores.length>0?(implScores.reduce((a,x)=>a+x.score,0)/implScores.length).toFixed(1):0} 分`},
+                  {label:'通过率',value:`${implScores.length>0?Math.round(implScores.filter(x=>x.pass).length/implScores.length*100):0}%`},
+                ].map(c=>(
+                  <div key={c.label} className="rounded-lg border border-slate-100 bg-slate-50 p-4 text-center">
+                    <div className="text-xs text-slate-400">{c.label}</div>
+                    <div className="mt-1 text-xl font-semibold text-slate-800">{c.value}</div>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700">薄弱知识点分析</label>
+                <textarea value={evalWeakPoints} onChange={(e)=>setEvalWeakPoints(e.target.value)} rows={2}
+                  className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"/>
+              </div>
+            </div>
+
+            {/* 组4: 综合评估结论 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 text-sm font-semibold text-slate-700">综合评估结论</div>
+              <textarea value={evalConclusion} onChange={(e)=>setEvalConclusion(e.target.value)} rows={4}
+                className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"/>
+            </div>
+
+            {/* 交付物 */}
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2 text-xs text-slate-600">
+                <span className="font-medium">交付物：效果评估报告</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${evalStatus==='已完成'?'bg-green-50 text-green-600':'bg-yellow-50 text-yellow-600'}`}>{evalStatus}</span>
+              </div>
+              <button type="button" onClick={()=>alert('导出功能即将上线')}
+                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">导出报告</button>
+            </div>
+          </div>
+
+        ) : stage === '归档评估' && activeTab === '归档打包' ? (
+          /* ── 归档评估 / 归档打包 ── */
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              {(['效果评估','归档打包','改进建议'] as const).map((sub, idx) => {
+                const done = sub === '效果评估' && evalStatus === '已完成'
+                const current = activeTab === sub
+                return (
+                  <React.Fragment key={sub}>
+                    {idx > 0 && <div className="h-px flex-1 bg-slate-200" />}
+                    <div className={`flex items-center gap-1.5 text-xs font-medium ${done?'text-green-600':current?'text-blue-600':'text-slate-400'}`}>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${done?'bg-green-100':current?'bg-blue-100':'bg-slate-100'}`}>{done?'✓':idx+1}</span>
+                      {sub}{done&&<span className="text-green-500 ml-0.5">✓</span>}
+                    </div>
+                  </React.Fragment>
+                )
+              })}
+            </div>
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs text-blue-700">
+              📋 以下归档清单已自动从各阶段提取，请确认各项文件就绪
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed',minWidth:'680px'}}>
+                  <colgroup>
+                    <col style={{width:'44px'}}/><col/><col style={{width:'80px'}}/><col style={{width:'110px'}}/><col style={{width:'70px'}}/>
+                  </colgroup>
+                  <thead className="bg-gray-50">
+                    <tr>{['序号','归档项名称','对应阶段','状态','操作'].map(h=>(
+                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-slate-600">{h}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody>
+                    {archiveItems.map((item,ii)=>(
+                      <tr key={item.id} className={ii%2===0?'bg-white':'bg-gray-50'} style={{height:'44px'}}>
+                        <td className="border border-gray-200 px-2 py-2 text-center text-slate-400">{ii+1}</td>
+                        <td className="border border-gray-200 px-3 py-2 text-slate-700">{item.name}</td>
+                        <td className="border border-gray-200 px-3 py-2 text-center text-slate-500">{item.stage}</td>
+                        <td className="border border-gray-200 px-3 py-2 text-center">
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${item.status==='已关联'?'bg-green-50 text-green-600':'bg-orange-50 text-orange-600'}`}>{item.status}</span>
+                        </td>
+                        <td className="border border-gray-200 px-2 py-2 text-center">
+                          <button type="button" onClick={()=>alert('即将上线')}
+                            className={`rounded border px-2.5 py-0.5 text-xs ${item.status==='需手动上传'?'border-orange-200 text-orange-600 hover:bg-orange-50':'border-slate-200 text-slate-500 hover:border-blue-300 hover:text-blue-600'}`}>
+                            {item.status==='需手动上传'?'上传':'查看'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Archive progress */}
+              <div className="border-t border-gray-100 px-4 py-3 space-y-3">
+                {(() => {
+                  const ready = archiveItems.filter(x=>x.status==='已关联').length
+                  const total = archiveItems.length
+                  const pct = Math.round(ready/total*100)
+                  return (
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-slate-500">已就绪 <span className="font-medium text-green-600">{ready}</span> / 共 {total} 项（{pct}%）</span>
+                      <div className="flex-1 overflow-hidden rounded-full bg-gray-100" style={{height:'6px'}}>
+                        <div className={`h-full rounded-full transition-all ${pct===100?'bg-green-500':'bg-blue-500'}`} style={{width:`${pct}%`}}/>
+                      </div>
+                    </div>
+                  )
+                })()}
+                <button type="button" onClick={()=>alert('导出功能即将上线')}
+                  className="w-full rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+                  📦 一键导出归档包
+                </button>
+              </div>
+            </div>
+          </div>
+
+        ) : stage === '归档评估' && activeTab === '改进建议' ? (
+          /* ── 归档评估 / 改进建议 ── */
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              {(['效果评估','归档打包','改进建议'] as const).map((sub, idx) => {
+                const done = sub === '效果评估' && evalStatus === '已完成'
+                const current = activeTab === sub
+                return (
+                  <React.Fragment key={sub}>
+                    {idx > 0 && <div className="h-px flex-1 bg-slate-200" />}
+                    <div className={`flex items-center gap-1.5 text-xs font-medium ${done?'text-green-600':current?'text-blue-600':'text-slate-400'}`}>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${done?'bg-green-100':current?'bg-blue-100':'bg-slate-100'}`}>{done?'✓':idx+1}</span>
+                      {sub}{done&&<span className="text-green-500 ml-0.5">✓</span>}
+                    </div>
+                  </React.Fragment>
+                )
+              })}
+            </div>
+            {/* AI entry */}
+            <div className="rounded-xl border border-purple-100 bg-purple-50 px-5 py-4 shadow-sm flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-purple-800">✨ AI 助手</div>
+                <div className="text-xs text-purple-600 mt-0.5">基于本次评估数据生成改进建议草稿</div>
+              </div>
+              <button type="button" onClick={()=>alert('AI改进建议功能即将上线')}
+                className="rounded-lg border border-purple-300 bg-white px-4 py-2 text-xs font-medium text-purple-700 hover:bg-purple-50">
+                生成改进建议草稿
+              </button>
+            </div>
+
+            {/* 组1: 本次培训总结 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
+              <div className="text-sm font-semibold text-slate-700">本次培训总结</div>
+              <div>
+                <label className="mb-2 block text-xs font-medium text-gray-700">培训亮点</label>
+                <div className="space-y-1.5">
+                  {improveHighlights.map((item, ii) => (
+                    <div key={ii} className="flex items-center gap-2">
+                      <input value={item} onChange={(e)=>setImproveHighlights(p=>p.map((x,xi)=>xi===ii?e.target.value:x))}
+                        placeholder="填写亮点…"
+                        className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"/>
+                      <button type="button" onClick={()=>setImproveHighlights(p=>p.filter((_,xi)=>xi!==ii))} className="text-slate-300 hover:text-red-500"><X className="h-3.5 w-3.5"/></button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={()=>setImproveHighlights(p=>[...p,''])} className="text-xs text-blue-500 hover:text-blue-700">+ 添加亮点</button>
+                </div>
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-medium text-gray-700">问题与不足</label>
+                <div className="space-y-1.5">
+                  {improveProblems.map((item, ii) => (
+                    <div key={ii} className="flex items-center gap-2">
+                      <input value={item} onChange={(e)=>setImproveProblems(p=>p.map((x,xi)=>xi===ii?e.target.value:x))}
+                        placeholder="填写问题…"
+                        className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"/>
+                      <button type="button" onClick={()=>setImproveProblems(p=>p.filter((_,xi)=>xi!==ii))} className="text-slate-300 hover:text-red-500"><X className="h-3.5 w-3.5"/></button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={()=>setImproveProblems(p=>[...p,''])} className="text-xs text-blue-500 hover:text-blue-700">+ 添加问题</button>
+                </div>
+              </div>
+            </div>
+
+            {/* 组2: 改进建议 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="text-sm font-semibold text-slate-700">改进建议</div>
+              <div>
+                <label className="mb-2 block text-xs font-medium text-gray-700">改进建议列表</label>
+                <div className="space-y-1.5">
+                  {improveSuggestions.map((item, ii) => (
+                    <div key={ii} className="flex items-center gap-2">
+                      <input value={item} onChange={(e)=>setImproveSuggestions(p=>p.map((x,xi)=>xi===ii?e.target.value:x))}
+                        placeholder="填写改进建议…"
+                        className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"/>
+                      <button type="button" onClick={()=>setImproveSuggestions(p=>p.filter((_,xi)=>xi!==ii))} className="text-slate-300 hover:text-red-500"><X className="h-3.5 w-3.5"/></button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={()=>setImproveSuggestions(p=>[...p,''])} className="text-xs text-blue-500 hover:text-blue-700">+ 添加改进建议</button>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700">下次类似培训建议事项</label>
+                <textarea value={improveNextNote} onChange={(e)=>setImproveNextNote(e.target.value)} rows={3}
+                  className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"/>
+              </div>
+            </div>
+
+            {/* 组3: 课件归库 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="text-sm font-semibold text-slate-700">课件归库</div>
+              <div>
+                <label className="mb-2 block text-xs font-medium text-gray-700">课件是否纳入材料库</label>
+                <div className="flex gap-2">
+                  {(['全部纳入','部分纳入','不纳入'] as const).map(s=>(
+                    <button key={s} type="button" onClick={()=>setImproveCoursewarePolicy(s)}
+                      className={`rounded-full border px-3 py-1 text-xs ${improveCoursewarePolicy===s?'border-blue-400 bg-blue-50 text-blue-700':'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{s}</button>
+                  ))}
+                </div>
+              </div>
+              {improveCoursewarePolicy!=='不纳入' && (
+                <div className="rounded-lg border border-green-100 bg-green-50 px-4 py-3 text-xs text-green-700">
+                  ✅ 课件将在归档完成后自动同步至全局材料库，供后续培训复用
+                </div>
+              )}
+            </div>
+
+            {/* 交付物 */}
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2 text-xs text-slate-600">
+                <span className="font-medium">交付物：改进建议书</span>
+                <span className="rounded-full bg-yellow-50 px-2 py-0.5 text-yellow-600">草稿中</span>
+              </div>
+              <button type="button" onClick={()=>alert('导出功能即将上线')}
+                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">导出建议书</button>
+            </div>
+
+            {/* Completion banner */}
+            <div className="rounded-xl border border-green-200 bg-green-50 px-6 py-5 text-center shadow-sm">
+              <div className="text-2xl mb-2">🎉</div>
+              <div className="text-sm font-semibold text-green-800">本次培训项目全流程已完成！</div>
+              <div className="mt-1.5 text-xs text-green-600 leading-relaxed">
+                归档包已生成，改进建议已记录，将自动作为下次同类培训的参考输入。
+              </div>
             </div>
           </div>
 
