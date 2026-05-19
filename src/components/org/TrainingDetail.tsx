@@ -510,7 +510,7 @@ function UnifiedSourcePanel({
                     </div>
                   ))}
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
