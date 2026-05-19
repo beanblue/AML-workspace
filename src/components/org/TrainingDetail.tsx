@@ -1000,7 +1000,7 @@ export default function TrainingDetail() {
                   <span className="truncate">{s}</span>
                 </button>
                 {idx < STAGES.length - 1 && (
-                  <span className={`mx-1 shrink-0 text-xs ${done ? 'text-emerald-400' : current ? 'text-blue-400' : 'text-slate-300'}`}>→</span>
+                  <span className="mx-1 shrink-0 select-none text-slate-300">&rsaquo;</span>
                 )}
               </React.Fragment>
             )
@@ -1009,23 +1009,21 @@ export default function TrainingDetail() {
         {stageUpdateError ? <div className="mt-3 text-sm text-red-700">阶段切换失败：{stageUpdateError}</div> : null}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex flex-wrap border-b-2 border-transparent">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-0 mt-1">
+        <div className="inline-flex flex-wrap">
           {stageTabs.map((tab, tabIdx) => {
             const selected = activeTab === tab
-            const seq = '①②③④⑤⑥⑦⑧⑨'[tabIdx] ?? ''
             return (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`relative px-4 pb-2 pt-2 text-sm transition-colors duration-100 ${
-                  selected ? 'font-semibold text-blue-700' : 'text-slate-500 hover:text-slate-700'
+                className={`relative px-5 pb-3 pt-2 text-sm font-medium transition-colors duration-100 ${
+                  selected ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'
                 }`}
               >
-                <span className="mr-1 text-xs text-slate-400">{seq}</span>
                 {tab}
-                {selected && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-t bg-blue-600" />}
+                {selected && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t bg-blue-600" />}
               </button>
             )
           })}
@@ -1091,6 +1089,7 @@ export default function TrainingDetail() {
       ) : null}
 
       <div className="min-w-0">
+        {/* ─── Stage content area ─────────────────────── */}
         {activeTab === '任务清单' ? (
           <article className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="flex items-center justify-between">
@@ -1714,10 +1713,10 @@ export default function TrainingDetail() {
                               <td className="border border-gray-200 px-3 py-2 align-middle">
                                 {row.requirementType ? (
                                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                                    row.requirementType === '实操类' ? 'bg-blue-50 text-blue-600' :
-                                    row.requirementType === '理念类' ? 'bg-purple-50 text-purple-600' :
-                                    row.requirementType === '技术类' ? 'bg-teal-50 text-teal-600' :
-                                    'bg-orange-50 text-orange-600'
+                                    row.requirementType === '实操类' ? 'bg-emerald-50 text-emerald-700' :
+                                    row.requirementType === '理念类' ? 'bg-violet-50 text-violet-700' :
+                                    row.requirementType === '技术类' ? 'bg-blue-50 text-blue-700' :
+                                    'bg-amber-50 text-amber-700'
                                   }`}>{row.requirementType}</span>
                                 ) : (
                                   <span className="text-xs text-slate-300">—</span>
@@ -2014,7 +2013,7 @@ export default function TrainingDetail() {
 
                 {/* 组1：培训目标与对象 */}
                 <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 text-sm font-semibold text-slate-700">培训目标与对象</div>
+                  <div className="mb-4 border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">培训目标与对象</div>
                   <div className="space-y-4">
 
                     {/* 培训目标 */}
@@ -2079,7 +2078,7 @@ export default function TrainingDetail() {
 
                 {/* 组2：培训方式与内容 */}
                 <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 text-sm font-semibold text-slate-700">培训方式与内容</div>
+                  <div className="mb-4 border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">培训方式与内容</div>
                   <div className="space-y-5">
 
                     {/* 培训方式 */}
@@ -2156,7 +2155,7 @@ export default function TrainingDetail() {
 
                 {/* 组3：效果预期与检验 */}
                 <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 text-sm font-semibold text-slate-700">效果预期与检验</div>
+                  <div className="mb-4 border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">效果预期与检验</div>
                   <div className="space-y-4">
 
                     {/* 预计总时长 */}
@@ -2226,10 +2225,10 @@ export default function TrainingDetail() {
                             <div className="flex flex-wrap items-center gap-1">
                               {r.requirementType && (
                                 <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs ${
-                                  r.requirementType === '实操类' ? 'bg-blue-50 text-blue-600' :
-                                  r.requirementType === '理念类' ? 'bg-purple-50 text-purple-600' :
-                                  r.requirementType === '技术类' ? 'bg-teal-50 text-teal-600' :
-                                  'bg-orange-50 text-orange-600'
+                                  r.requirementType === '实操类' ? 'bg-emerald-50 text-emerald-700' :
+                                  r.requirementType === '理念类' ? 'bg-violet-50 text-violet-700' :
+                                  r.requirementType === '技术类' ? 'bg-blue-50 text-blue-700' :
+                                  'bg-amber-50 text-amber-700'
                                 }`}>{r.requirementType}</span>
                               )}
                               {r.trainingSubject.map((s) => (
@@ -2299,7 +2298,7 @@ export default function TrainingDetail() {
 
             {/* 组1: 时间安排 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="text-sm font-semibold text-slate-700">时间安排</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">时间安排</div>
               <div className="space-y-2">
                 {resSessions.map((sess) => (
                   <div key={sess.id} className="flex items-center gap-2">
@@ -2322,7 +2321,7 @@ export default function TrainingDetail() {
 
             {/* 组2: 人员与场地 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="text-sm font-semibold text-slate-700">人员与场地</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">人员与场地</div>
 
               {/* 讲师 */}
               <div>
@@ -2370,7 +2369,7 @@ export default function TrainingDetail() {
 
             {/* 组3: 物资与费用 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="text-sm font-semibold text-slate-700">物资与费用</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">物资与费用</div>
 
               {/* 设备 tags */}
               <div>
@@ -2471,7 +2470,7 @@ export default function TrainingDetail() {
 
                 {/* 区域1: 需求覆盖检查表 */}
                 <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 text-sm font-semibold text-slate-700">需求覆盖检查表</div>
+                  <div className="mb-4 border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">需求覆盖检查表</div>
                   <div className="overflow-x-auto rounded-lg border border-gray-200">
                     <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed'}}>
                       <colgroup>
@@ -2493,10 +2492,10 @@ export default function TrainingDetail() {
                             <td className="border border-gray-200 px-3 py-2.5 text-center">
                               {chk.reqType && (
                                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${
-                                  chk.reqType === '实操类' ? 'bg-blue-50 text-blue-600' :
-                                  chk.reqType === '理念类' ? 'bg-purple-50 text-purple-600' :
-                                  chk.reqType === '技术类' ? 'bg-teal-50 text-teal-600' :
-                                  'bg-orange-50 text-orange-600'}`}>{chk.reqType}</span>
+                                  chk.reqType === '实操类' ? 'bg-emerald-50 text-emerald-700' :
+                                  chk.reqType === '理念类' ? 'bg-violet-50 text-violet-700' :
+                                  chk.reqType === '技术类' ? 'bg-blue-50 text-blue-700' :
+                                  'bg-amber-50 text-amber-700'}`}>{chk.reqType}</span>
                               )}
                             </td>
                             <td className="border border-gray-200 px-3 py-2.5">
@@ -2556,7 +2555,7 @@ export default function TrainingDetail() {
 
                 {/* 区域2: 审核结论 */}
                 <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-                  <div className="text-sm font-semibold text-slate-700">审核结论</div>
+                  <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">审核结论</div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-gray-700">审核人</label>
@@ -2599,7 +2598,7 @@ export default function TrainingDetail() {
                     {showTaskList && (
                       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                         <div className="mb-3 flex items-center justify-between">
-                          <div className="text-sm font-semibold text-slate-700">培训计划任务清单</div>
+                          <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">培训计划任务清单</div>
                           <button type="button" onClick={() => alert('导出功能即将上线')}
                             className="rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">📄 导出任务清单</button>
                         </div>
@@ -2660,10 +2659,10 @@ export default function TrainingDetail() {
                             <div className="flex flex-wrap items-center gap-1">
                               {r.requirementType && (
                                 <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs ${
-                                  r.requirementType === '实操类' ? 'bg-blue-50 text-blue-600' :
-                                  r.requirementType === '理念类' ? 'bg-purple-50 text-purple-600' :
-                                  r.requirementType === '技术类' ? 'bg-teal-50 text-teal-600' :
-                                  'bg-orange-50 text-orange-600'
+                                  r.requirementType === '实操类' ? 'bg-emerald-50 text-emerald-700' :
+                                  r.requirementType === '理念类' ? 'bg-violet-50 text-violet-700' :
+                                  r.requirementType === '技术类' ? 'bg-blue-50 text-blue-700' :
+                                  'bg-amber-50 text-amber-700'
                                 }`}>{r.requirementType}</span>
                               )}
                               {r.trainingSubject.map((s) => (
@@ -2716,7 +2715,7 @@ export default function TrainingDetail() {
             </div>
 
             {/* Hint */}
-            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs text-blue-700">
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs text-blue-700 border-l-4 border-l-blue-400">
               📋 本阶段任务清单已从阶段二任务清单自动导入，可在此追踪制作进度
             </div>
 
@@ -2919,7 +2918,7 @@ export default function TrainingDetail() {
             </div>
 
             {/* Hint */}
-            <div className="rounded-lg border border-orange-100 bg-orange-50 px-4 py-2.5 text-xs text-orange-700">
+            <div className="rounded-lg border border-orange-100 bg-orange-50 px-4 py-2.5 text-xs text-orange-700 border-l-4 border-l-orange-400">
               📋 以下材料已自动从课件材料列表导入，请逐项完成审核
             </div>
 
@@ -3049,7 +3048,7 @@ export default function TrainingDetail() {
 
             {/* 组1: 通知发送 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
-              <div className="text-sm font-semibold text-slate-700">通知发送</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">通知发送</div>
               {implNotices.map((n) => (
                 <div key={n.id} className="flex flex-wrap items-center gap-2">
                   <input type="datetime-local" value={n.sendTime} onChange={(e)=>setImplNotices(p=>p.map(x=>x.id===n.id?{...x,sendTime:e.target.value}:x))}
@@ -3073,7 +3072,7 @@ export default function TrainingDetail() {
 
             {/* 组2: 报名管理 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="text-sm font-semibold text-slate-700">报名管理</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">报名管理</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">计划参训人数</label>
@@ -3105,7 +3104,7 @@ export default function TrainingDetail() {
 
             {/* 组3: 场地确认 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="text-sm font-semibold text-slate-700">场地确认</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">场地确认</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">场地 / 平台
@@ -3136,7 +3135,7 @@ export default function TrainingDetail() {
 
             {/* 组4: 物料就绪确认 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
-              <div className="text-sm font-semibold text-slate-700">物料就绪确认</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">物料就绪确认</div>
               <div className="text-xs text-slate-400">以下材料已从阶段三课件材料自动导入，请逐项确认已就绪</div>
               <div className="space-y-2">
                 {implMaterials.map((m)=>(
@@ -3182,13 +3181,13 @@ export default function TrainingDetail() {
               })}
             </div>
             {/* Hint */}
-            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs text-blue-700">
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs text-blue-700 border-l-4 border-l-blue-400">
               📋 请在培训当天或结束后及时填写本项内容
             </div>
 
             {/* 组1: 签到记录 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="text-sm font-semibold text-slate-700">签到记录</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">签到记录</div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">实际签到人数</label>
@@ -3216,7 +3215,7 @@ export default function TrainingDetail() {
 
             {/* 组2: 实际培训信息 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="text-sm font-semibold text-slate-700">实际培训信息</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">实际培训信息</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">实际开始时间</label>
@@ -3243,7 +3242,7 @@ export default function TrainingDetail() {
 
             {/* 组3: 过程记录 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="text-sm font-semibold text-slate-700">过程记录</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">过程记录</div>
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-gray-700">过程说明</label>
                 <textarea value={implProcessNote} onChange={(e)=>setImplProcessNote(e.target.value)} rows={3}
@@ -3296,7 +3295,7 @@ export default function TrainingDetail() {
 
             {/* 组1: 考核方式 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="text-sm font-semibold text-slate-700">考核方式</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">考核方式</div>
               <div>
                 <label className="mb-2 block text-xs font-medium text-gray-700">考核方式</label>
                 <div className="flex flex-wrap gap-2">
@@ -3318,7 +3317,7 @@ export default function TrainingDetail() {
 
             {/* 组2: 成绩录入 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 text-sm font-semibold text-slate-700">成绩录入</div>
+              <div className="mb-4 border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">成绩录入</div>
               <div className="overflow-x-auto rounded-lg border border-gray-200">
                 <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed'}}>
                   <colgroup>
@@ -3370,7 +3369,7 @@ export default function TrainingDetail() {
 
             {/* 组3: 不合格处理 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="text-sm font-semibold text-slate-700">不合格处理</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">不合格处理</div>
               {(() => {
                 const failed = implScores.filter(x=>!x.pass)
                 return failed.length===0 ? (
@@ -3439,7 +3438,7 @@ export default function TrainingDetail() {
 
             {/* 组1: 满意度调查 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="text-sm font-semibold text-slate-700">满意度调查</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">满意度调查</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">问卷状态</label>
@@ -3481,7 +3480,7 @@ export default function TrainingDetail() {
 
             {/* 组2: 培训目标达成 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-1 text-sm font-semibold text-slate-700">培训目标达成评估</div>
+              <div className="mb-1 border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">培训目标达成评估</div>
               <div className="mb-3 text-xs text-slate-400">以下目标已从阶段二方案设计自动导入</div>
               <div className="overflow-x-auto rounded-lg border border-gray-200">
                 <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed'}}>
@@ -3517,7 +3516,7 @@ export default function TrainingDetail() {
 
             {/* 组3: 考核数据分析 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="text-sm font-semibold text-slate-700">考核数据分析</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">考核数据分析</div>
               <div className="text-xs text-slate-400">以下数据已从阶段四考核测试自动导入</div>
               <div className="grid grid-cols-3 gap-3">
                 {[
@@ -3540,7 +3539,7 @@ export default function TrainingDetail() {
 
             {/* 组4: 综合评估结论 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-3 text-sm font-semibold text-slate-700">综合评估结论</div>
+              <div className="mb-3 border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">综合评估结论</div>
               <textarea value={evalConclusion} onChange={(e)=>setEvalConclusion(e.target.value)} rows={4}
                 className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"/>
             </div>
@@ -3574,7 +3573,7 @@ export default function TrainingDetail() {
                 )
               })}
             </div>
-            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs text-blue-700">
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs text-blue-700 border-l-4 border-l-blue-400">
               📋 以下归档清单已自动从各阶段提取，请确认各项文件就绪
             </div>
 
@@ -3664,7 +3663,7 @@ export default function TrainingDetail() {
 
             {/* 组1: 本次培训总结 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
-              <div className="text-sm font-semibold text-slate-700">本次培训总结</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">本次培训总结</div>
               <div>
                 <label className="mb-2 block text-xs font-medium text-gray-700">培训亮点</label>
                 <div className="space-y-1.5">
@@ -3697,7 +3696,7 @@ export default function TrainingDetail() {
 
             {/* 组2: 改进建议 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="text-sm font-semibold text-slate-700">改进建议</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">改进建议</div>
               <div>
                 <label className="mb-2 block text-xs font-medium text-gray-700">改进建议列表</label>
                 <div className="space-y-1.5">
@@ -3721,7 +3720,7 @@ export default function TrainingDetail() {
 
             {/* 组3: 课件归库 */}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="text-sm font-semibold text-slate-700">课件归库</div>
+              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">课件归库</div>
               <div>
                 <label className="mb-2 block text-xs font-medium text-gray-700">课件是否纳入材料库</label>
                 <div className="flex gap-2">
