@@ -7,9 +7,7 @@ import {
   X,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import type { MutableRefObject } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Modal } from '../shared/Modal'
 
 type NotionWorkUnitRow = {
   id: string
@@ -42,59 +40,16 @@ type DemandOption = {
   recommended?: boolean
 }
 
-type DocSourceTab = '资料库' | '上传文件' | '粘贴文本'
-
-type DocSourceEntry = {
-  sourceTab: DocSourceTab
+type UnifiedEntry = {
+  activeTab: 'db' | 'upload' | 'paste'
   libraryDb: string
   librarySelectedItems: string[]
   uploadedFiles: { id: string; name: string; size: number }[]
   pastedTexts: { id: string; text: string }[]
   trainingRequirements: { id: string; text: string }[]
-  remark: string
 }
 
-type DocSourceKind = '政策' | '指令' | '岗位' | '日常'
-
-type SurveyKind = '问卷' | '访谈' | '座谈'
-
-type SurveyEntry = {
-  topic: string
-  sourceTab: 'upload' | 'paste'
-  uploadedFiles: { name: string; size: number }[]
-  pastedTexts: { id: string; text: string }[]
-  trainingRequirements: { id: string; text: string }[]
-  remark: string
-}
-
-type PlanEntry = {
-  planName: string
-  sourceTab: 'upload' | 'paste'
-  uploadedFiles: { name: string; size: number }[]
-  pastedTexts: { id: string; text: string }[]
-  trainingRequirements: { id: string; text: string }[]
-  remark: string
-}
-
-type ReviewEntry = {
-  selectedHistory: string
-  positives: string
-  pitfalls: string
-  suggestions: string
-  trainingRequirements: { id: string; text: string }[]
-  remark: string
-}
-
-type DemandDetail =
-  | ({ kind: '政策' } & DocSourceEntry)
-  | ({ kind: '指令' } & DocSourceEntry)
-  | ({ kind: '岗位' } & DocSourceEntry)
-  | ({ kind: '计划' } & PlanEntry)
-  | ({ kind: '日常' } & DocSourceEntry)
-  | ({ kind: '问卷' } & SurveyEntry)
-  | ({ kind: '访谈' } & SurveyEntry)
-  | ({ kind: '座谈' } & SurveyEntry)
-  | ({ kind: '复盘' } & ReviewEntry)
+type DemandDetail = { kind: DemandMethodKind } & UnifiedEntry
 
 type DemandMatrixRow = {
   optionId: string
@@ -152,53 +107,15 @@ function getWorkUnitPlanDate(row: NotionWorkUnitRow | null): string {
 }
 
 function createEmptyDemandDetail(kind: DemandMethodKind, _label?: string): DemandDetail {
-  if (kind === '政策' || kind === '指令' || kind === '岗位' || kind === '日常') {
-    return {
-      kind,
-      sourceTab: '资料库' as const,
-      libraryDb: '',
-      librarySelectedItems: [],
-      uploadedFiles: [],
-      pastedTexts: [],
-      trainingRequirements: [],
-      remark: '',
-    }
+  return {
+    kind,
+    activeTab: 'db',
+    libraryDb: '',
+    librarySelectedItems: [],
+    uploadedFiles: [],
+    pastedTexts: [],
+    trainingRequirements: [],
   }
-  if (kind === '计划') {
-    return {
-      kind,
-      planName: '',
-      sourceTab: 'upload' as const,
-      uploadedFiles: [],
-      pastedTexts: [],
-      trainingRequirements: [],
-      remark: '',
-    }
-  }
-  if (kind === '问卷' || kind === '访谈' || kind === '座谈') {
-    return {
-      kind,
-      topic: '',
-      sourceTab: 'upload' as const,
-      uploadedFiles: [],
-      pastedTexts: [],
-      trainingRequirements: [],
-      remark: '',
-    }
-  }
-  if (kind === '复盘') {
-    return {
-      kind,
-      selectedHistory: '',
-      positives: '',
-      pitfalls: '',
-      suggestions: '',
-      trainingRequirements: [],
-      remark: '',
-    }
-  }
-  // all kinds handled above
-  return null as unknown as DemandDetail
 }
 
 const MOCK_CONVERTED_COUNT: Record<string, number> = {
@@ -206,6 +123,18 @@ const MOCK_CONVERTED_COUNT: Record<string, number> = {
   directive: 0,
   role: 1,
   daily: 0,
+}
+
+const UNIFIED_MOCK_REQS: Record<DemandMethodKind, string[]> = {
+  政策: ['了解反洗钱法最新修订内容', '掌握客户身份识别流程', '熟悉可疑交易报告规范', '学习合规监管最新要求', '理解政策文件核心条款'],
+  指令: ['理解监管指令核心要求', '落实合规整改具体事项', '建立合规跟踪与反馈机制', '明确专项指令执行职责', '掌握指令执行时限要求'],
+  岗位: ['识别本岗位主要合规风险点', '掌握岗位日常操作规范', '了解违规行为处理流程', '熟悉岗位培训考核标准', '建立岗位风险防控意识'],
+  计划: ['梳理全年合规培训重点方向', '建立分层分类培训体系', '制定各阶段考核标准', '明确培训目标与预期成效', '优化培训资源配置计划'],
+  日常: ['熟悉日常合规操作要点', '掌握问题发现与上报流程', '了解违规案例与警示教训', '强化日常行为合规意识', '建立持续学习习惯'],
+  问卷: ['员工对合规流程理解存在偏差', '需加强反洗钱实操培训', '新员工入职培训需系统化', '提升员工合规自查能力', '强化问卷反馈问题专项培训'],
+  访谈: ['中层管理者需提升合规意识', '部门间协作流程不清晰', '需针对岗位差异化设计课程', '加强访谈发现问题的整改跟踪', '建立管理层培训定期机制'],
+  座谈: ['现有培训形式参与度低', '建议增加案例讨论环节', '需定期复盘培训效果', '优化座谈会议培训议题设置', '强化培训成果的实践转化'],
+  复盘: ['针对上次薄弱环节加强专项培训', '优化培训形式提升参与度', '建立培训效果跟踪机制', '修正上次培训中的知识误区', '提升培训课件质量与实用性'],
 }
 
 function createDemandMatrixRow(option: DemandOption): DemandMatrixRow {
@@ -249,12 +178,7 @@ const LIBRARY_DBS = [
   },
 ]
 
-const DOC_SOURCE_MOCK_REQS: Record<DocSourceKind, string[]> = {
-  政策: ['了解反洗钱法最新修订内容', '掌握客户身份识别流程', '熟悉可疑交易报告规范'],
-  指令: ['理解监管指令核心要求', '落实合规整改具体事项', '建立合规跟踪与反馈机制'],
-  岗位: ['识别本岗位主要合规风险点', '掌握岗位日常操作规范', '了解违规行为处理流程'],
-  日常: ['熟悉日常合规操作要点', '掌握问题发现与上报流程', '了解违规案例与警示教训'],
-}
+
 
 function extractKeywords(reqs: { id: string; text: string }[], max = 3): string[] {
   const result: string[] = []
@@ -269,787 +193,321 @@ function extractKeywords(reqs: { id: string; text: string }[], max = 3): string[
 }
 
 function getTrainingReqs(detail: DemandDetail): { id: string; text: string }[] {
-  if ('trainingRequirements' in detail) return (detail as any).trainingRequirements as { id: string; text: string }[]
-  return []
+  return detail.trainingRequirements
 }
 
-// ── Plan / Review / Custom mock data ─────────────────────────────────────────
 
 
-const REVIEW_HISTORY_OPTIONS = [
-  '2024年反洗钱合规培训（已归档）',
-  '2024年新员工入职培训（已归档）',
-  '2023年操作规程专项培训（已归档）',
-  '2023年年度综合培训（已归档）',
-]
 
-type HistoryCard = { date: string; count: number; rate: number; issues: string[] }
-const REVIEW_HISTORY_CARDS: Record<string, HistoryCard> = {
-  '2024年反洗钱合规培训（已归档）': { date: '2024-09', count: 186, rate: 94, issues: ['部分员工对可疑交易判断标准理解不清', '线上学习平台操作不熟练'] },
-  '2024年新员工入职培训（已归档）': { date: '2024-03', count: 42, rate: 100, issues: ['新员工对内控流程掌握程度有限', '实操演练时间不足'] },
-  '2023年操作规程专项培训（已归档）': { date: '2023-11', count: 210, rate: 88, issues: ['操作规程记忆效果一般，需反复复习', '考核通过率偏低，需加强辅导'] },
-  '2023年年度综合培训（已归档）': { date: '2023-06', count: 230, rate: 92, issues: ['培训时间过于集中，学员吸收效果有限', '考试题库未能覆盖新法规内容'] },
-}
+// ── UnifiedSourcePanel ────────────────────────────────────────────────────────
 
-const REVIEW_MOCK_REQS = ['针对上次薄弱环节加强专项培训', '优化培训形式提升参与度', '建立培训效果跟踪机制']
-
-
-// ── Shared inner component: requirement list block ────────────────────────────
-
-function ReqListBlock({
-  reqs,
-  onChange,
-  onExtract,
-  extractLabel,
-  extractDisabled,
-}: {
-  reqs: { id: string; text: string }[]
-  onChange: (next: { id: string; text: string }[]) => void
-  onExtract?: () => void
-  extractLabel?: string
-  extractDisabled?: boolean
-}) {
-  return (
-    <div className="space-y-3 rounded-lg border border-slate-200 p-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-slate-700">培训需求</span>
-        {(onExtract || extractDisabled) && (
-          <button
-            type="button"
-            onClick={onExtract}
-            disabled={extractDisabled || !onExtract}
-            className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs ${extractDisabled ? 'cursor-not-allowed border border-slate-200 text-slate-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
-          >
-            ✨ {extractLabel ?? '提取培训需求'}
-          </button>
-        )}
-      </div>
-      <div className="space-y-2">
-        {reqs.map((req, idx) => (
-          <div key={req.id} className="flex items-center gap-2">
-            <span className="w-5 shrink-0 text-center text-xs text-slate-400">{idx + 1}</span>
-            <input
-              value={req.text}
-              onChange={(e) => {
-                const v = e.target.value
-                onChange(reqs.map((r) => (r.id === req.id ? { ...r, text: v } : r)))
-              }}
-              className="flex-1 rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
-              placeholder={`需求条目 ${idx + 1}`}
-            />
-            <button
-              type="button"
-              onClick={() => onChange(reqs.filter((r) => r.id !== req.id))}
-              className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-200 text-slate-400 hover:border-red-200 hover:text-red-500"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ── Shared overlay wrapper ─────────────────────────────────────────────────────
-
-function DialogOverlay({
-  title,
+function UnifiedSourcePanel({
+  label,
+  draft,
   onClose,
   onSave,
-  children,
 }: {
-  title: string
+  label: string
+  draft: DemandDetail
   onClose: () => void
-  onSave: () => void
-  children: React.ReactNode
+  onSave: (d: DemandDetail) => void
 }) {
+  const [local, setLocal] = useState<DemandDetail>(draft)
+  const [pasteInput, setPasteInput] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const mockReqs = UNIFIED_MOCK_REQS[local.kind] ?? []
+  const selectedDb = LIBRARY_DBS.find((db) => db.id === local.libraryDb)
+
+  const handleExtract = async () => {
+    const parts: string[] = []
+    if (local.librarySelectedItems.length > 0) {
+      parts.push('系统数据库选中条目：\n' + local.librarySelectedItems.map((x, i) => `${i + 1}. ${x}`).join('\n'))
+    }
+    if (local.uploadedFiles.length > 0) {
+      parts.push('已上传文件：\n' + local.uploadedFiles.map((f, i) => `${i + 1}. ${f.name}`).join('\n'))
+    }
+    if (local.pastedTexts.length > 0) {
+      parts.push('粘贴文本内容：\n' + local.pastedTexts.map((p, i) => `${i + 1}. ${p.text}`).join('\n\n'))
+    }
+
+    if (parts.length === 0) {
+      const count = 3 + Math.floor(Math.random() * 2)
+      const reqs = mockReqs.slice(0, count).map((t) => ({ id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: t }))
+      setLocal((prev) => ({ ...prev, trainingRequirements: reqs }))
+      return
+    }
+
+    const content = parts.join('\n\n---\n\n')
+    const prompt = `你是一名培训需求分析专家。以下是从【${label}】来源收集的相关资料内容：\n\n${content}\n\n请根据以上内容，提炼出3~5条具体的员工培训需求，每条需求用一句话表达，直接输出编号列表。`
+
+    setAiLoading(true)
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      })
+      const data = await res.json()
+      const text = String(data.text ?? '')
+      const lines = text
+        .split('\n')
+        .map((l: string) => l.replace(/^\d+[.、）\)]\s*/, '').trim())
+        .filter((l: string) => l.length > 0)
+      const reqs =
+        lines.length > 0
+          ? lines.map((t: string) => ({ id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: t }))
+          : mockReqs.slice(0, 3).map((t) => ({ id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: t }))
+      setLocal((prev) => ({ ...prev, trainingRequirements: reqs }))
+    } catch {
+      const count = 3 + Math.floor(Math.random() * 2)
+      const reqs = mockReqs.slice(0, count).map((t) => ({ id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: t }))
+      setLocal((prev) => ({ ...prev, trainingRequirements: reqs }))
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const tabCls = (key: 'db' | 'upload' | 'paste') =>
+    `rounded-md px-3 py-1.5 text-sm transition-colors ${local.activeTab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-      <div className="flex w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl" style={{ maxHeight: '90vh' }}>
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
-          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-          >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="flex max-h-[88vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl">
+        {/* ── Header ── */}
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <h3 className="text-base font-semibold text-slate-900">{label}</h3>
+          <button type="button" onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">{children}</div>
-        <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-5 py-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded border border-slate-200 px-4 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-          >
+
+        {/* ── Scrollable body ── */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div className="space-y-5">
+            {/* Tab bar */}
+            <div>
+              <div className="mb-3 text-sm font-medium text-slate-700">信息来源</div>
+              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                <button type="button" onClick={() => setLocal((p) => ({ ...p, activeTab: 'db' }))} className={tabCls('db')}>📁 系统数据库</button>
+                <button type="button" onClick={() => setLocal((p) => ({ ...p, activeTab: 'upload' }))} className={tabCls('upload')}>⬆ 上传文件</button>
+                <button type="button" onClick={() => setLocal((p) => ({ ...p, activeTab: 'paste' }))} className={tabCls('paste')}>📋 粘贴文本</button>
+              </div>
+
+              {/* ── Tab 1: 系统数据库 ── */}
+              {local.activeTab === 'db' && (
+                <div className="mt-3 space-y-3">
+                  <select
+                    value={local.libraryDb}
+                    onChange={(e) => setLocal((p) => ({ ...p, libraryDb: e.target.value, librarySelectedItems: [] }))}
+                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-300"
+                  >
+                    <option value="">— 选择数据库 —</option>
+                    {LIBRARY_DBS.map((db) => (
+                      <option key={db.id} value={db.id}>{db.name}</option>
+                    ))}
+                  </select>
+
+                  {selectedDb ? (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <div className="mb-2 text-xs text-slate-500">{selectedDb.name}（{selectedDb.items.length} 条记录）</div>
+                      <div className="space-y-1.5">
+                        {selectedDb.items.slice(0, 5).map((item) => {
+                          const checked = local.librarySelectedItems.includes(item)
+                          return (
+                            <label key={item} className="flex cursor-pointer items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  const next = checked
+                                    ? local.librarySelectedItems.filter((x) => x !== item)
+                                    : [...local.librarySelectedItems, item]
+                                  setLocal((p) => ({ ...p, librarySelectedItems: next }))
+                                }}
+                                className="accent-blue-600"
+                              />
+                              <span className="text-sm text-slate-700">{item}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {local.librarySelectedItems.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-xs text-slate-500 self-center">已选 {local.librarySelectedItems.length} 条：</span>
+                      {local.librarySelectedItems.map((item) => (
+                        <span key={item} className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700">
+                          {item}
+                          <button type="button" onClick={() => setLocal((p) => ({ ...p, librarySelectedItems: p.librarySelectedItems.filter((x) => x !== item) }))} className="hover:text-blue-900">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      disabled={aiLoading}
+                      onClick={handleExtract}
+                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                    >
+                      {aiLoading ? '⏳ AI分析中...' : '✨ 提取培训需求'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Tab 2: 上传文件 ── */}
+              {local.activeTab === 'upload' && (
+                <div className="mt-3 space-y-2">
+                  {local.uploadedFiles.length > 0 && (
+                    <div className="space-y-1.5">
+                      {local.uploadedFiles.map((f) => (
+                        <div key={f.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 shrink-0 text-slate-400" />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-slate-700">{f.name}</p>
+                              <p className="text-xs text-slate-400">{(f.size / 1024).toFixed(1)} KB</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setLocal((p) => ({ ...p, uploadedFiles: p.uploadedFiles.filter((x) => x.id !== f.id) }))}
+                            className="ml-2 shrink-0 rounded border border-slate-200 p-1 text-slate-400 hover:bg-white hover:text-slate-700"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 py-6 text-sm text-slate-500 hover:border-blue-300 hover:bg-blue-50"
+                  >
+                    <Upload className="h-5 w-5" />
+                    <span>点击或拖拽文件到此处</span>
+                    <span className="text-xs text-slate-400">支持多选 · .pdf .docx .xlsx .txt · 每个最大 10MB</span>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.xlsx,.txt"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? [])
+                      const valid = files.filter((f) => f.size <= 10 * 1024 * 1024)
+                      const entries = valid.map((f) => ({ id: `file-${Date.now()}-${Math.random().toString(36).slice(2)}`, name: f.name, size: f.size }))
+                      if (entries.length > 0) setLocal((p) => ({ ...p, uploadedFiles: [...p.uploadedFiles, ...entries] }))
+                      e.target.value = ''
+                    }}
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      disabled={aiLoading}
+                      onClick={handleExtract}
+                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                    >
+                      {aiLoading ? '⏳ AI分析中...' : '✨ 提取培训需求'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Tab 3: 粘贴文本 ── */}
+              {local.activeTab === 'paste' && (
+                <div className="mt-3 space-y-2">
+                  {local.pastedTexts.length > 0 && (
+                    <div className="space-y-2">
+                      {local.pastedTexts.map((card) => (
+                        <div key={card.id} className="relative rounded-lg border border-slate-200 bg-slate-50 p-3 pr-8">
+                          <p className="whitespace-pre-wrap text-sm text-slate-700">{card.text.length > 120 ? card.text.slice(0, 120) + '…' : card.text}</p>
+                          <button
+                            type="button"
+                            onClick={() => setLocal((p) => ({ ...p, pastedTexts: p.pastedTexts.filter((x) => x.id !== card.id) }))}
+                            className="absolute right-2 top-2 text-slate-400 hover:text-slate-700"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <textarea
+                    value={pasteInput}
+                    onChange={(e) => setPasteInput(e.target.value)}
+                    rows={4}
+                    placeholder="请粘贴相关文字内容…"
+                    className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const text = pasteInput.trim()
+                        if (!text) return
+                        setLocal((p) => ({ ...p, pastedTexts: [...p.pastedTexts, { id: `paste-${Date.now()}`, text }] }))
+                        setPasteInput('')
+                      }}
+                      className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                      追加
+                    </button>
+                    <button
+                      type="button"
+                      disabled={aiLoading}
+                      onClick={handleExtract}
+                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                    >
+                      {aiLoading ? '⏳ AI分析中...' : '✨ 提取培训需求'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Divider ── */}
+            <div className="border-t border-slate-200" />
+
+            {/* ── 培训需求 ── */}
+            <div className="space-y-3">
+              <div className="text-sm font-medium text-slate-700">培训需求</div>
+              {local.trainingRequirements.length === 0 ? (
+                <div className="rounded border border-dashed border-slate-200 bg-slate-50 py-4 text-center text-sm text-slate-400">
+                  暂无需求，可点击上方「✨ 提取培训需求」自动生成
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {local.trainingRequirements.map((req, idx) => (
+                    <div key={req.id} className="flex items-start gap-2">
+                      <span className="mt-2.5 w-5 shrink-0 text-center text-xs text-slate-400">{idx + 1}</span>
+                      <p className="flex-1 rounded border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700 leading-relaxed">{req.text}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3">
+          <button type="button" onClick={onClose} className="rounded border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
             取消
           </button>
-          <button
-            type="button"
-            onClick={onSave}
-            className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-          >
+          <button type="button" onClick={() => onSave(local)} className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
             保存
           </button>
         </div>
-      </div>
-    </div>
-  )
-}
-
-// ── TrainingPlanDialog ────────────────────────────────────────────────────────
-
-type PlanDraft = { kind: '计划' } & PlanEntry
-
-function TrainingPlanDialog({
-  draft,
-  onClose,
-  onSave,
-}: {
-  draft: PlanDraft
-  onClose: () => void
-  onSave: (d: PlanDraft) => void
-}) {
-  const [local, setLocal] = useState<PlanDraft>(draft)
-  const [pasteInput, setPasteInput] = useState('')
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const inputCls = 'w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100'
-  const labelCls = 'block text-sm font-medium text-slate-700'
-
-  return (
-    <DialogOverlay title="年度计划" onClose={onClose} onSave={() => onSave(local)}>
-      {/* 1. 计划名称 */}
-      <div className="space-y-1.5">
-        <label className={labelCls}>计划名称</label>
-        <input value={local.planName} onChange={(e) => setLocal({ ...local, planName: e.target.value })}
-          placeholder="如：2025年度合规培训计划" className={inputCls} />
-      </div>
-
-      {/* 2. 资料来源 */}
-      <div className="space-y-2">
-        <label className={labelCls}>资料来源</label>
-        <div className="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
-          {(['upload', 'paste'] as const).map((tab) => (
-            <button key={tab} type="button" onClick={() => setLocal({ ...local, sourceTab: tab })}
-              className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${local.sourceTab === tab ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-              {tab === 'upload' ? '⬆ 上传文件' : '📋 粘贴文本'}
-            </button>
-          ))}
-        </div>
-        {local.sourceTab === 'upload' ? (
-          <div className="space-y-2">
-            <input ref={fileInputRef} type="file" accept=".docx,.pdf,.xlsx" multiple className="hidden"
-              onChange={(e) => {
-                const files = Array.from(e.target.files ?? []).map((f) => ({ name: f.name, size: f.size }))
-                setLocal({ ...local, uploadedFiles: [...local.uploadedFiles, ...files] })
-                e.target.value = ''
-              }} />
-            <button type="button" onClick={() => fileInputRef.current?.click()}
-              className="w-full rounded border-2 border-dashed border-slate-200 py-3 text-xs text-slate-500 hover:border-blue-300 hover:text-blue-600">
-              点击选择文件（.docx / .pdf / .xlsx，可多选）
-            </button>
-            {local.uploadedFiles.length > 0 && (
-              <ul className="space-y-1">
-                {local.uploadedFiles.map((f, i) => (
-                  <li key={i} className="flex items-center justify-between rounded border border-slate-100 bg-slate-50 px-3 py-1.5 text-xs">
-                    <span className="truncate text-slate-700">{f.name}</span>
-                    <button type="button" onClick={() => setLocal({ ...local, uploadedFiles: local.uploadedFiles.filter((_, j) => j !== i) })}
-                      className="ml-2 shrink-0 text-slate-400 hover:text-red-500"><X className="h-3 w-3" /></button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <textarea value={pasteInput} onChange={(e) => setPasteInput(e.target.value)} rows={5}
-              placeholder="粘贴培训计划相关文字资料…"
-              className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100" />
-            <div className="flex justify-end">
-              <button type="button"
-                onClick={() => {
-                  if (!pasteInput.trim()) return
-                  setLocal({ ...local, pastedTexts: [...local.pastedTexts, { id: `pt-${Date.now()}`, text: pasteInput.trim() }] })
-                  setPasteInput('')
-                }}
-                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">
-                追加
-              </button>
-            </div>
-            {local.pastedTexts.length > 0 && (
-              <div className="space-y-2">
-                {local.pastedTexts.map((pt) => (
-                  <div key={pt.id} className="relative rounded border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                    <button type="button" onClick={() => setLocal({ ...local, pastedTexts: local.pastedTexts.filter((p) => p.id !== pt.id) })}
-                      className="absolute right-2 top-2 text-slate-300 hover:text-red-500"><X className="h-3 w-3" /></button>
-                    <p className="pr-5 leading-relaxed">{pt.text.length > 80 ? pt.text.slice(0, 80) + '…' : pt.text}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* 3. 培训需求 */}
-      <ReqListBlock
-        reqs={local.trainingRequirements}
-        onChange={(next) => setLocal({ ...local, trainingRequirements: next })}
-        onExtract={undefined}
-        extractLabel="根据资料提炼需求（即将上线）"
-        extractDisabled
-      />
-
-      {/* 4. 备注 */}
-      <div className="space-y-1.5">
-        <label className={labelCls}>备注（选填）</label>
-        <textarea value={local.remark} onChange={(e) => setLocal({ ...local, remark: e.target.value })} rows={2}
-          placeholder="补充说明…" className={`${inputCls} resize-none`} />
-      </div>
-      <p className="text-center text-xs text-slate-400">从系统计划数据库直接调取功能将在第二期上线</p>
-    </DialogOverlay>
-  )
-}
-
-// ── TrainingReviewDialog ──────────────────────────────────────────────────────
-
-type ReviewDraft = { kind: '复盘' } & ReviewEntry
-
-function TrainingReviewDialog({
-  draft,
-  onClose,
-  onSave,
-}: {
-  draft: ReviewDraft
-  onClose: () => void
-  onSave: (d: ReviewDraft) => void
-}) {
-  const [local, setLocal] = useState<ReviewDraft>(draft)
-  const inputCls = 'w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100'
-  const textareaCls = `${inputCls} resize-none`
-  const labelCls = 'block text-sm font-medium text-slate-700'
-  const card = local.selectedHistory ? REVIEW_HISTORY_CARDS[local.selectedHistory] : null
-
-  return (
-    <DialogOverlay title="复盘参考" onClose={onClose} onSave={() => onSave(local)}>
-      {/* 关联历史培训 */}
-      <section className="space-y-3">
-        <h4 className="text-sm font-semibold text-slate-800">关联历史培训</h4>
-        <p className="text-xs text-slate-500">选择同类型历史培训作为复盘参考</p>
-        <select
-          value={local.selectedHistory}
-          onChange={(e) => setLocal({ ...local, selectedHistory: e.target.value })}
-          className={inputCls}
-        >
-          <option value="">-- 请选择历史培训 --</option>
-          {REVIEW_HISTORY_OPTIONS.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
-        {card ? (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
-            <div className="grid grid-cols-3 gap-2 text-sm">
-              <div>
-                <span className="text-xs text-slate-500">培训时间</span>
-                <div className="font-medium text-slate-800">{card.date}</div>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500">参与人数</span>
-                <div className="font-medium text-slate-800">{card.count} 人</div>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500">完成率</span>
-                <div className="font-medium text-slate-800">{card.rate}%</div>
-              </div>
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-              <div
-                className={`h-full rounded-full ${card.rate === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
-                style={{ width: `${card.rate}%` }}
-              />
-            </div>
-            <button
-              type="button"
-              disabled
-              title="归档模块上线后可用"
-              className="mt-1 cursor-not-allowed text-xs text-slate-400 hover:no-underline"
-            >
-              查看完整归档详情 →
-            </button>
-          </div>
-        ) : null}
-      </section>
-
-      {/* 经验参考 */}
-      <section className="space-y-3">
-        <h4 className="text-sm font-semibold text-slate-800">经验参考</h4>
-        <div className="space-y-1.5">
-          <label className={labelCls}>正面借鉴</label>
-          <textarea value={local.positives} onChange={(e) => setLocal({ ...local, positives: e.target.value })} rows={3} placeholder="上次培训哪些做法值得延续和参考…" className={textareaCls} />
-        </div>
-        <div className="space-y-1.5">
-          <label className={labelCls}>需要避坑</label>
-          <textarea value={local.pitfalls} onChange={(e) => setLocal({ ...local, pitfalls: e.target.value })} rows={3} placeholder="上次培训踩过哪些坑，本次需要提前规避…" className={textareaCls} />
-        </div>
-        <div className="space-y-1.5">
-          <label className={labelCls}>改进建议</label>
-          <textarea value={local.suggestions} onChange={(e) => setLocal({ ...local, suggestions: e.target.value })} rows={3} placeholder="针对上次不足，本次可以如何改进…" className={textareaCls} />
-        </div>
-      </section>
-
-      {/* 培训需求 */}
-      <ReqListBlock
-        reqs={local.trainingRequirements}
-        onChange={(next) => setLocal({ ...local, trainingRequirements: next })}
-        onExtract={() => {
-          const count = 2 + Math.floor(Math.random() * 2)
-          setLocal({
-            ...local,
-            trainingRequirements: REVIEW_MOCK_REQS.slice(0, count).map((t) => ({
-              id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-              text: t,
-            })),
-          })
-        }}
-        extractLabel="根据复盘提取需求"
-      />
-
-      {/* 备注 */}
-      <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-slate-700">备注（选填）</label>
-        <textarea value={local.remark} onChange={(e) => setLocal({ ...local, remark: e.target.value })} rows={2} placeholder="补充说明…" className={textareaCls} />
-      </div>
-    </DialogOverlay>
-  )
-}
-
-
-
-// ── Survey mock data ──────────────────────────────────────────────────────────
-
-const SURVEY_CONFIG: Record<SurveyKind, { footnote: string }> = {
-  问卷: { footnote: '问卷设计与在线发放功能将在第二期上线' },
-  访谈: { footnote: '结构化访谈记录与多轮访谈数据库功能将在第二期上线' },
-  座谈: { footnote: '议题设置与会议纪要自动整理功能将在第二期上线' },
-}
-
-type SurveyDraft = { kind: SurveyKind } & SurveyEntry
-
-function SurveySimpleDialog({
-  draft,
-  onClose,
-  onSave,
-}: {
-  draft: SurveyDraft
-  onClose: () => void
-  onSave: (d: SurveyDraft) => void
-}) {
-  const kind = draft.kind
-  const cfg = SURVEY_CONFIG[kind]
-  const [local, setLocal] = useState<SurveyDraft>(draft)
-  const [pasteInput, setPasteInput] = useState('')
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
-
-  const inputCls = 'w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100'
-  const labelCls = 'block text-sm font-medium text-slate-700'
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-      <div className="flex w-full max-w-lg flex-col rounded-xl bg-white shadow-xl" style={{ maxHeight: '90vh' }}>
-        {/* Title */}
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
-          <h3 className="text-base font-semibold text-slate-900">{kind}详情</h3>
-          <button type="button" onClick={onClose} className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-          {/* 1. 主题 */}
-          <div className="space-y-1.5">
-            <label className={labelCls}>{kind}主题</label>
-            <input value={local.topic} onChange={(e) => setLocal({ ...local, topic: e.target.value })} placeholder={`本次${kind}的主题`} className={inputCls} />
-          </div>
-
-          {/* 2. 资料来源 */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-2">
-            <div className="mb-1 font-medium text-gray-700">资料来源</div>
-            <div className="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
-              {(['upload', 'paste'] as const).map((tab) => (
-                <button key={tab} type="button" onClick={() => setLocal({ ...local, sourceTab: tab })}
-                  className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${local.sourceTab === tab ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                  {tab === 'upload' ? '⬆ 上传文件' : '📋 粘贴文本'}
-                </button>
-              ))}
-            </div>
-            {local.sourceTab === 'upload' ? (
-              <div className="space-y-2">
-                <input ref={fileInputRef} type="file" accept=".docx,.pdf,.xlsx,.txt" multiple className="hidden"
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files ?? []).map((f) => ({ name: f.name, size: f.size }))
-                    setLocal({ ...local, uploadedFiles: [...local.uploadedFiles, ...files] })
-                    e.target.value = ''
-                  }} />
-                <button type="button" onClick={() => fileInputRef.current?.click()}
-                  className="w-full rounded border-2 border-dashed border-slate-200 py-3 text-xs text-slate-500 hover:border-blue-300 hover:text-blue-600">
-                  点击选择文件（.docx / .pdf / .xlsx / .txt，可多选）
-                </button>
-                {local.uploadedFiles.length > 0 && (
-                  <ul className="space-y-1">
-                    {local.uploadedFiles.map((f, i) => (
-                      <li key={i} className="flex items-center justify-between rounded border border-slate-100 bg-slate-50 px-3 py-1.5 text-xs">
-                        <span className="truncate text-slate-700">{f.name}</span>
-                        <button type="button" onClick={() => setLocal({ ...local, uploadedFiles: local.uploadedFiles.filter((_, j) => j !== i) })}
-                          className="ml-2 shrink-0 text-slate-400 hover:text-red-500"><X className="h-3 w-3" /></button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <textarea value={pasteInput} onChange={(e) => setPasteInput(e.target.value)} rows={5}
-                  placeholder={`粘贴与本次${kind}相关的文字资料…`}
-                  className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100" />
-                <div className="flex justify-end">
-                  <button type="button"
-                    onClick={() => {
-                      if (!pasteInput.trim()) return
-                      setLocal({ ...local, pastedTexts: [...local.pastedTexts, { id: `pt-${Date.now()}`, text: pasteInput.trim() }] })
-                      setPasteInput('')
-                    }}
-                    className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">
-                    追加
-                  </button>
-                </div>
-                {local.pastedTexts.length > 0 && (
-                  <div className="space-y-2">
-                    {local.pastedTexts.map((pt) => (
-                      <div key={pt.id} className="relative rounded border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                        <button type="button" onClick={() => setLocal({ ...local, pastedTexts: local.pastedTexts.filter((p) => p.id !== pt.id) })}
-                          className="absolute right-2 top-2 text-slate-300 hover:text-red-500"><X className="h-3 w-3" /></button>
-                        <p className="pr-5 leading-relaxed">{pt.text.length > 80 ? pt.text.slice(0, 80) + '…' : pt.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          {/* 3. 培训需求 */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="mb-1 font-medium text-gray-700">培训需求</div>
-              <button type="button" disabled className="inline-flex cursor-not-allowed items-center gap-1 rounded border border-slate-200 px-2 py-1 text-xs text-slate-400">
-                ✨ 根据资料提炼需求（即将上线）
-              </button>
-            </div>
-            <div className="space-y-2">
-              {local.trainingRequirements.map((req) => (
-                <div key={req.id} className="flex items-center gap-2">
-                  <input value={req.text}
-                    onChange={(e) => { const v = e.target.value; setLocal({ ...local, trainingRequirements: local.trainingRequirements.map((r) => r.id === req.id ? { ...r, text: v } : r) }) }}
-                    placeholder="输入培训需求…"
-                    className="flex-1 rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100" />
-                  <button type="button" onClick={() => setLocal({ ...local, trainingRequirements: local.trainingRequirements.filter((r) => r.id !== req.id) })}
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-400 hover:border-red-200 hover:text-red-500">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* 4. 备注 */}
-          <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-1.5">
-            <div className="mb-1 font-medium text-gray-700">备注（选填）</div>
-            <textarea value={local.remark} onChange={(e) => setLocal({ ...local, remark: e.target.value })} rows={2}
-              placeholder="补充说明…"
-              className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100" />
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="shrink-0 border-t border-slate-200 px-5 py-3">
-          <div className="flex items-center justify-end gap-2">
-            <button type="button" onClick={onClose} className="rounded border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">取消</button>
-            <button type="button" onClick={() => onSave(local)} className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700">保存</button>
-          </div>
-          <p className="mt-2 text-center text-xs text-slate-400">{cfg.footnote}</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-
-function DocumentSourcePanel({
-  draft,
-  onChange,
-  fileInputRef,
-  onToast,
-}: {
-  draft: DocSourceEntry & { kind: DocSourceKind }
-  onChange: (d: DocSourceEntry & { kind: DocSourceKind }) => void
-  fileInputRef: MutableRefObject<HTMLInputElement | null>
-  onToast: (msg: string) => void
-}) {
-  const [pasteInput, setPasteInput] = useState('')
-  const mockReqs = DOC_SOURCE_MOCK_REQS[draft.kind] ?? []
-  const selectedDb = LIBRARY_DBS.find((db) => db.id === draft.libraryDb)
-
-  return (
-    <div className="space-y-5">
-      {/* 信息来源 */}
-      <div className="space-y-3">
-        <div className="text-sm font-medium text-slate-700">信息来源</div>
-        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-          {(
-            [
-              { key: '资料库' as const, icon: '📁', label: '系统资料库' },
-              { key: '上传文件' as const, icon: '⬆', label: '上传文件' },
-              { key: '粘贴文本' as const, icon: '📋', label: '粘贴文本' },
-            ] as const
-          ).map(({ key, icon, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onChange({ ...draft, sourceTab: key })}
-              className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
-                draft.sourceTab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              {icon} {label}
-            </button>
-          ))}
-        </div>
-
-        {/* ── Tab 1: 系统资料库（两步选择） ── */}
-        {draft.sourceTab === '资料库' ? (
-          <div className="space-y-3">
-            <select
-              value={draft.libraryDb}
-              onChange={(e) => onChange({ ...draft, libraryDb: e.target.value, librarySelectedItems: [] })}
-              className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-300"
-            >
-              <option value="">— 选择数据库 —</option>
-              {LIBRARY_DBS.map((db) => (
-                <option key={db.id} value={db.id}>
-                  {db.name}
-                </option>
-              ))}
-            </select>
-
-            {selectedDb ? (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <div className="mb-2 text-xs text-slate-500">
-                  {selectedDb.name}（{selectedDb.items.length} 条记录）
-                </div>
-                <div className="space-y-1.5">
-                  {selectedDb.items.map((item) => {
-                    const checked = draft.librarySelectedItems.includes(item)
-                    return (
-                      <label key={item} className="flex cursor-pointer items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => {
-                            const next = checked
-                              ? draft.librarySelectedItems.filter((x) => x !== item)
-                              : [...draft.librarySelectedItems, item]
-                            onChange({ ...draft, librarySelectedItems: next })
-                          }}
-                          className="accent-blue-600"
-                        />
-                        <span className="text-sm text-slate-700">{item}</span>
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
-            ) : null}
-
-            {draft.librarySelectedItems.length > 0 ? (
-              <div className="space-y-1.5">
-                <div className="text-xs text-slate-500">已选 {draft.librarySelectedItems.length} 条</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {draft.librarySelectedItems.map((item) => (
-                    <span key={item} className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-700">
-                      {item}
-                      <button
-                        type="button"
-                        onClick={() => onChange({ ...draft, librarySelectedItems: draft.librarySelectedItems.filter((x) => x !== item) })}
-                        className="hover:text-blue-900"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ) : /* ── Tab 2: 上传文件（多文件） ── */ draft.sourceTab === '上传文件' ? (
-          <div className="space-y-2">
-            {draft.uploadedFiles.length > 0 ? (
-              <div className="space-y-1.5">
-                {draft.uploadedFiles.map((f) => (
-                  <div key={f.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 shrink-0 text-slate-400" />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-700">{f.name}</p>
-                        <p className="text-xs text-slate-400">{(f.size / 1024).toFixed(1)} KB</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => onChange({ ...draft, uploadedFiles: draft.uploadedFiles.filter((x) => x.id !== f.id) })}
-                      className="ml-2 shrink-0 rounded border border-slate-200 p-1 text-slate-400 hover:bg-white hover:text-slate-700"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 py-6 text-sm text-slate-500 hover:border-blue-300 hover:bg-blue-50"
-            >
-              <Upload className="h-5 w-5" />
-              <span>点击或拖拽文件到此处</span>
-              <span className="text-xs text-slate-400">支持多选 · .pdf .doc .docx .txt · 每个最大 10MB</span>
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.doc,.docx,.txt"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                const files = Array.from(e.target.files ?? [])
-                const valid = files.filter((f) => f.size <= 10 * 1024 * 1024)
-                if (valid.length < files.length) onToast('部分文件超过 10MB，已忽略')
-                if (valid.length === 0) { e.target.value = ''; return }
-                const entries = valid.map((f) => ({ id: `file-${Date.now()}-${Math.random().toString(36).slice(2)}`, name: f.name, size: f.size }))
-                onChange({ ...draft, uploadedFiles: [...draft.uploadedFiles, ...entries] })
-                e.target.value = ''
-              }}
-            />
-          </div>
-        ) : (
-          /* ── Tab 3: 粘贴文本（多卡片） ── */
-          <div className="space-y-2">
-            {draft.pastedTexts.length > 0 ? (
-              <div className="space-y-2">
-                {draft.pastedTexts.map((card) => (
-                  <div key={card.id} className="relative rounded-lg border border-slate-200 bg-slate-50 p-3 pr-8">
-                    <p className="whitespace-pre-wrap text-sm text-slate-700">{card.text}</p>
-                    <button
-                      type="button"
-                      onClick={() => onChange({ ...draft, pastedTexts: draft.pastedTexts.filter((x) => x.id !== card.id) })}
-                      className="absolute right-2 top-2 text-slate-400 hover:text-slate-700"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            <textarea
-              value={pasteInput}
-              onChange={(e) => setPasteInput(e.target.value)}
-              rows={5}
-              placeholder="请粘贴相关文字内容…"
-              className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                const text = pasteInput.trim()
-                if (!text) return
-                onChange({ ...draft, pastedTexts: [...draft.pastedTexts, { id: `paste-${Date.now()}`, text }] })
-                setPasteInput('')
-              }}
-              className="rounded border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-            >
-              添加这段文本
-            </button>
-          </div>
-        )}
-
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => {
-              const count = 2 + Math.floor(Math.random() * 2)
-              const reqs = mockReqs.slice(0, count).map((t) => ({ id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: t }))
-              onChange({ ...draft, trainingRequirements: reqs })
-            }}
-            className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
-          >
-            ✨ 提取培训需求
-          </button>
-        </div>
-      </div>
-
-      <div className="border-t border-slate-100" />
-
-      {/* 培训需求 */}
-      <div className="space-y-3">
-        <div className="text-sm font-medium text-slate-700">培训需求</div>
-        <div className="space-y-2">
-          {draft.trainingRequirements.length === 0 ? (
-            <div className="rounded border border-dashed border-slate-200 bg-slate-50 py-3 text-center text-sm text-slate-400">
-              暂无需求，可点击「提取培训需求」自动生成
-            </div>
-          ) : (
-            draft.trainingRequirements.map((req, idx) => (
-              <div key={req.id} className="flex items-center gap-2">
-                <span className="w-5 shrink-0 text-center text-xs text-slate-400">{idx + 1}</span>
-                <input
-                  value={req.text}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    onChange({
-                      ...draft,
-                      trainingRequirements: draft.trainingRequirements.map((r) => (r.id === req.id ? { ...r, text: v } : r)),
-                    })
-                  }}
-                  placeholder="输入培训需求条目"
-                  className="flex-1 rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                />
-                <button
-                  type="button"
-                  onClick={() => onChange({ ...draft, trainingRequirements: draft.trainingRequirements.filter((r) => r.id !== req.id) })}
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-700"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      <div className="border-t border-slate-100" />
-
-      {/* 备注 */}
-      <div className="space-y-1.5">
-        <div className="text-sm font-medium text-slate-700">备注（选填）</div>
-        <textarea
-          value={draft.remark}
-          onChange={(e) => onChange({ ...draft, remark: e.target.value })}
-          rows={2}
-          placeholder="补充说明…"
-          className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-        />
       </div>
     </div>
   )
@@ -1095,7 +553,6 @@ export default function TrainingDetail() {
   const [newTaskTitle, setNewTaskTitle] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const docSourceFileInputRef = useRef<HTMLInputElement | null>(null)
   const [localMaterials, setLocalMaterials] = useState<Array<{ id: string; name: string; uploadedAt: string }>>([])
   const toastTimerRef = useRef<number | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -1125,13 +582,8 @@ export default function TrainingDetail() {
   ])
   const [selectedDemandOptionIds, setSelectedDemandOptionIds] = useState<string[]>([])
   const [demandMatrix, setDemandMatrix] = useState<Record<string, DemandMatrixRow>>({})
-  const [demandDetailOpen, setDemandDetailOpen] = useState(false)
-  const [demandDetailOptionId, setDemandDetailOptionId] = useState<string | null>(null)
   const [progressPopoverId, setProgressPopoverId] = useState<string | null>(null)
-  const [surveyDialogOptId, setSurveyDialogOptId] = useState<string | null>(null)
-  const [planDialogOptId, setPlanDialogOptId] = useState<string | null>(null)
-  const [reviewDialogOptId, setReviewDialogOptId] = useState<string | null>(null)
-  const [demandDetailDraft, setDemandDetailDraft] = useState<DemandDetail | null>(null)
+  const [unifiedDialogOptId, setUnifiedDialogOptId] = useState<string | null>(null)
 
   const [reqList, setReqList] = useState<Array<{id:number;title:string;desc:string;sourceKey:string;priority:string;status:string;expanded:boolean}>>([])
   const [ideaText, setIdeaText] = useState('')
@@ -1836,18 +1288,7 @@ export default function TrainingDetail() {
                                 onClick={() => {
                                   const current = demandMatrix[opt.id]
                                   if (!current) return
-                                  if (row.kind === '问卷' || row.kind === '访谈' || row.kind === '座谈') {
-                                    setSurveyDialogOptId(opt.id)
-                                  } else if (row.kind === '计划') {
-                                    setPlanDialogOptId(opt.id)
-                                  } else if (row.kind === '复盘') {
-                                    setReviewDialogOptId(opt.id)
-
-                                  } else {
-                                    setDemandDetailOptionId(opt.id)
-                                    setDemandDetailDraft(JSON.parse(JSON.stringify(current.detail)) as DemandDetail)
-                                    setDemandDetailOpen(true)
-                                  }
+                                  setUnifiedDialogOptId(opt.id)
                                 }}
                                 className="cursor-pointer text-sm text-slate-800 underline decoration-slate-300 hover:text-blue-600 hover:decoration-blue-400"
                               >
@@ -2069,154 +1510,35 @@ export default function TrainingDetail() {
       </div>
 
 
-      <Modal
-        open={demandDetailOpen}
-        title={
-          demandDetailDraft
-            ? `${demandDetailDraft.kind}详情`
-            : demandDetailOptionId
-              ? `${demandMatrix[demandDetailOptionId]?.kind || '详情'}详情`
-              : '详情'
-        }
-        onClose={() => {
-          setDemandDetailOpen(false)
-          setDemandDetailOptionId(null)
-          setDemandDetailDraft(null)
-        }}
-        footer={
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setDemandDetailOpen(false)
-                setDemandDetailOptionId(null)
-                setDemandDetailDraft(null)
-              }}
-              className="rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const optionId = demandDetailOptionId
-                const draft = demandDetailDraft
-                if (!optionId || !draft) return
-                setDemandMatrix((prev) => {
-                  const current = prev[optionId]
-                  if (!current) return prev
-                  const nextLabel = current.label
-                  return { ...prev, [optionId]: { ...current, label: nextLabel, detail: draft } }
-                })
-                const _srcLabel = demandMatrix[optionId]?.label ?? (draft as any).kind
-                const _reqs: { id: string; text: string }[] = 'trainingRequirements' in draft ? (draft as any).trainingRequirements : []
-                setReqList((prev) => {
-                  const filtered = prev.filter((r) => r.sourceKey !== _srcLabel)
-                  const newRows = _reqs.filter((r) => r.text.trim()).map((r) => ({
-                    id: Date.now() + Math.random(), title: r.text.trim(), desc: '', sourceKey: _srcLabel, priority: '重要', status: '待转化', expanded: false,
-                  }))
-                  return [...filtered, ...newRows]
-                })
-                setDemandDetailOpen(false)
-                setDemandDetailOptionId(null)
-                setDemandDetailDraft(null)
-              }}
-              className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
-            >
-              保存
-            </button>
-          </div>
-        }
-      >
-        {demandDetailDraft ? (
-          <div className="space-y-4">
-            {(demandDetailDraft.kind === '政策' ||
-              demandDetailDraft.kind === '指令' ||
-              demandDetailDraft.kind === '岗位' ||
-              demandDetailDraft.kind === '日常') ? (
-              <DocumentSourcePanel
-                draft={demandDetailDraft}
-                onChange={(d) => setDemandDetailDraft(d as DemandDetail)}
-                fileInputRef={docSourceFileInputRef}
-                onToast={showToast}
-              />
-            ) : null}
-
-          </div>
-        ) : null}
-      </Modal>
-
-      {/* ── SurveySimpleDialog for B-type tags ── */}
-      {surveyDialogOptId !== null && demandMatrix[surveyDialogOptId] ? (
-        <SurveySimpleDialog
-          draft={demandMatrix[surveyDialogOptId].detail as SurveyDraft}
-          onClose={() => setSurveyDialogOptId(null)}
+      {/* ── UnifiedSourcePanel ── */}
+      {unifiedDialogOptId !== null && demandMatrix[unifiedDialogOptId] ? (
+        <UnifiedSourcePanel
+          label={demandMatrix[unifiedDialogOptId].label}
+          draft={demandMatrix[unifiedDialogOptId].detail}
+          onClose={() => setUnifiedDialogOptId(null)}
           onSave={(d) => {
-            const optId = surveyDialogOptId
+            const optId = unifiedDialogOptId
             setDemandMatrix((prev) => ({
               ...prev,
               [optId]: { ...prev[optId], detail: d },
             }))
-            const _srcLabel = demandMatrix[optId]?.label ?? '问卷'
-            const _reqs = d.trainingRequirements
+            const srcLabel = demandMatrix[optId]?.label ?? d.kind
             setReqList((prev) => {
-              const filtered = prev.filter((r) => r.sourceKey !== _srcLabel)
-              const newRows = _reqs.filter((r: {text:string}) => r.text.trim()).map((r: {id:string;text:string}) => ({
-                id: Date.now() + Math.random(), title: r.text.trim(), desc: '', sourceKey: _srcLabel, priority: '重要', status: '待转化', expanded: false,
-              }))
+              const filtered = prev.filter((r) => r.sourceKey !== srcLabel)
+              const newRows = d.trainingRequirements
+                .filter((r) => r.text.trim())
+                .map((r) => ({
+                  id: Date.now() + Math.random(),
+                  title: r.text.trim(),
+                  desc: '',
+                  sourceKey: srcLabel,
+                  priority: '重要',
+                  status: '待转化',
+                  expanded: false,
+                }))
               return [...filtered, ...newRows]
             })
-            setSurveyDialogOptId(null)
-          }}
-        />
-      ) : null}
-
-      {/* ── TrainingPlanDialog for 计划 ── */}
-      {planDialogOptId !== null && demandMatrix[planDialogOptId] ? (
-        <TrainingPlanDialog
-          draft={demandMatrix[planDialogOptId].detail as PlanDraft}
-          onClose={() => setPlanDialogOptId(null)}
-          onSave={(d) => {
-            const optId = planDialogOptId
-            setDemandMatrix((prev) => ({
-              ...prev,
-              [optId]: { ...prev[optId], detail: d },
-            }))
-            const _srcLabel = demandMatrix[optId]?.label ?? '计划'
-            const _reqs = d.trainingRequirements
-            setReqList((prev) => {
-              const filtered = prev.filter((r) => r.sourceKey !== _srcLabel)
-              const newRows = _reqs.filter((r: {text:string}) => r.text.trim()).map((r: {id:string;text:string}) => ({
-                id: Date.now() + Math.random(), title: r.text.trim(), desc: '', sourceKey: _srcLabel, priority: '重要', status: '待转化', expanded: false,
-              }))
-              return [...filtered, ...newRows]
-            })
-            setPlanDialogOptId(null)
-          }}
-        />
-      ) : null}
-
-      {/* ── TrainingReviewDialog for 复盘 ── */}
-      {reviewDialogOptId !== null && demandMatrix[reviewDialogOptId] ? (
-        <TrainingReviewDialog
-          draft={demandMatrix[reviewDialogOptId].detail as ReviewDraft}
-          onClose={() => setReviewDialogOptId(null)}
-          onSave={(d) => {
-            const optId = reviewDialogOptId
-            setDemandMatrix((prev) => ({
-              ...prev,
-              [optId]: { ...prev[optId], detail: d },
-            }))
-            const _srcLabel = demandMatrix[optId]?.label ?? '复盘'
-            const _reqs = d.trainingRequirements
-            setReqList((prev) => {
-              const filtered = prev.filter((r) => r.sourceKey !== _srcLabel)
-              const newRows = _reqs.filter((r: {text:string}) => r.text.trim()).map((r: {id:string;text:string}) => ({
-                id: Date.now() + Math.random(), title: r.text.trim(), desc: '', sourceKey: _srcLabel, priority: '重要', status: '待转化', expanded: false,
-              }))
-              return [...filtered, ...newRows]
-            })
-            setReviewDialogOptId(null)
+            setUnifiedDialogOptId(null)
           }}
         />
       ) : null}

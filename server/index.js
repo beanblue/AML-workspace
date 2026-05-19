@@ -769,6 +769,106 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (url.pathname === '/api/ai') {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { message: 'Method Not Allowed' })
+      return
+    }
+    try {
+      const body = await readJson(req)
+      const prompt = String(body.prompt ?? '').trim()
+      if (!prompt) {
+        sendJson(res, 400, { message: 'prompt is required' })
+        return
+      }
+      const apiKey = process.env.OPENAI_API_KEY ?? ''
+      if (!apiKey) {
+        // No key configured – return structured mock text so the UI can parse it
+        sendJson(res, 200, {
+          text: '1. 强化合规操作培训，提升员工规范意识\n2. 开展专项培训，聚焦业务薄弱环节\n3. 结合案例教学，加深实操理解\n4. 建立培训考核机制，确保学习效果\n5. 定期复盘培训成果，持续改进',
+        })
+        return
+      }
+      const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 600,
+        }),
+      })
+      if (!aiRes.ok) {
+        const errText = await aiRes.text()
+        console.error('[ai] OpenAI error', aiRes.status, errText)
+        sendJson(res, 502, { message: 'AI 服务调用失败', status: aiRes.status })
+        return
+      }
+      const data = await aiRes.json()
+      const text = data.choices?.[0]?.message?.content ?? ''
+      sendJson(res, 200, { text })
+      return
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('[ai] error:', message)
+      sendJson(res, 500, { message })
+      return
+    }
+  }
+
+  if (url.pathname === '/api/ai') {
+    if (req.method !== 'POST') {
+      sendJson(res, 405, { message: 'Method Not Allowed' })
+      return
+    }
+    try {
+      const body = await readJson(req)
+      const prompt = String(body.prompt ?? '').trim()
+      if (!prompt) {
+        sendJson(res, 400, { message: 'prompt is required' })
+        return
+      }
+      const apiKey = process.env.OPENAI_API_KEY ?? ''
+      if (!apiKey) {
+        // No key configured – return structured mock text so the UI can parse it
+        sendJson(res, 200, {
+          text: '1. 强化合规操作培训，提升员工规范意识\n2. 开展专项培训，聚焦业务薄弱环节\n3. 结合案例教学，加深实操理解\n4. 建立培训考核机制，确保学习效果\n5. 定期复盘培训成果，持续改进',
+        })
+        return
+      }
+      const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 600,
+        }),
+      })
+      if (!aiRes.ok) {
+        const errText = await aiRes.text()
+        console.error('[ai] OpenAI error', aiRes.status, errText)
+        sendJson(res, 502, { message: 'AI 服务调用失败', status: aiRes.status })
+        return
+      }
+      const data = await aiRes.json()
+      const text = data.choices?.[0]?.message?.content ?? ''
+      sendJson(res, 200, { text })
+      return
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('[ai] error:', message)
+      sendJson(res, 500, { message })
+      return
+    }
+  }
+
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.statusCode = 405
     res.end('Method Not Allowed')
