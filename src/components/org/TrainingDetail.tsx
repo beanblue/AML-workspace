@@ -224,29 +224,29 @@ function UnifiedSourcePanel({
   const handleExtract = async () => {
     setAiError(null)
 
-    // Collect content from ALL three tabs (not just the active one)
+    // Collect from ALL three tabs simultaneously
     const parts: string[] = []
     if (local.librarySelectedItems.length > 0) {
-      parts.push('系统数据库已选条目：\n' + local.librarySelectedItems.map((x, i) => `${i + 1}. ${x}`).join('\n'))
+      parts.push('系统数据库已选条目：\n' + local.librarySelectedItems.map((x) => x).join('\n'))
     }
     if (local.uploadedFiles.length > 0) {
-      parts.push('已上传文件：\n' + local.uploadedFiles.map((f, i) => `${i + 1}. ${f.name}`).join('\n'))
+      parts.push('已上传文件：\n' + local.uploadedFiles.map((f) => `文件：${f.name}`).join('\n'))
     }
     if (local.pastedTexts.length > 0) {
-      parts.push('粘贴文本内容：\n' + local.pastedTexts.map((p, i) => `${i + 1}. ${p.text}`).join('\n\n'))
+      parts.push('粘贴文本内容：\n' + local.pastedTexts.map((p) => p.text).join('\n\n'))
     }
 
     if (parts.length === 0) {
-      setAiError('请先添加资料内容，再提取需求')
+      setAiError('请先添加资料来源内容')
       return
     }
 
     const content = parts.join('\n\n---\n\n')
     const prompt =
-      `你是一名合规培训需求分析专家。以下是从【${label}】来源收集的相关资料内容：\n\n` +
+      `你是一名培训需求分析专家。以下是从【${label}】渠道收集的相关资料内容：\n\n` +
       `${content}\n\n` +
-      `请根据以上内容，提炼出3~5条具体的员工培训需求，每条需求用一句话表达，要求具体、可操作、与内容直接相关。` +
-      `直接输出编号列表，格式为：1. xxx 2. xxx`
+      `请根据以上内容，提炼出3~5条具体的员工培训需求。\n` +
+      `要求：每条需求用一句完整的话表达，以动词开头（如"掌握"、"了解"、"熟悉"），直接输出编号列表，不要任何解释。`
 
     setAiLoading(true)
     try {
@@ -272,7 +272,7 @@ function UnifiedSourcePanel({
           : mockReqs.slice(0, 3).map((t) => ({ id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: t }))
       setLocal((prev) => ({ ...prev, trainingRequirements: reqs }))
     } catch (e) {
-      setAiError('AI 分析失败，请稍后重试')
+      setAiError('提炼失败，请检查网络或重试')
       console.error('[handleExtract]', e)
     } finally {
       setAiLoading(false)
@@ -367,7 +367,7 @@ function UnifiedSourcePanel({
                       onClick={handleExtract}
                       className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                     >
-                      {aiLoading ? '⏳ AI分析中...' : '✨ 提取培训需求'}
+                      {aiLoading ? '⏳ 分析中...' : '✨ 提取培训需求'}
                     </button>
                   </div>
                 </div>
@@ -428,7 +428,7 @@ function UnifiedSourcePanel({
                       onClick={handleExtract}
                       className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                     >
-                      {aiLoading ? '⏳ AI分析中...' : '✨ 提取培训需求'}
+                      {aiLoading ? '⏳ 分析中...' : '✨ 提取培训需求'}
                     </button>
                   </div>
                 </div>
@@ -479,7 +479,7 @@ function UnifiedSourcePanel({
                       onClick={handleExtract}
                       className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                     >
-                      {aiLoading ? '⏳ AI分析中...' : '✨ 提取培训需求'}
+                      {aiLoading ? '⏳ 分析中...' : '✨ 提取培训需求'}
                     </button>
                   </div>
                 </div>
@@ -492,14 +492,16 @@ function UnifiedSourcePanel({
             {/* ── 培训需求 ── */}
             <div className="space-y-3">
               <div className="text-sm font-medium text-slate-700">培训需求</div>
-              {aiError ? (
+              {aiLoading ? (
+                <div className="rounded border border-slate-200 bg-slate-50 py-4 text-center text-sm text-slate-400">AI 分析中，请稍候...</div>
+              ) : aiError ? (
                 <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{aiError}</div>
               ) : null}
-              {local.trainingRequirements.length === 0 ? (
+              {!aiLoading && local.trainingRequirements.length === 0 ? (
                 <div className="rounded border border-dashed border-slate-200 bg-slate-50 py-4 text-center text-sm text-slate-400">
                   暂无需求，可点击上方「✨ 提取培训需求」自动生成
                 </div>
-              ) : (
+              ) : !aiLoading ? (
                 <div className="space-y-2">
                   {local.trainingRequirements.map((req, idx) => (
                     <div key={req.id} className="flex items-start gap-2">
@@ -606,6 +608,9 @@ export default function TrainingDetail() {
   const [ideaSuggestionVisible, setIdeaSuggestionVisible] = useState(false)
   const [ideaSuggestionCollapsed, setIdeaSuggestionCollapsed] = useState(false)
   const [ideaLogsCollapsed, setIdeaLogsCollapsed] = useState(true)
+  const [ideaSuggestionLoading, setIdeaSuggestionLoading] = useState(false)
+  const [ideaSuggestionError, setIdeaSuggestionError] = useState<string | null>(null)
+  const [ideaSuggestions, setIdeaSuggestions] = useState<Array<{ label: string; reason: string }>>([])
 
   const refreshWorkUnit = async (workUnitId: string) => {
     const res = await fetch('/api/workunit/list?type=%E5%9F%B9%E8%AE%AD')
@@ -1121,7 +1126,7 @@ export default function TrainingDetail() {
                           seq: prev.length + 1,
                           time: hhmm,
                           text: ideaText.trim(),
-                          aiSources: ideaSuggestionVisible ? ['政策', '指令', '问卷'] : null,
+                          aiSources: ideaSuggestions.length > 0 ? ideaSuggestions.map((s) => s.label) : null,
                           selectedSources: selectedLabels,
                         }, ...prev])
                         setIdeaText('')
@@ -1169,32 +1174,80 @@ export default function TrainingDetail() {
                   <div className="flex justify-end border-t border-slate-100 pt-3">
                     <button
                       type="button"
-                      onClick={() => {
-                        const SUGG_IDS = ['policy', 'directive', 'questionnaire']
-                        setSelectedDemandOptionIds((prev) => {
-                          const next = [...prev]
-                          SUGG_IDS.forEach((sid) => { if (!next.includes(sid)) next.push(sid) })
-                          return next
-                        })
-                        setDemandMatrix((prev) => {
-                          const next = { ...prev }
-                          SUGG_IDS.forEach((sid) => {
-                            if (!next[sid]) {
-                              const opt = demandOptions.find((o) => o.id === sid)
-                              if (opt) next[sid] = createDemandMatrixRow(opt)
-                            }
+                      disabled={ideaSuggestionLoading}
+                      onClick={async () => {
+                        setIdeaSuggestionError(null)
+                        const textParts: string[] = []
+                        if (ideaText.trim()) textParts.push('需求描述：\n' + ideaText.trim())
+                        if (ideaLogs.length > 0) {
+                          textParts.push('思考记录：\n' + ideaLogs.map((l) => `- ${l.text}`).join('\n'))
+                        }
+                        if (textParts.length === 0) {
+                          setIdeaSuggestionError('请先填写需求描述或记录想法')
+                          return
+                        }
+                        const VALID_LABELS = ['政策规则', '专项指令', '岗位职责', '工作计划', '日常沟通', '问卷调查', '人员访谈', '专题座谈', '项目复盘']
+                        const prompt =
+                          `以下是一名培训负责人关于本次培训的需求描述和思考记录：\n\n` +
+                          `${textParts.join('\n\n')}\n\n` +
+                          `请根据以上内容，推荐3~5种最合适的培训需求信息收集方式。\n` +
+                          `可选的方式有：${VALID_LABELS.join('、')}。\n` +
+                          `输出格式：每行一种方式，格式为「方式名：推荐理由（一句话）」`
+                        setIdeaSuggestionLoading(true)
+                        try {
+                          const res = await fetch('/api/ai', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ prompt }),
                           })
-                          return next
-                        })
-                        setIdeaSuggestionVisible(true)
-                        setIdeaSuggestionCollapsed(false)
+                          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                          const data = await res.json()
+                          const raw = String((data as any).result ?? (data as any).text ?? '')
+                          const parsed = raw
+                            .split('\n')
+                            .map((l: string) => {
+                              const m = l.match(/[：:]\s*(.+)$/)
+                              const namePart = l.replace(/[：:].*$/, '').replace(/^[·\-\*\d.、）)\s]+/, '').trim()
+                              return m && VALID_LABELS.includes(namePart) ? { label: namePart, reason: m[1].trim() } : null
+                            })
+                            .filter((x: unknown): x is { label: string; reason: string } => x !== null)
+                          const suggestions = parsed.length > 0
+                            ? parsed
+                            : VALID_LABELS.slice(0, 3).map((l: string) => ({ label: l, reason: '根据您的描述综合推荐' }))
+                          setIdeaSuggestions(suggestions)
+                          const matchedIds = demandOptions
+                            .filter((o) => suggestions.some((s) => s.label === o.label))
+                            .map((o) => o.id)
+                          setSelectedDemandOptionIds((prev) => {
+                            const next = [...prev]
+                            matchedIds.forEach((id) => { if (!next.includes(id)) next.push(id) })
+                            return next
+                          })
+                          setDemandMatrix((prev) => {
+                            const next = { ...prev }
+                            demandOptions
+                              .filter((o) => matchedIds.includes(o.id) && !next[o.id])
+                              .forEach((o) => { next[o.id] = createDemandMatrixRow(o) })
+                            return next
+                          })
+                          setIdeaSuggestionVisible(true)
+                          setIdeaSuggestionCollapsed(false)
+                        } catch (e) {
+                          setIdeaSuggestionError('建议获取失败，请重试')
+                          console.error('[getIdeaSuggestion]', e)
+                        } finally {
+                          setIdeaSuggestionLoading(false)
+                        }
                       }}
-                      className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                      className={`rounded px-3 py-1.5 text-xs font-medium text-white ${ideaSuggestionLoading ? 'cursor-not-allowed bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}
                     >
-                      ✨ 获取信息来源建议
+                      {ideaSuggestionLoading ? '✨ 分析中...' : '✨ 获取信息来源建议'}
                     </button>
                   </div>
                   {/* 5. Suggestion card – persistent, collapsible */}
+                  {ideaSuggestionError && (
+                    <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{ideaSuggestionError}</div>
+                  )}
                   {ideaSuggestionVisible && (
                     <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
                       <div className="flex items-center justify-between">
@@ -1212,9 +1265,9 @@ export default function TrainingDetail() {
                       {!ideaSuggestionCollapsed && (
                         <>
                           <ul className="mt-2 space-y-1 text-xs text-blue-700">
-                            <li>· 政策 — 近期监管文件可能有新要求</li>
-                            <li>· 指令 — 建议确认是否有上级专项通知</li>
-                            <li>· 问卷 — 了解员工现有知识掌握情况</li>
+                            {ideaSuggestions.map((s) => (
+                              <li key={s.label}>· {s.label} — {s.reason}</li>
+                            ))}
                           </ul>
                           <div className="mt-2 text-xs text-blue-500">已为您自动选中以上来源，可手动调整 ↓</div>
                         </>
