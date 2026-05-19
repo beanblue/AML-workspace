@@ -601,6 +601,21 @@ export default function TrainingDetail() {
   const [progressPopoverId, setProgressPopoverId] = useState<string | null>(null)
   const [unifiedDialogOptId, setUnifiedDialogOptId] = useState<string | null>(null)
 
+  // ── 计划设计 state ──────────────────────────────────────────
+  const [planSidebarOpen, setPlanSidebarOpen] = useState(true)
+  const [planDesignStatus, setPlanDesignStatus] = useState<'草稿中'|'已完成'>('草稿中')
+  const [planGoal, setPlanGoal] = useState('')
+  const [planSubjects, setPlanSubjects] = useState<string[]>([])
+  const [planParticipantCount, setPlanParticipantCount] = useState('')
+  const [planMethods, setPlanMethods] = useState<string[]>([])
+  const [planModules, setPlanModules] = useState<Array<{id:number;name:string;reqType:string;duration:string}>>(
+    [{id:1,name:'反洗钱基础认知',reqType:'理念类',duration:'30'},
+     {id:2,name:'可疑交易识别实操',reqType:'实操类',duration:'60'},
+     {id:3,name:'KYC风险评级操作规程',reqType:'技术类',duration:'45'}]
+  )
+  const [planEffectDesc, setPlanEffectDesc] = useState('')
+  const [planCheckMethod, setPlanCheckMethod] = useState('')
+
   type ReqItem = {
     id: number; title: string; desc: string; keywords: string[];
     sources: string[]; priority: string; status: string; expanded: boolean;
@@ -1820,6 +1835,328 @@ export default function TrainingDetail() {
               </p>
             </div>
           </div>
+        ) : stage === '计划设计' && activeTab === '方案设计' ? (
+          /* ────── 计划设计 / 方案设计 ────── */
+          <div className="space-y-4">
+            {/* Sub-stage progress bar */}
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              {(['方案设计','资源计划','需求回顾'] as const).map((sub, idx) => {
+                const done = sub === '方案设计' && planDesignStatus === '已完成'
+                const current = activeTab === sub
+                return (
+                  <React.Fragment key={sub}>
+                    {idx > 0 && <div className="h-px flex-1 bg-slate-200" />}
+                    <div className={`flex items-center gap-1.5 text-xs font-medium ${done ? 'text-green-600' : current ? 'text-blue-600' : 'text-slate-400'}`}>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${done ? 'bg-green-100' : current ? 'bg-blue-100' : 'bg-slate-100'}`}>
+                        {done ? '✓' : idx + 1}
+                      </span>
+                      {sub}
+                      {done && <span className="text-green-500">✓</span>}
+                    </div>
+                  </React.Fragment>
+                )
+              })}
+              {planDesignStatus === '已完成' && (
+                <button type="button" className="ml-auto rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700" onClick={() => alert('任务清单生成功能即将上线')}>
+                  生成任务清单
+                </button>
+              )}
+            </div>
+
+            {/* Status bar */}
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-slate-800">方案设计</span>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${planDesignStatus === '已完成' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>
+                  {planDesignStatus}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPlanDesignStatus((p) => p === '已完成' ? '草稿中' : '已完成')}
+                className={`rounded border px-3 py-1.5 text-xs ${planDesignStatus === '已完成' ? 'border-slate-200 text-slate-500 hover:text-slate-700' : 'border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+              >
+                {planDesignStatus === '已完成' ? '撤回完成标记' : '标记为已完成'}
+              </button>
+            </div>
+
+            {/* Main content: form + sidebar */}
+            <div className="flex gap-4">
+              {/* Form */}
+              <div className="min-w-0 flex-1 space-y-4">
+
+                {/* 组1：培训目标与对象 */}
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 text-sm font-semibold text-slate-700">培训目标与对象</div>
+                  <div className="space-y-4">
+
+                    {/* 培训目标 */}
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-gray-700">培训目标</label>
+                      <textarea
+                        value={planGoal}
+                        onChange={(e) => setPlanGoal(e.target.value)}
+                        rows={4}
+                        placeholder="基于需求清单，描述本次培训希望达到的核心目标"
+                        className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"
+                      />
+                    </div>
+
+                    {/* 培训对象 */}
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <label className="text-xs font-medium text-gray-700">培训对象</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const subjects = reqList.flatMap((r) => r.trainingSubject)
+                            const unique = Array.from(new Set(subjects))
+                            setPlanSubjects(unique)
+                          }}
+                          className="text-xs text-slate-400 hover:text-slate-600"
+                        >从需求清单汇聚</button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 rounded-md border border-gray-300 p-2 min-h-[36px] focus-within:border-blue-500">
+                        {planSubjects.map((s) => (
+                          <span key={s} className="inline-flex items-center gap-0.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs text-indigo-700">
+                            {s}
+                            <button type="button" onClick={() => setPlanSubjects((p) => p.filter((x) => x !== s))} className="text-indigo-400 hover:text-indigo-700">×</button>
+                          </span>
+                        ))}
+                        {['合规岗','客户经理','运营岗','管理层','全员'].filter((x) => !planSubjects.includes(x)).map((opt) => (
+                          <button key={opt} type="button" onClick={() => setPlanSubjects((p) => [...p, opt])}
+                            className="rounded-full border border-dashed border-slate-300 px-2 py-0.5 text-xs text-slate-400 hover:border-indigo-300 hover:text-indigo-500">
+                            + {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 预计人数 */}
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-gray-700">预计参训人数</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={planParticipantCount}
+                          onChange={(e) => setPlanParticipantCount(e.target.value)}
+                          placeholder="0"
+                          className="w-28 rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"
+                        />
+                        <span className="text-sm text-slate-500">人</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 组2：培训方式与内容 */}
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 text-sm font-semibold text-slate-700">培训方式与内容</div>
+                  <div className="space-y-5">
+
+                    {/* 培训方式 */}
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-gray-700">培训方式 <span className="font-normal text-slate-400">（可多选）</span></label>
+                      <div className="flex flex-wrap gap-2">
+                        {['线下集中','线上直播','录播自学','混合'].map((m) => {
+                          const active = planMethods.includes(m)
+                          return (
+                            <button key={m} type="button"
+                              onClick={() => setPlanMethods((p) => active ? p.filter((x) => x !== m) : [...p, m])}
+                              className={`rounded-full border px-3 py-1 text-xs transition-colors ${active ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>
+                              {m}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 内容模块 */}
+                    <div>
+                      <label className="mb-2 block text-xs font-medium text-gray-700">内容模块</label>
+                      <div className="overflow-hidden rounded-lg border border-gray-200">
+                        <table className="w-full border-collapse text-xs">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="border-b border-gray-200 px-3 py-2 text-center font-medium text-slate-500" style={{width:'36px'}}>序号</th>
+                              <th className="border-b border-gray-200 px-3 py-2 text-left font-medium text-slate-500">模块名称</th>
+                              <th className="border-b border-gray-200 px-3 py-2 text-left font-medium text-slate-500" style={{width:'110px'}}>需求属性</th>
+                              <th className="border-b border-gray-200 px-3 py-2 text-left font-medium text-slate-500" style={{width:'100px'}}>预计时长</th>
+                              <th className="border-b border-gray-200 px-3 py-2 text-center font-medium text-slate-500" style={{width:'40px'}}></th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {planModules.map((mod, mIdx) => (
+                              <tr key={mod.id} className={mIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                <td className="px-3 py-2 text-center text-slate-400">{mIdx + 1}</td>
+                                <td className="px-3 py-2">
+                                  <input value={mod.name} onChange={(e) => setPlanModules((p) => p.map((m) => m.id === mod.id ? {...m, name: e.target.value} : m))}
+                                    className="w-full rounded border-0 bg-transparent text-xs text-slate-800 outline-none placeholder:text-slate-300 focus:ring-0" placeholder="模块名称…" />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <select value={mod.reqType} onChange={(e) => setPlanModules((p) => p.map((m) => m.id === mod.id ? {...m, reqType: e.target.value} : m))}
+                                    className="w-full rounded border border-slate-200 bg-white px-2 py-0.5 text-xs outline-none focus:border-blue-300">
+                                    <option value="">请选择</option>
+                                    <option>理念类</option><option>实操类</option><option>技术类</option><option>合规类</option>
+                                  </select>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <div className="flex items-center gap-1">
+                                    <input type="number" min={0} value={mod.duration} onChange={(e) => setPlanModules((p) => p.map((m) => m.id === mod.id ? {...m, duration: e.target.value} : m))}
+                                      className="w-14 rounded border border-slate-200 bg-white px-2 py-0.5 text-xs outline-none focus:border-blue-300" placeholder="0" />
+                                    <span className="text-xs text-slate-400">分钟</span>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <button type="button" onClick={() => setPlanModules((p) => p.filter((m) => m.id !== mod.id))}
+                                    className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-300 hover:bg-red-50 hover:text-red-500">
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        <div className="border-t border-gray-100 px-3 py-2">
+                          <button type="button" onClick={() => setPlanModules((p) => [...p, {id: Date.now(), name: '', reqType: '', duration: ''}])}
+                            className="text-xs text-blue-500 hover:text-blue-700">+ 添加内容模块</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 组3：效果预期与检验 */}
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 text-sm font-semibold text-slate-700">效果预期与检验</div>
+                  <div className="space-y-4">
+
+                    {/* 预计总时长 */}
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-gray-700">预计总时长</label>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-slate-600">
+                          {planModules.reduce((s, m) => s + (parseInt(m.duration) || 0), 0)}
+                        </span>
+                        <span className="text-sm text-slate-500">分钟（自动计算）</span>
+                      </div>
+                    </div>
+
+                    {/* 预期效果 */}
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-gray-700">预期效果描述</label>
+                      <textarea value={planEffectDesc} onChange={(e) => setPlanEffectDesc(e.target.value)} rows={3}
+                        placeholder="描述培训结束后，参训人员应具备的能力或达到的标准…"
+                        className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100" />
+                    </div>
+
+                    {/* 检验方式 */}
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-gray-700">效果检验方式</label>
+                      <div className="flex flex-wrap gap-2">
+                        {['考试','问卷调查','现场观察','不做检验'].map((m) => (
+                          <button key={m} type="button"
+                            onClick={() => setPlanCheckMethod((p) => p === m ? '' : m)}
+                            className={`rounded-full border px-3 py-1 text-xs transition-colors ${planCheckMethod === m ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 底部交付物确认 */}
+                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                    <span className="font-medium">交付物：培训方案草稿</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs ${planDesignStatus === '已完成' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>{planDesignStatus}</span>
+                  </div>
+                  <button type="button" onClick={() => alert('导出功能即将上线')}
+                    className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">
+                    导出方案
+                  </button>
+                </div>
+              </div>
+
+              {/* Sidebar: 需求清单引用 */}
+              {planSidebarOpen ? (
+                <div className="flex-shrink-0" style={{width:'280px'}}>
+                  <div className="sticky top-4 rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                      <span className="text-xs font-semibold text-slate-700">📋 需求清单（阶段一）</span>
+                      <button type="button" onClick={() => setPlanSidebarOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">收起</button>
+                    </div>
+                    <div className="max-h-[70vh] overflow-y-auto p-3 space-y-2">
+                      {reqList.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-slate-400">阶段一暂无需求条目</div>
+                      ) : reqList.map((r) => {
+                        const complete = r.trainingSubject.length > 0 && !!r.scenario && !!r.requirementType && !!r.relatedAction
+                        return (
+                          <div key={r.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3 space-y-1.5">
+                            <div className="text-xs font-semibold text-slate-800 leading-tight">{r.title || '（未命名）'}</div>
+                            <div className="flex flex-wrap items-center gap-1">
+                              {r.requirementType && (
+                                <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs ${
+                                  r.requirementType === '实操类' ? 'bg-blue-50 text-blue-600' :
+                                  r.requirementType === '理念类' ? 'bg-purple-50 text-purple-600' :
+                                  r.requirementType === '技术类' ? 'bg-teal-50 text-teal-600' :
+                                  'bg-orange-50 text-orange-600'
+                                }`}>{r.requirementType}</span>
+                              )}
+                              {r.trainingSubject.map((s) => (
+                                <span key={s} className="inline-flex items-center rounded-full bg-indigo-50 px-1.5 py-0.5 text-xs text-indigo-600">{s}</span>
+                              ))}
+                              <span className={`ml-auto inline-flex items-center rounded-full px-1.5 py-0.5 text-xs ${complete ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>
+                                {complete ? '✓ 完整' : '待完善'}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-shrink-0">
+                  <button type="button" onClick={() => setPlanSidebarOpen(true)}
+                    className="sticky top-4 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white shadow-sm text-sm hover:bg-slate-50" title="展开需求清单">
+                    📋
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+        ) : stage === '计划设计' && (activeTab === '资源计划' || activeTab === '需求回顾') ? (
+          <div className="space-y-4">
+            {/* Sub-stage progress bar */}
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              {(['方案设计','资源计划','需求回顾'] as const).map((sub, idx) => {
+                const done = sub === '方案设计' && planDesignStatus === '已完成'
+                const current = activeTab === sub
+                return (
+                  <React.Fragment key={sub}>
+                    {idx > 0 && <div className="h-px flex-1 bg-slate-200" />}
+                    <div className={`flex items-center gap-1.5 text-xs font-medium ${done ? 'text-green-600' : current ? 'text-blue-600' : 'text-slate-400'}`}>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${done ? 'bg-green-100' : current ? 'bg-blue-100' : 'bg-slate-100'}`}>
+                        {done ? '✓' : idx + 1}
+                      </span>
+                      {sub}
+                      {done && <span className="text-green-500">✓</span>}
+                    </div>
+                  </React.Fragment>
+                )
+              })}
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+              <div className="text-2xl mb-2">🚧</div>
+              <div className="text-sm font-medium text-slate-600">{activeTab}</div>
+              <div className="mt-1 text-xs text-slate-400">本子项开发中，即将上线</div>
+            </div>
+          </div>
+
         ) : (
           <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">该视图正在建设中</div>
         )}
