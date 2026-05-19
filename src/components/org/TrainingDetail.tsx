@@ -1510,21 +1510,21 @@ export default function TrainingDetail() {
               <div className="mt-3 text-xs text-slate-500">提示：政策 / 指令 为建议优先选择项</div>
               <hr className="my-4 border-[#ede8df]" />
               <div className="w-full overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-              <table className="w-full min-w-[500px] border-collapse text-left text-xs" style={{ tableLayout: 'fixed' }}>
+              <table className="border-collapse text-left text-xs" style={{ tableLayout: 'fixed', width: '100%' }}>
                 <colgroup>
-                  <col style={{ width: '40px' }} />
-                  <col style={{ width: '80px' }} />
-                  <col style={{ width: '60px' }} />
+                  <col width={40} />
+                  <col width={72} />
+                  <col width={56} />
                   <col />
-                  <col style={{ width: '120px' }} />
+                  <col width={110} />
                 </colgroup>
                 <thead>
                   <tr className="bg-[#faf6f0]">
-                    <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]">序号</th>
-                    <th className="border border-gray-200 px-3 py-3 font-semibold text-[#5c4f3d]">来源</th>
-                    <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]">需求数</th>
-                    <th className="border border-gray-200 px-3 py-3 font-semibold text-[#5c4f3d]">关键词</th>
-                    <th className="border border-gray-200 px-3 py-3 font-semibold text-[#5c4f3d]">转化进度</th>
+                    <th className="border border-gray-200 px-2 py-3 text-center font-semibold text-[#5c4f3d] whitespace-nowrap overflow-hidden text-ellipsis">序号</th>
+                    <th className="border border-gray-200 px-2 py-3 font-semibold text-[#5c4f3d] whitespace-nowrap overflow-hidden text-ellipsis">来源</th>
+                    <th className="border border-gray-200 px-2 py-3 text-center font-semibold text-[#5c4f3d] whitespace-nowrap overflow-hidden text-ellipsis">需求数</th>
+                    <th className="border border-gray-200 px-3 py-3 font-semibold text-[#5c4f3d] whitespace-normal break-all">关键词</th>
+                    <th className="border border-gray-200 px-2 py-3 font-semibold text-[#5c4f3d] whitespace-nowrap">转化进度</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1548,8 +1548,8 @@ export default function TrainingDetail() {
                         const showPopover = progressPopoverId === opt.id
                         return (
                           <tr key={opt.id} className={`hover:bg-blue-50/50 ${idx % 2 === 1 ? 'bg-[#faf6f0]' : 'bg-white'}`} style={{height:'48px'}}>
-                            <td className="border border-gray-200 px-3 py-2.5 text-center text-slate-500">{idx + 1}</td>
-                            <td className="border border-gray-200 px-3 py-2.5">
+                            <td className="border border-gray-200 px-2 py-2.5 text-center text-slate-500 whitespace-nowrap overflow-hidden text-ellipsis">{idx + 1}</td>
+                            <td className="border border-gray-200 px-2 py-2.5 whitespace-nowrap overflow-hidden text-ellipsis">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1557,19 +1557,19 @@ export default function TrainingDetail() {
                                   if (!current) return
                                   setUnifiedDialogOptId(opt.id)
                                 }}
-                                className="cursor-pointer text-sm text-slate-800 underline decoration-slate-300 hover:text-blue-600 hover:decoration-blue-400"
+                                className="block max-w-full cursor-pointer truncate text-sm text-slate-800 underline decoration-slate-300 hover:text-blue-600 hover:decoration-blue-400"
                               >
                                 {row.label}
                               </button>
                             </td>
-                            <td className="border border-gray-200 px-3 py-2.5 text-slate-600">
+                            <td className="border border-gray-200 px-2 py-2.5 text-center text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis">
                               {reqCount > 0 ? `${reqCount} 条` : '—'}
                             </td>
-                            <td className="border border-gray-200 px-3 py-2.5">
+                            <td className="border border-gray-200 px-3 py-2.5 whitespace-normal break-all">
                               {keywords.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
+                                <div className="flex flex-wrap gap-1 break-all">
                                   {keywords.map((kw) => (
-                                    <span key={kw} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                                    <span key={kw} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 break-all">
                                       {kw}
                                     </span>
                                   ))}
@@ -1578,12 +1578,12 @@ export default function TrainingDetail() {
                                 <span className="text-slate-400">—</span>
                               )}
                             </td>
-                            <td className="border border-gray-200 px-3 py-2.5">
+                            <td className="border border-gray-200 px-2 py-2.5 whitespace-nowrap">
                               <div className="relative">
                                 <button
                                   type="button"
                                   onClick={() => setProgressPopoverId(showPopover ? null : opt.id)}
-                                  className="flex items-center gap-2"
+                                  className="flex items-center gap-2 whitespace-nowrap"
                                 >
                                   <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-100">
                                     <div
