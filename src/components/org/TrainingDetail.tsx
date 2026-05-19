@@ -365,9 +365,9 @@ function UnifiedSourcePanel({
                       type="button"
                       disabled={aiLoading}
                       onClick={handleExtract}
-                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-[#c8956c] text-white shadow-[0_2px_0_#a0714a] hover:-translate-y-px'}`}
                     >
-                      {aiLoading ? '⏳ 分析中...' : '✨ 提取培训需求'}
+                      {aiLoading ? '⏳ 分析中...' : '✨ 提取需求'}
                     </button>
                   </div>
                 </div>
@@ -426,9 +426,9 @@ function UnifiedSourcePanel({
                       type="button"
                       disabled={aiLoading}
                       onClick={handleExtract}
-                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-[#c8956c] text-white shadow-[0_2px_0_#a0714a] hover:-translate-y-px'}`}
                     >
-                      {aiLoading ? '⏳ 分析中...' : '✨ 提取培训需求'}
+                      {aiLoading ? '⏳ 分析中...' : '✨ 提取需求'}
                     </button>
                   </div>
                 </div>
@@ -477,9 +477,9 @@ function UnifiedSourcePanel({
                       type="button"
                       disabled={aiLoading}
                       onClick={handleExtract}
-                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-[#c8956c] text-white shadow-[0_2px_0_#a0714a] hover:-translate-y-px'}`}
                     >
-                      {aiLoading ? '⏳ 分析中...' : '✨ 提取培训需求'}
+                      {aiLoading ? '⏳ 分析中...' : '✨ 提取需求'}
                     </button>
                   </div>
                 </div>
@@ -499,7 +499,7 @@ function UnifiedSourcePanel({
               ) : null}
               {!aiLoading && local.trainingRequirements.length === 0 ? (
                 <div className="rounded border border-dashed border-slate-200 bg-slate-50 py-4 text-center text-sm text-slate-400">
-                  暂无需求，可点击上方「✨ 提取培训需求」自动生成
+                  暂无需求，可点击上方「✨ 提取需求」自动生成
                 </div>
               ) : !aiLoading ? (
                 <div className="space-y-2">
@@ -520,7 +520,7 @@ function UnifiedSourcePanel({
           <button type="button" onClick={onClose} className="rounded border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
             取消
           </button>
-          <button type="button" onClick={() => onSave(local)} className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
+          <button type="button" onClick={() => onSave(local)} className="rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a]">
             保存
           </button>
         </div>
@@ -909,7 +909,7 @@ export default function TrainingDetail() {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="min-h-screen space-y-4 bg-[#faf8f5] px-6">
       {toastMessage ? (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">
           {toastMessage}
@@ -917,7 +917,7 @@ export default function TrainingDetail() {
       ) : null}
       {stageConfirmOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => (stageUpdating ? null : setStageConfirmOpen(false))}>
-          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-md rounded-[10px] border border-[#ede8df] bg-white px-6 py-4 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] shadow-lg" onClick={(e) => e.stopPropagation()}>
             <div className="text-sm font-semibold text-slate-900">确认进入阶段</div>
             <div className="mt-2 text-sm text-slate-700">{stageConfirmMessage}</div>
             <div className="mt-4 flex justify-end gap-2">
@@ -925,7 +925,7 @@ export default function TrainingDetail() {
                 type="button"
                 disabled={stageUpdating}
                 onClick={() => setStageConfirmOpen(false)}
-                className="rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-[#d6cfc4] bg-white px-4 py-2 text-sm text-[#5c4f3d] hover:bg-[#f5f0ea]"
               >
                 取消
               </button>
@@ -937,7 +937,7 @@ export default function TrainingDetail() {
                   setStageConfirmOpen(false)
                   await updateStage(targetStage)
                 }}
-                className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+                className="rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60"
               >
                 确认
               </button>
@@ -946,19 +946,7 @@ export default function TrainingDetail() {
         </div>
       ) : null}
 
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
-          <button type="button" onClick={() => navigate('/org/training')} className="hover:text-slate-900">
-            组织类
-          </button>
-          <ChevronRight className="h-4 w-4" />
-          <button type="button" onClick={() => navigate('/org/training')} className="hover:text-slate-900">
-            培训管理
-          </button>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <div className="rounded-[10px] border border-[#ede8df] bg-[#faf8f5] px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="min-w-0 truncate text-xl font-semibold text-slate-900">{title}</h2>
           <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700">{type || '—'}</span>
@@ -984,7 +972,7 @@ export default function TrainingDetail() {
         }
         const STEP_LABELS = ['STEP 1','STEP 2','STEP 3','STEP 4','STEP 5']
         return (
-          <div style={{background:'#1e293b',borderRadius:'12px',padding:'16px',marginBottom:'24px'}}>
+          <div style={{background:'#f8f6f2',border:'1px solid #e8e0d4',borderRadius:'12px',padding:'16px',marginBottom:'24px'}}>
             {/* Row 1: parent stage blocks */}
             <div className="flex items-center">
               {STAGES.map((s, idx) => {
@@ -1009,9 +997,10 @@ export default function TrainingDetail() {
                         gap: '3px',
                         transition: 'filter 150ms',
                         position: 'relative',
-                        background: done ? '#0f766e' : current ? '#1e40af' : '#334155',
-                        color: done || current ? 'white' : '#e2e8f0',
-                        boxShadow: current ? '0 2px 12px rgba(30,64,175,0.35)' : 'none',
+                        background: done ? '#7aab8a' : current ? '#c8956c' : '#ede8df',
+                        color: done || current ? 'white' : '#5c4f3d',
+                        border: done || current ? 'none' : '1px solid #d6cfc4',
+                        boxShadow: current ? '0 2px 10px rgba(200,149,108,0.35)' : 'none',
                       }}
                       onMouseEnter={(e) => { if (!current) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)' }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = '' }}
@@ -1021,10 +1010,10 @@ export default function TrainingDetail() {
                       <span style={{fontSize:'14px',fontWeight:600,lineHeight:1}}>
                         {done ? '✓ ' : ''}{s}
                       </span>
-                      {current && <span style={{position:'absolute',bottom:0,left:0,right:0,height:'3px',background:'#60a5fa',borderRadius:'0 0 8px 8px'}} />}
+                      {current && <span style={{position:'absolute',bottom:0,left:0,right:0,height:'3px',background:'#a0714a',borderRadius:'0 0 8px 8px'}} />}
                     </button>
                     {idx < STAGES.length - 1 && (
-                      <span style={{flexShrink:0,margin:'0 4px',fontSize:'20px',color:'#94a3b8',lineHeight:1,userSelect:'none'}}>›</span>
+                      <span style={{flexShrink:0,margin:'0 4px',fontSize:'20px',color:'#b8a898',lineHeight:1,userSelect:'none'}}>›</span>
                     )}
                   </React.Fragment>
                 )
@@ -1063,8 +1052,9 @@ export default function TrainingDetail() {
                               transition: 'filter 150ms',
                               position: 'relative',
                               borderRadius: '0 0 6px 6px',
-                              background: subActive ? '#1d4ed8' : subDone ? '#0d9488' : '#475569',
-                              color: subActive || subDone ? 'white' : '#cbd5e1',
+                              background: subActive ? '#d4a574' : subDone ? '#9abfa8' : '#e8e2d8',
+                              color: subActive || subDone ? 'white' : '#6b5d4f',
+                              border: subActive || subDone ? 'none' : '1px solid #d6cfc4',
                             }}
                             onMouseEnter={(e) => { if (!subActive) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)' }}
                             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = '' }}
@@ -1073,7 +1063,7 @@ export default function TrainingDetail() {
                             <span style={{fontSize:'12px',fontWeight:600,lineHeight:1}}>
                               {subDone && !subActive ? '✓ ' : ''}{sub.label}
                             </span>
-                            {subActive && <span style={{position:'absolute',bottom:0,left:0,right:0,height:'2px',background:'#93c5fd',borderRadius:'0 0 6px 6px'}} />}
+                            {subActive && <span style={{position:'absolute',bottom:0,left:0,right:0,height:'2px',background:'#a0714a',borderRadius:'0 0 6px 6px'}} />}
                           </button>
                         )
                       })}
@@ -1086,22 +1076,12 @@ export default function TrainingDetail() {
               })}
             </div>
 
-            {stageUpdateError ? <div className="mt-2 text-xs text-red-400">阶段切换失败：{stageUpdateError}</div> : null}
+            {stageUpdateError ? <div className="mt-2 text-xs text-red-600">阶段切换失败：{stageUpdateError}</div> : null}
           </div>
         )
       })()}
 
-      <div className="flex items-center justify-end gap-2 mb-4">
-        <button
-          type="button"
-          onClick={() => setAiOpen((prev) => !prev)}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-        >
-          🤖 人工智能助手
-        </button>
-      </div>
-
-      {workUnitLoading ? <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">加载中...</div> : null}
+      {workUnitLoading ? <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-4 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] text-sm text-slate-500">加载中...</div> : null}
       {workUnitError ? <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{workUnitError}</div> : null}
 
       {aiOpen ? (
@@ -1140,7 +1120,7 @@ export default function TrainingDetail() {
                   setAiInput('')
                   showToast('AI功能即将上线，敬请期待')
                 }}
-                className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
+                className="rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60"
               >
                 发送
               </button>
@@ -1152,7 +1132,7 @@ export default function TrainingDetail() {
       <div className="min-w-0">
         {/* ─── Stage content area ─────────────────────── */}
         {activeTab === '任务清单' ? (
-          <article className="rounded-xl border border-slate-200 bg-white p-4">
+          <article className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-4 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900">任务清单</h3>
               <span className="text-xs text-slate-500">
@@ -1226,7 +1206,7 @@ export default function TrainingDetail() {
                 }}
                 disabled={creatingTask}
                 className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm text-white ${
-                  creatingTask ? 'bg-slate-400' : 'bg-blue-600 hover:bg-blue-700'
+                  creatingTask ? 'bg-slate-400' : 'bg-[#c8956c] shadow-[0_2px_0_#a0714a] hover:-translate-y-px'
                 }`}
               >
                 <Plus className="h-4 w-4" />
@@ -1236,7 +1216,7 @@ export default function TrainingDetail() {
             </div>
           </article>
         ) : activeTab === '课件材料' ? (
-          <article className="rounded-xl border border-slate-200 bg-white p-4">
+          <article className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-4 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900">课件材料</h3>
               <span className="text-xs text-slate-500">{localMaterials.length} 份</span>
@@ -1281,7 +1261,7 @@ export default function TrainingDetail() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#d6cfc4] bg-white px-4 py-2 text-sm text-[#5c4f3d] hover:bg-[#f5f0ea]"
               >
                 <Upload className="h-4 w-4" />
                 上传新材料
@@ -1289,7 +1269,7 @@ export default function TrainingDetail() {
               <button
                 type="button"
                 onClick={() => window.alert('Mock：从材料仓库选取')}
-                className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#d6cfc4] bg-white px-4 py-2 text-sm text-[#5c4f3d] hover:bg-[#f5f0ea]"
               >
                 <FileText className="h-4 w-4" />
                 从材料仓库选取
@@ -1299,7 +1279,7 @@ export default function TrainingDetail() {
 
         ) : stage === '需求立项' && activeTab === '信息收集' ? (
           <div className="space-y-4">
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-4 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-semibold text-slate-900">需求描述</div>
                 <button
@@ -1329,7 +1309,7 @@ export default function TrainingDetail() {
                     <button
                       type="button"
                       disabled
-                      className="inline-flex cursor-not-allowed items-center gap-1.5 rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-400"
+                      className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-[#d6cfc4] px-3 py-1.5 text-xs text-slate-400"
                     >
                       🎤 语音输入（即将上线）
                     </button>
@@ -1460,9 +1440,9 @@ export default function TrainingDetail() {
                           setIdeaSuggestionLoading(false)
                         }
                       }}
-                      className={`rounded px-3 py-1.5 text-xs font-medium text-white ${ideaSuggestionLoading ? 'cursor-not-allowed bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+                      className={`rounded px-3 py-1.5 text-xs font-medium text-white ${ideaSuggestionLoading ? 'cursor-not-allowed bg-blue-400' : 'bg-[#c8956c] shadow-[0_2px_0_#a0714a] hover:-translate-y-px'}`}
                     >
-                      {ideaSuggestionLoading ? '✨ 分析中...' : '✨ 获取信息来源建议'}
+                      {ideaSuggestionLoading ? '✨ 分析中...' : '✨ 获取来源建议'}
                     </button>
                   </div>
                   {/* 5. Suggestion card – persistent, collapsible */}
@@ -1499,13 +1479,13 @@ export default function TrainingDetail() {
               )}
             </div>
             <hr className="border-slate-100" />
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-4 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="text-sm font-semibold text-slate-900">信息来源</div>
               <div className="mt-3 flex items-center gap-2 overflow-x-auto">
                 {demandOptions.map((opt) => {
                   const selected = selectedDemandOptionIds.includes(opt.id)
                   const base = opt.recommended ? 'border-orange-300 text-orange-700' : 'border-slate-200 text-slate-700'
-                  const cls = selected ? 'border-blue-600 bg-blue-600 text-white' : `bg-white hover:bg-slate-50 ${base}`
+                  const cls = selected ? 'border-[#c8956c] bg-[#c8956c] text-white' : `bg-white hover:bg-[#f5f0ea] ${base}`
                   return (
                     <button
                       key={opt.id}
@@ -1540,12 +1520,12 @@ export default function TrainingDetail() {
             <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
               <table className="w-full min-w-[540px] border-collapse text-left text-xs">
                 <thead>
-                  <tr className="bg-gray-50">
-                    <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600" style={{width:'40px'}}>序号</th>
-                    <th className="border border-gray-200 px-3 py-3 font-semibold text-slate-600">来源</th>
-                    <th className="border border-gray-200 px-3 py-3 font-semibold text-slate-600" style={{width:'64px'}}>需求数</th>
-                    <th className="border border-gray-200 px-3 py-3 font-semibold text-slate-600">关键词</th>
-                    <th className="border border-gray-200 px-3 py-3 font-semibold text-slate-600">转化进度</th>
+                  <tr className="bg-[#faf6f0]">
+                    <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]" style={{width:'40px'}}>序号</th>
+                    <th className="border border-gray-200 px-3 py-3 font-semibold text-[#5c4f3d]">来源</th>
+                    <th className="border border-gray-200 px-3 py-3 font-semibold text-[#5c4f3d]" style={{width:'64px'}}>需求数</th>
+                    <th className="border border-gray-200 px-3 py-3 font-semibold text-[#5c4f3d]">关键词</th>
+                    <th className="border border-gray-200 px-3 py-3 font-semibold text-[#5c4f3d]">转化进度</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1568,7 +1548,7 @@ export default function TrainingDetail() {
                         const pct = reqCount > 0 ? Math.round((converted / reqCount) * 100) : 0
                         const showPopover = progressPopoverId === opt.id
                         return (
-                          <tr key={opt.id} className={`hover:bg-blue-50/50 ${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}`} style={{height:'48px'}}>
+                          <tr key={opt.id} className={`hover:bg-blue-50/50 ${idx % 2 === 1 ? 'bg-[#faf6f0]' : 'bg-white'}`} style={{height:'48px'}}>
                             <td className="border border-gray-200 px-3 py-2.5 text-center text-slate-500">{idx + 1}</td>
                             <td className="border border-gray-200 px-3 py-2.5">
                               <button
@@ -1669,7 +1649,7 @@ export default function TrainingDetail() {
                 <button
                   type="button"
                   onClick={() => setReqList((prev) => [...prev, { id: Date.now(), title: '', desc: '', keywords: [], sources: [], priority: '中', status: '待转化', expanded: false, trainingSubject: [], scenario: '', requirementType: '', relatedAction: '', expandDetail: false }])}
-                  className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                  className="rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60 text-xs"
                 >
                   + 新增需求
                 </button>
@@ -1695,18 +1675,18 @@ export default function TrainingDetail() {
                       <col style={{width:'80px'}} />
                     </colgroup>
                     <thead>
-                      <tr className="bg-gray-50">
-                        <th className="border border-gray-200 px-2 py-3 text-center font-semibold text-slate-600">序号</th>
-                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">需求名称</th>
-                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">需求描述</th>
-                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">培训主体</th>
-                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">对应场景</th>
-                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">需求属性</th>
-                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">关联操作</th>
-                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">来源关键词</th>
-                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">优先级</th>
-                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">状态</th>
-                        <th className="border border-gray-200 px-2 py-3 text-center font-semibold text-slate-600">操作</th>
+                      <tr className="bg-[#faf6f0]">
+                        <th className="border border-gray-200 px-2 py-3 text-center font-semibold text-[#5c4f3d]">序号</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]">需求名称</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]">需求描述</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]">培训主体</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]">对应场景</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]">需求属性</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]">关联操作</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]">来源关键词</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]">优先级</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]">状态</th>
+                        <th className="border border-gray-200 px-2 py-3 text-center font-semibold text-[#5c4f3d]">操作</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1715,7 +1695,7 @@ export default function TrainingDetail() {
                         return (
                           <React.Fragment key={row.id}>
                             {/* Main data row */}
-                            <tr className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} style={{height:'48px'}}>
+                            <tr className={idx % 2 === 0 ? 'bg-white' : 'bg-[#faf6f0]'} style={{height:'48px'}}>
                               {/* 序号 */}
                               <td className="border border-gray-200 px-2 py-2 text-center align-middle text-slate-400">{idx + 1}</td>
 
@@ -1939,7 +1919,7 @@ export default function TrainingDetail() {
                                               key={opt}
                                               type="button"
                                               onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, requirementType: selected ? '' : opt } : r))}
-                                              className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${selected ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-500 hover:border-blue-300'}`}
+                                              className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${selected ? 'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]' : 'border-slate-200 bg-white text-slate-500 hover:border-blue-300'}`}
                                             >{opt}</button>
                                           )
                                         })}
@@ -1972,7 +1952,7 @@ export default function TrainingDetail() {
                                     <button
                                       type="button"
                                       onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, expandDetail: false } : r))}
-                                      className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                                      className="rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60 text-xs"
                                     >保存</button>
                                   </div>
                                 </td>
@@ -2005,16 +1985,16 @@ export default function TrainingDetail() {
                 <button
                   type="button"
                   disabled
-                  className="inline-flex cursor-not-allowed items-center gap-1.5 rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-400"
+                  className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-[#d6cfc4] px-3 py-1.5 text-xs text-slate-400"
                 >
                   📄 导出需求清单
                 </button>
                 <button
                   type="button"
                   onClick={() => alert('报告生成功能即将上线')}
-                  className="inline-flex items-center gap-1.5 rounded border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-blue-400 hover:text-blue-600"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#d6cfc4] bg-white px-4 py-2 text-sm text-[#5c4f3d] hover:bg-[#f5f0ea] text-xs"
                 >
-                  📄 生成需求立项报告
+                  📄 生成立项报告
                 </button>
               </div>
               <p className="mt-3 text-center text-xs text-slate-400">
@@ -2026,7 +2006,7 @@ export default function TrainingDetail() {
           /* ────── 计划设计 / 方案设计 ────── */
           <div className="space-y-4">
             {/* Sub-stage progress bar */}
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               {(['方案设计','资源计划','需求回顾'] as const).map((sub, idx) => {
                 const done = sub === '方案设计' && planDesignStatus === '已完成'
                 const current = activeTab === sub
@@ -2044,14 +2024,14 @@ export default function TrainingDetail() {
                 )
               })}
               {planDesignStatus === '已完成' && (
-                <button type="button" className="ml-auto rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700" onClick={() => alert('任务清单生成功能即将上线')}>
+                <button type="button" className="ml-auto rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60 text-xs" onClick={() => alert('任务清单生成功能即将上线')}>
                   生成任务清单
                 </button>
               )}
             </div>
 
             {/* Status bar */}
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center justify-between rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-slate-800">方案设计</span>
                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${planDesignStatus === '已完成' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>
@@ -2061,7 +2041,7 @@ export default function TrainingDetail() {
               <button
                 type="button"
                 onClick={() => setPlanDesignStatus((p) => p === '已完成' ? '草稿中' : '已完成')}
-                className={`rounded border px-3 py-1.5 text-xs ${planDesignStatus === '已完成' ? 'border-slate-200 text-slate-500 hover:text-slate-700' : 'border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                className={`rounded border px-3 py-1.5 text-xs ${planDesignStatus === '已完成' ? 'border-slate-200 text-slate-500 hover:text-slate-700' : 'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a] hover:bg-[#f5e8dc]'}`}
               >
                 {planDesignStatus === '已完成' ? '撤回完成标记' : '标记为已完成'}
               </button>
@@ -2073,8 +2053,8 @@ export default function TrainingDetail() {
               <div className="min-w-0 flex-1 space-y-4">
 
                 {/* 组1：培训目标与对象 */}
-                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">培训目标与对象</div>
+                <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+                  <div className="mb-4 border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">培训目标与对象</div>
                   <div className="space-y-4">
 
                     {/* 培训目标 */}
@@ -2138,8 +2118,8 @@ export default function TrainingDetail() {
                 </div>
 
                 {/* 组2：培训方式与内容 */}
-                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">培训方式与内容</div>
+                <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+                  <div className="mb-4 border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">培训方式与内容</div>
                   <div className="space-y-5">
 
                     {/* 培训方式 */}
@@ -2151,7 +2131,7 @@ export default function TrainingDetail() {
                           return (
                             <button key={m} type="button"
                               onClick={() => setPlanMethods((p) => active ? p.filter((x) => x !== m) : [...p, m])}
-                              className={`rounded-full border px-3 py-1 text-xs transition-colors ${active ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>
+                              className={`rounded-full border px-3 py-1 text-xs transition-colors ${active ? 'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>
                               {m}
                             </button>
                           )
@@ -2164,7 +2144,7 @@ export default function TrainingDetail() {
                       <label className="mb-2 block text-xs font-medium text-gray-700">内容模块</label>
                       <div className="overflow-hidden rounded-lg border border-gray-200">
                         <table className="w-full border-collapse text-xs">
-                          <thead className="bg-gray-50">
+                          <thead className="bg-[#faf6f0]">
                             <tr>
                               <th className="border-b border-gray-200 px-3 py-2 text-center font-medium text-slate-500" style={{width:'36px'}}>序号</th>
                               <th className="border-b border-gray-200 px-3 py-2 text-left font-medium text-slate-500">模块名称</th>
@@ -2175,7 +2155,7 @@ export default function TrainingDetail() {
                           </thead>
                           <tbody className="divide-y divide-gray-100">
                             {planModules.map((mod, mIdx) => (
-                              <tr key={mod.id} className={mIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              <tr key={mod.id} className={mIdx % 2 === 0 ? 'bg-white' : 'bg-[#faf6f0]'}>
                                 <td className="px-3 py-2 text-center text-slate-400">{mIdx + 1}</td>
                                 <td className="px-3 py-2">
                                   <input value={mod.name} onChange={(e) => setPlanModules((p) => p.map((m) => m.id === mod.id ? {...m, name: e.target.value} : m))}
@@ -2215,15 +2195,15 @@ export default function TrainingDetail() {
                 </div>
 
                 {/* 组3：效果预期与检验 */}
-                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">效果预期与检验</div>
+                <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+                  <div className="mb-4 border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">效果预期与检验</div>
                   <div className="space-y-4">
 
                     {/* 预计总时长 */}
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-gray-700">预计总时长</label>
                       <div className="flex items-center gap-2">
-                        <span className="rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-slate-600">
+                        <span className="rounded-md border border-gray-200 bg-[#faf6f0] px-3 py-1.5 text-sm text-slate-600">
                           {planModules.reduce((s, m) => s + (parseInt(m.duration) || 0), 0)}
                         </span>
                         <span className="text-sm text-slate-500">分钟（自动计算）</span>
@@ -2245,7 +2225,7 @@ export default function TrainingDetail() {
                         {['考试','问卷调查','现场观察','不做检验'].map((m) => (
                           <button key={m} type="button"
                             onClick={() => setPlanCheckMethod((p) => p === m ? '' : m)}
-                            className={`rounded-full border px-3 py-1 text-xs transition-colors ${planCheckMethod === m ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>
+                            className={`rounded-full border px-3 py-1 text-xs transition-colors ${planCheckMethod === m ? 'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>
                             {m}
                           </button>
                         ))}
@@ -2255,13 +2235,13 @@ export default function TrainingDetail() {
                 </div>
 
                 {/* 底部交付物确认 */}
-                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <div className="flex items-center justify-between rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
                   <div className="flex items-center gap-2 text-xs text-slate-600">
                     <span className="font-medium">交付物：培训方案草稿</span>
                     <span className={`rounded-full px-2 py-0.5 text-xs ${planDesignStatus === '已完成' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>{planDesignStatus}</span>
                   </div>
                   <button type="button" onClick={() => alert('导出功能即将上线')}
-                    className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">
+                    className="rounded-lg border border-[#d6cfc4] bg-white px-4 py-2 text-sm text-[#5c4f3d] hover:bg-[#f5f0ea] text-xs">
                     导出方案
                   </button>
                 </div>
@@ -2320,7 +2300,7 @@ export default function TrainingDetail() {
           /* ── 计划设计 / 资源计划 ── */
           <div className="space-y-4">
             {/* Sub-stage progress bar */}
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               {(['方案设计','资源计划','需求回顾'] as const).map((sub, idx) => {
                 const done = (sub === '方案设计' && planDesignStatus === '已完成') ||
                              (sub === '资源计划' && resPlanStatus === '已完成')
@@ -2346,20 +2326,20 @@ export default function TrainingDetail() {
             </div>
 
             {/* Status bar */}
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center justify-between rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-slate-800">资源计划</span>
                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${resPlanStatus === '已完成' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>{resPlanStatus}</span>
               </div>
               <button type="button" onClick={() => setResPlanStatus((p) => p === '已完成' ? '草稿中' : '已完成')}
-                className={`rounded border px-3 py-1.5 text-xs ${resPlanStatus === '已完成' ? 'border-slate-200 text-slate-500 hover:text-slate-700' : 'border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
+                className={`rounded border px-3 py-1.5 text-xs ${resPlanStatus === '已完成' ? 'border-slate-200 text-slate-500 hover:text-slate-700' : 'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a] hover:bg-[#f5e8dc]'}`}>
                 {resPlanStatus === '已完成' ? '撤回完成标记' : '标记为已完成'}
               </button>
             </div>
 
             {/* 组1: 时间安排 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">时间安排</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">时间安排</div>
               <div className="space-y-2">
                 {resSessions.map((sess) => (
                   <div key={sess.id} className="flex items-center gap-2">
@@ -2381,8 +2361,8 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组2: 人员与场地 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">人员与场地</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">人员与场地</div>
 
               {/* 讲师 */}
               <div>
@@ -2394,7 +2374,7 @@ export default function TrainingDetail() {
                         {(['内部','外部'] as const).map((tp) => (
                           <button key={tp} type="button"
                             onClick={() => setResTeachers((p) => p.map((x) => x.id === t.id ? {...x, type: tp} : x))}
-                            className={`rounded border px-2 py-1 text-xs ${t.type === tp ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{tp}</button>
+                            className={`rounded border px-2 py-1 text-xs ${t.type === tp ? 'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{tp}</button>
                         ))}
                       </div>
                       <input value={t.name} onChange={(e) => setResTeachers((p) => p.map((x) => x.id === t.id ? {...x, name: e.target.value} : x))}
@@ -2429,8 +2409,8 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组3: 物资与费用 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">物资与费用</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">物资与费用</div>
 
               {/* 设备 tags */}
               <div>
@@ -2476,13 +2456,13 @@ export default function TrainingDetail() {
             </div>
 
             {/* 底部交付物 */}
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center justify-between rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="flex items-center gap-2 text-xs text-slate-600">
                 <span className="font-medium">交付物：资源需求清单</span>
                 <span className={`rounded-full px-2 py-0.5 text-xs ${resPlanStatus === '已完成' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>{resPlanStatus}</span>
               </div>
               <button type="button" onClick={() => alert('导出功能即将上线')}
-                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">导出清单</button>
+                className="rounded-lg border border-[#d6cfc4] bg-white px-4 py-2 text-sm text-[#5c4f3d] hover:bg-[#f5f0ea] text-xs">导出清单</button>
             </div>
           </div>
 
@@ -2490,7 +2470,7 @@ export default function TrainingDetail() {
           /* ── 计划设计 / 需求回顾 ── */
           <div className="space-y-4">
             {/* Sub-stage progress bar */}
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               {(['方案设计','资源计划','需求回顾'] as const).map((sub, idx) => {
                 const done = (sub === '方案设计' && planDesignStatus === '已完成') ||
                              (sub === '资源计划' && resPlanStatus === '已完成')
@@ -2515,7 +2495,7 @@ export default function TrainingDetail() {
             </div>
 
             {/* Status bar */}
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center justify-between rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-slate-800">需求回顾</span>
                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${reviewConclusion === '审核通过' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>
@@ -2530,24 +2510,24 @@ export default function TrainingDetail() {
               <div className="min-w-0 flex-1 space-y-4">
 
                 {/* 区域1: 需求覆盖检查表 */}
-                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">需求覆盖检查表</div>
+                <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+                  <div className="mb-4 border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">需求覆盖检查表</div>
                   <div className="overflow-x-auto rounded-lg border border-gray-200">
                     <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed'}}>
                       <colgroup>
                         <col style={{width:'40px'}} /><col style={{width:'160px'}} /><col style={{width:'80px'}} />
                         <col style={{width:'150px'}} /><col /><col style={{width:'110px'}} />
                       </colgroup>
-                      <thead className="bg-gray-50">
+                      <thead className="bg-[#faf6f0]">
                         <tr>
                           {['序号','需求名称','需求属性','覆盖状态','存疑说明','处置结论'].map((h) => (
-                            <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-slate-600">{h}</th>
+                            <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-[#5c4f3d]">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {reviewChecks.map((chk, ci) => (
-                          <tr key={chk.id} className={ci % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <tr key={chk.id} className={ci % 2 === 0 ? 'bg-white' : 'bg-[#faf6f0]'}>
                             <td className="border border-gray-200 px-3 py-2.5 text-center text-slate-400">{ci + 1}</td>
                             <td className="border border-gray-200 px-3 py-2.5 text-slate-700">{chk.reqTitle}</td>
                             <td className="border border-gray-200 px-3 py-2.5 text-center">
@@ -2582,7 +2562,7 @@ export default function TrainingDetail() {
                                   {['已修正','保留说明','暂搁置'].map((c) => (
                                     <button key={c} type="button"
                                       onClick={() => setReviewChecks((p) => p.map((x) => x.id === chk.id ? {...x, conclusion: c} : x))}
-                                      className={`rounded-full border px-2 py-0.5 text-xs ${chk.conclusion === c ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-400 hover:border-slate-300'}`}>{c}</button>
+                                      className={`rounded-full border px-2 py-0.5 text-xs ${chk.conclusion === c ? 'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]' : 'border-slate-200 text-slate-400 hover:border-slate-300'}`}>{c}</button>
                                   ))}
                                 </div>
                               ) : <span className="text-xs text-slate-300">—</span>}
@@ -2615,8 +2595,8 @@ export default function TrainingDetail() {
                 </div>
 
                 {/* 区域2: 审核结论 */}
-                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-                  <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">审核结论</div>
+                <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+                  <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">审核结论</div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-gray-700">审核人</label>
@@ -2653,21 +2633,21 @@ export default function TrainingDetail() {
                 {reviewConclusion === '审核通过' && (
                   <div className="space-y-3">
                     <button type="button" onClick={() => setShowTaskList((p) => !p)}
-                      className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white shadow hover:bg-blue-700">
+                      className="w-full rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60 w-full py-3">
                       🗂️ {showTaskList ? '收起' : '生成'}培训计划任务清单
                     </button>
                     {showTaskList && (
-                      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-4 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
                         <div className="mb-3 flex items-center justify-between">
-                          <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">培训计划任务清单</div>
+                          <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">培训计划任务清单</div>
                           <button type="button" onClick={() => alert('导出功能即将上线')}
                             className="rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">📄 导出任务清单</button>
                         </div>
                         <div className="overflow-x-auto rounded-lg border border-gray-200">
                           <table className="w-full border-collapse text-xs">
-                            <thead className="bg-gray-50">
+                            <thead className="bg-[#faf6f0]">
                               <tr>{['序号','任务名称','类别','负责人','截止日期','前置依赖','状态'].map((h) => (
-                                <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-slate-600">{h}</th>
+                                <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-[#5c4f3d]">{h}</th>
                               ))}</tr>
                             </thead>
                             <tbody>
@@ -2678,7 +2658,7 @@ export default function TrainingDetail() {
                                 {n:'发送培训通知',cat:'沟通通知',owner:'王行政',due:'2026-06-08',dep:'任务3'},
                                 {n:'准备签到系统',cat:'技术准备',owner:'IT支持',due:'2026-06-12',dep:'无'},
                               ].map((t, ti) => (
-                                <tr key={ti} className={ti % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                <tr key={ti} className={ti % 2 === 0 ? 'bg-white' : 'bg-[#faf6f0]'}>
                                   <td className="border border-gray-200 px-3 py-2.5 text-center text-slate-400">{ti + 1}</td>
                                   <td className="border border-gray-200 px-3 py-2.5 text-slate-700">{t.n}</td>
                                   <td className="border border-gray-200 px-3 py-2.5 text-center">
@@ -2753,7 +2733,7 @@ export default function TrainingDetail() {
         ) : stage === '材料准备' && activeTab === '任务清单' ? (
           /* ── 材料准备 / 任务清单 ── */
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               {(['任务清单','课件材料','审核状态'] as const).map((sub, idx) => {
                 const matDoneCount = matTasks.filter((t) => t.status === '已完成').length
                 const allFilesApproved = matReviews.length > 0 && matReviews.every((r) => r.conclusion === '通过')
@@ -2776,12 +2756,12 @@ export default function TrainingDetail() {
             </div>
 
             {/* Hint */}
-            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs text-blue-700 border-l-4 border-l-blue-400">
+            <div className="rounded-lg border border-[#e8e0d4] bg-[#fdf8f3] px-4 py-2.5 text-xs text-[#6b5d4f] border-l-4 border-l-[#c8956c]">
               📋 本阶段任务清单已从阶段二任务清单自动导入，可在此追踪制作进度
             </div>
 
             {/* Table card */}
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
               {/* header */}
               <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
                 <div>
@@ -2802,14 +2782,14 @@ export default function TrainingDetail() {
                     <col style={{width:'44px'}} /><col /><col style={{width:'90px'}} />
                     <col style={{width:'90px'}} /><col style={{width:'100px'}} /><col style={{width:'90px'}} /><col style={{width:'120px'}} />
                   </colgroup>
-                  <thead className="bg-gray-50">
+                  <thead className="bg-[#faf6f0]">
                     <tr>{['序号','任务名称','材料类型','负责人','截止日期','状态','关联文件'].map((h)=>(
-                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-slate-600">{h}</th>
+                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-[#5c4f3d]">{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody>
                     {matTasks.map((t, ti) => (
-                      <tr key={t.id} className={ti % 2 === 0 ? 'bg-white' : 'bg-gray-50'} style={{height:'44px'}}>
+                      <tr key={t.id} className={ti % 2 === 0 ? 'bg-white' : 'bg-[#faf6f0]'} style={{height:'44px'}}>
                         <td className="border border-gray-200 px-2 py-2 text-center text-slate-400">{ti+1}</td>
                         <td className="border border-gray-200 px-3 py-2">
                           <div className="flex items-center gap-1.5">
@@ -2863,7 +2843,7 @@ export default function TrainingDetail() {
         ) : stage === '材料准备' && activeTab === '课件材料' ? (
           /* ── 材料准备 / 课件材料 ── */
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               {(['任务清单','课件材料','审核状态'] as const).map((sub, idx) => {
                 const matDoneCount = matTasks.filter((t) => t.status === '已完成').length
                 const allFilesApproved = matReviews.length > 0 && matReviews.every((r) => r.conclusion === '通过')
@@ -2888,13 +2868,13 @@ export default function TrainingDetail() {
             {/* Op bar */}
             <div className="flex items-center gap-2">
               <button type="button" onClick={()=>alert('上传功能即将接入')}
-                className="rounded bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-700">📤 上传新材料</button>
+                className="rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60">📤 上传新材料</button>
               <button type="button" onClick={()=>alert('材料库即将上线')}
                 className="rounded border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">📚 从材料库选取</button>
             </div>
 
             {/* File table */}
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed',minWidth:'860px'}}>
                   <colgroup>
@@ -2902,14 +2882,14 @@ export default function TrainingDetail() {
                     <col style={{width:'70px'}} /><col style={{width:'100px'}} /><col style={{width:'80px'}} />
                     <col style={{width:'80px'}} /><col style={{width:'90px'}} />
                   </colgroup>
-                  <thead className="bg-gray-50">
+                  <thead className="bg-[#faf6f0]">
                     <tr>{['序号','文件名称','类型','版本','上传时间','上传人','审核状态','操作'].map((h)=>(
-                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-slate-600">{h}</th>
+                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-[#5c4f3d]">{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody>
                     {matFiles.map((f, fi) => (
-                      <tr key={f.id} className={fi%2===0?'bg-white':'bg-gray-50'} style={{height:'44px'}}>
+                      <tr key={f.id} className={fi%2===0?'bg-white':'bg-[#faf6f0]'} style={{height:'44px'}}>
                         <td className="border border-gray-200 px-2 py-2 text-center text-slate-400">{fi+1}</td>
                         <td className="border border-gray-200 px-3 py-2 text-slate-700" style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.fileName}</td>
                         <td className="border border-gray-200 px-2 py-2 text-center">
@@ -2941,7 +2921,7 @@ export default function TrainingDetail() {
             </div>
 
             {/* AI entry card */}
-            <div className="rounded-xl border border-purple-100 bg-purple-50 px-5 py-4 shadow-sm flex items-center justify-between">
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] border-[#e8dff5] bg-[#faf7ff] flex items-center justify-between">
               <div>
                 <div className="text-sm font-medium text-purple-800">✨ AI 助手</div>
                 <div className="text-xs text-purple-600 mt-0.5">基于培训需求和内容模块，自动生成课件大纲建议</div>
@@ -2956,7 +2936,7 @@ export default function TrainingDetail() {
         ) : stage === '材料准备' && activeTab === '审核状态' ? (
           /* ── 材料准备 / 审核状态 ── */
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               {(['任务清单','课件材料','审核状态'] as const).map((sub, idx) => {
                 const matDoneCount = matTasks.filter((t) => t.status === '已完成').length
                 const allFilesApproved = matReviews.length > 0 && matReviews.every((r) => r.conclusion === '通过')
@@ -2979,7 +2959,7 @@ export default function TrainingDetail() {
             </div>
 
             {/* Hint */}
-            <div className="rounded-lg border border-orange-100 bg-orange-50 px-4 py-2.5 text-xs text-orange-700 border-l-4 border-l-orange-400">
+            <div className="rounded-lg border border-[#f0dcc8] bg-[#fdf6ef] px-4 py-2.5 text-xs text-[#8b5a2b] border-l-4 border-l-[#d4a574]">
               📋 以下材料已自动从课件材料列表导入，请逐项完成审核
             </div>
 
@@ -2988,7 +2968,7 @@ export default function TrainingDetail() {
               {matReviews.map((rev) => {
                 const DIMS = ['内容准确性','合规性','格式规范','完整性']
                 return (
-                  <div key={rev.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div key={rev.id} className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
                     {/* Card header */}
                     <div className="mb-4 flex items-center gap-2">
                       <span className="font-medium text-slate-800 text-sm truncate">{rev.fileName}</span>
@@ -3049,7 +3029,7 @@ export default function TrainingDetail() {
             </div>
 
             {/* Summary */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-4 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-3">
               {(() => {
                 const passed = matReviews.filter((r)=>r.conclusion==='通过').length
                 const total = matReviews.length
@@ -3078,7 +3058,7 @@ export default function TrainingDetail() {
         ) : stage === '培训实施' && activeTab === '实施准备' ? (
           /* ── 培训实施 / 实施准备 ── */
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               {(['实施准备','现场执行','考核测试'] as const).map((sub, idx) => {
                 const current = activeTab === sub
                 const done = sub === '实施准备' && implPrepStatus === '已完成'
@@ -3096,20 +3076,20 @@ export default function TrainingDetail() {
               })}
             </div>
             {/* Status bar */}
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center justify-between rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-slate-800">实施准备</span>
                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${implPrepStatus==='已完成'?'bg-green-50 text-green-600':'bg-yellow-50 text-yellow-600'}`}>{implPrepStatus}</span>
               </div>
               <button type="button" onClick={()=>setImplPrepStatus(p=>p==='已完成'?'草稿中':'已完成')}
-                className={`rounded border px-3 py-1.5 text-xs ${implPrepStatus==='已完成'?'border-slate-200 text-slate-500':'border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
+                className={`rounded border px-3 py-1.5 text-xs ${implPrepStatus==='已完成'?'border-slate-200 text-slate-500':'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a] hover:bg-[#f5e8dc]'}`}>
                 {implPrepStatus==='已完成'?'撤回完成标记':'标记为已完成'}
               </button>
             </div>
 
             {/* 组1: 通知发送 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">通知发送</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-3">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">通知发送</div>
               {implNotices.map((n) => (
                 <div key={n.id} className="flex flex-wrap items-center gap-2">
                   <input type="datetime-local" value={n.sendTime} onChange={(e)=>setImplNotices(p=>p.map(x=>x.id===n.id?{...x,sendTime:e.target.value}:x))}
@@ -3119,7 +3099,7 @@ export default function TrainingDetail() {
                   <div className="flex gap-1">
                     {(['企业微信','邮件','系统通知'] as const).map(m=>(
                       <button key={m} type="button" onClick={()=>setImplNotices(p=>p.map(x=>x.id===n.id?{...x,method:m}:x))}
-                        className={`rounded border px-2 py-1 text-xs ${n.method===m?'border-blue-400 bg-blue-50 text-blue-700':'border-slate-200 text-slate-400 hover:border-blue-200'}`}>{m}</button>
+                        className={`rounded border px-2 py-1 text-xs ${n.method===m?'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]':'border-slate-200 text-slate-400 hover:border-blue-200'}`}>{m}</button>
                     ))}
                   </div>
                   <button type="button" onClick={()=>setImplNotices(p=>p.map(x=>x.id===n.id?{...x,sent:!x.sent}:x))}
@@ -3132,8 +3112,8 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组2: 报名管理 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">报名管理</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">报名管理</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">计划参训人数</label>
@@ -3164,8 +3144,8 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组3: 场地确认 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">场地确认</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">场地确认</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">场地 / 平台
@@ -3195,8 +3175,8 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组4: 物料就绪确认 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">物料就绪确认</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-3">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">物料就绪确认</div>
               <div className="text-xs text-slate-400">以下材料已从阶段三课件材料自动导入，请逐项确认已就绪</div>
               <div className="space-y-2">
                 {implMaterials.map((m)=>(
@@ -3213,7 +3193,7 @@ export default function TrainingDetail() {
             </div>
 
             {/* 交付物 */}
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center justify-between rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="flex items-center gap-2 text-xs text-slate-600">
                 <span className="font-medium">交付物：培训通知记录 + 报名名单</span>
                 <span className={`rounded-full px-2 py-0.5 text-xs ${implPrepStatus==='已完成'?'bg-green-50 text-green-600':'bg-yellow-50 text-yellow-600'}`}>{implPrepStatus}</span>
@@ -3224,7 +3204,7 @@ export default function TrainingDetail() {
         ) : stage === '培训实施' && activeTab === '现场执行' ? (
           /* ── 培训实施 / 现场执行 ── */
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               {(['实施准备','现场执行','考核测试'] as const).map((sub, idx) => {
                 const current = activeTab === sub
                 const done = sub === '实施准备' && implPrepStatus === '已完成'
@@ -3242,13 +3222,13 @@ export default function TrainingDetail() {
               })}
             </div>
             {/* Hint */}
-            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs text-blue-700 border-l-4 border-l-blue-400">
+            <div className="rounded-lg border border-[#e8e0d4] bg-[#fdf8f3] px-4 py-2.5 text-xs text-[#6b5d4f] border-l-4 border-l-[#c8956c]">
               📋 请在培训当天或结束后及时填写本项内容
             </div>
 
             {/* 组1: 签到记录 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">签到记录</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">签到记录</div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">实际签到人数</label>
@@ -3263,7 +3243,7 @@ export default function TrainingDetail() {
                   <div className="flex flex-wrap gap-1.5">
                     {(['纸质','扫码','系统自动'] as const).map(m=>(
                       <button key={m} type="button" onClick={()=>setImplSignMethod(m)}
-                        className={`rounded-full border px-2.5 py-0.5 text-xs ${implSignMethod===m?'border-blue-400 bg-blue-50 text-blue-700':'border-slate-200 text-slate-400 hover:border-blue-200'}`}>{m}</button>
+                        className={`rounded-full border px-2.5 py-0.5 text-xs ${implSignMethod===m?'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]':'border-slate-200 text-slate-400 hover:border-blue-200'}`}>{m}</button>
                     ))}
                   </div>
                 </div>
@@ -3275,8 +3255,8 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组2: 实际培训信息 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">实际培训信息</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">实际培训信息</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">实际开始时间</label>
@@ -3302,8 +3282,8 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组3: 过程记录 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">过程记录</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">过程记录</div>
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-gray-700">过程说明</label>
                 <textarea value={implProcessNote} onChange={(e)=>setImplProcessNote(e.target.value)} rows={3}
@@ -3323,7 +3303,7 @@ export default function TrainingDetail() {
             </div>
 
             {/* 交付物 */}
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm text-xs text-slate-600">
+            <div className="flex items-center gap-2 rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] text-xs text-slate-600">
               <span className="font-medium">交付物：签到表 + 过程记录</span>
               <span className="rounded-full bg-yellow-50 px-2 py-0.5 text-yellow-600">草稿中</span>
             </div>
@@ -3332,7 +3312,7 @@ export default function TrainingDetail() {
         ) : stage === '培训实施' && activeTab === '考核测试' ? (
           /* ── 培训实施 / 考核测试 ── */
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               {(['实施准备','现场执行','考核测试'] as const).map((sub, idx) => {
                 const current = activeTab === sub
                 const done = sub === '实施准备' && implPrepStatus === '已完成'
@@ -3355,14 +3335,14 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组1: 考核方式 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">考核方式</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">考核方式</div>
               <div>
                 <label className="mb-2 block text-xs font-medium text-gray-700">考核方式</label>
                 <div className="flex flex-wrap gap-2">
                   {(['笔试','线上答题','口头问答','现场演练','无考核'] as const).map(m=>(
                     <button key={m} type="button" onClick={()=>setImplExamMethod(m)}
-                      className={`rounded-full border px-3 py-1 text-xs ${implExamMethod===m?'border-blue-400 bg-blue-50 text-blue-700':'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{m}</button>
+                      className={`rounded-full border px-3 py-1 text-xs ${implExamMethod===m?'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]':'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{m}</button>
                   ))}
                 </div>
               </div>
@@ -3377,22 +3357,22 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组2: 成绩录入 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">成绩录入</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+              <div className="mb-4 border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">成绩录入</div>
               <div className="overflow-x-auto rounded-lg border border-gray-200">
                 <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed'}}>
                   <colgroup>
                     <col style={{width:'44px'}}/><col/><col style={{width:'90px'}}/>
                     <col style={{width:'80px'}}/><col style={{width:'90px'}}/>
                   </colgroup>
-                  <thead className="bg-gray-50">
+                  <thead className="bg-[#faf6f0]">
                     <tr>{['序号','姓名','部门','成绩','是否通过'].map(h=>(
-                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-slate-600">{h}</th>
+                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-[#5c4f3d]">{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody>
                     {implScores.map((s,si)=>(
-                      <tr key={s.id} className={si%2===0?'bg-white':'bg-gray-50'} style={{height:'44px'}}>
+                      <tr key={s.id} className={si%2===0?'bg-white':'bg-[#faf6f0]'} style={{height:'44px'}}>
                         <td className="border border-gray-200 px-2 py-2 text-center text-slate-400">{si+1}</td>
                         <td className="border border-gray-200 px-3 py-2 text-slate-700">{s.name}</td>
                         <td className="border border-gray-200 px-3 py-2 text-center text-slate-500">{s.dept}</td>
@@ -3414,7 +3394,7 @@ export default function TrainingDetail() {
                       const avg = implScores.length>0?(implScores.reduce((a,x)=>a+x.score,0)/implScores.length).toFixed(1):'—'
                       const passRate = implScores.length>0?Math.round(implScores.filter(x=>x.pass).length/implScores.length*100):0
                       return (
-                        <tr className="bg-gray-50">
+                        <tr className="bg-[#faf6f0]">
                           <td colSpan={5} className="border border-gray-200 px-3 py-2 text-xs text-slate-500">
                             参测：<span className="font-medium">{implScores.length}</span> 人 &nbsp;·&nbsp;
                             平均分：<span className="font-medium">{avg}</span> &nbsp;·&nbsp;
@@ -3429,8 +3409,8 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组3: 不合格处理 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">不合格处理</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">不合格处理</div>
               {(() => {
                 const failed = implScores.filter(x=>!x.pass)
                 return failed.length===0 ? (
@@ -3461,7 +3441,7 @@ export default function TrainingDetail() {
             </div>
 
             {/* 交付物 */}
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm text-xs text-slate-600">
+            <div className="flex items-center gap-2 rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] text-xs text-slate-600">
               <span className="font-medium">交付物：考核成绩单 + 通过率统计 + 不合格处理记录</span>
               <span className="rounded-full bg-yellow-50 px-2 py-0.5 text-yellow-600">草稿中</span>
             </div>
@@ -3470,7 +3450,7 @@ export default function TrainingDetail() {
         ) : stage === '评估归档' && activeTab === '效果评估' ? (
           /* ── 评估归档 / 效果评估 ── */
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               {(['效果评估','归档打包','改进建议'] as const).map((sub, idx) => {
                 const done = sub === '效果评估' && evalStatus === '已完成'
                 const current = activeTab === sub
@@ -3486,20 +3466,20 @@ export default function TrainingDetail() {
               })}
             </div>
             {/* Status bar */}
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center justify-between rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-slate-800">效果评估</span>
                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${evalStatus==='已完成'?'bg-green-50 text-green-600':'bg-yellow-50 text-yellow-600'}`}>{evalStatus}</span>
               </div>
               <button type="button" onClick={()=>setEvalStatus(p=>p==='已完成'?'草稿中':'已完成')}
-                className={`rounded border px-3 py-1.5 text-xs ${evalStatus==='已完成'?'border-slate-200 text-slate-500':'border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
+                className={`rounded border px-3 py-1.5 text-xs ${evalStatus==='已完成'?'border-slate-200 text-slate-500':'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a] hover:bg-[#f5e8dc]'}`}>
                 {evalStatus==='已完成'?'撤回完成标记':'标记为已完成'}
               </button>
             </div>
 
             {/* 组1: 满意度调查 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">满意度调查</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">满意度调查</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">问卷状态</label>
@@ -3540,22 +3520,22 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组2: 培训目标达成 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-1 border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">培训目标达成评估</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+              <div className="mb-1 border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">培训目标达成评估</div>
               <div className="mb-3 text-xs text-slate-400">以下目标已从阶段二方案设计自动导入</div>
               <div className="overflow-x-auto rounded-lg border border-gray-200">
                 <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed'}}>
                   <colgroup>
                     <col style={{width:'40px'}}/><col/><col style={{width:'110px'}}/><col style={{width:'200px'}}/>
                   </colgroup>
-                  <thead className="bg-gray-50">
+                  <thead className="bg-[#faf6f0]">
                     <tr>{['序号','预期目标','达成情况','说明'].map(h=>(
-                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-slate-600">{h}</th>
+                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-[#5c4f3d]">{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody>
                     {evalGoals.map((g,gi)=>(
-                      <tr key={g.id} className={gi%2===0?'bg-white':'bg-gray-50'} style={{height:'44px'}}>
+                      <tr key={g.id} className={gi%2===0?'bg-white':'bg-[#faf6f0]'} style={{height:'44px'}}>
                         <td className="border border-gray-200 px-2 py-2 text-center text-slate-400">{gi+1}</td>
                         <td className="border border-gray-200 px-3 py-2 text-slate-700">{g.goal}</td>
                         <td className="border border-gray-200 px-3 py-2 text-center">
@@ -3576,8 +3556,8 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组3: 考核数据分析 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">考核数据分析</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">考核数据分析</div>
               <div className="text-xs text-slate-400">以下数据已从阶段四考核测试自动导入</div>
               <div className="grid grid-cols-3 gap-3">
                 {[
@@ -3599,27 +3579,27 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组4: 综合评估结论 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-3 border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">综合评估结论</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+              <div className="mb-3 border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">综合评估结论</div>
               <textarea value={evalConclusion} onChange={(e)=>setEvalConclusion(e.target.value)} rows={4}
                 className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"/>
             </div>
 
             {/* 交付物 */}
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center justify-between rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="flex items-center gap-2 text-xs text-slate-600">
                 <span className="font-medium">交付物：效果评估报告</span>
                 <span className={`rounded-full px-2 py-0.5 text-xs ${evalStatus==='已完成'?'bg-green-50 text-green-600':'bg-yellow-50 text-yellow-600'}`}>{evalStatus}</span>
               </div>
               <button type="button" onClick={()=>alert('导出功能即将上线')}
-                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">导出报告</button>
+                className="rounded-lg border border-[#d6cfc4] bg-white px-4 py-2 text-sm text-[#5c4f3d] hover:bg-[#f5f0ea] text-xs">导出报告</button>
             </div>
           </div>
 
         ) : stage === '评估归档' && activeTab === '归档打包' ? (
           /* ── 评估归档 / 归档打包 ── */
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               {(['效果评估','归档打包','改进建议'] as const).map((sub, idx) => {
                 const done = sub === '效果评估' && evalStatus === '已完成'
                 const current = activeTab === sub
@@ -3634,24 +3614,24 @@ export default function TrainingDetail() {
                 )
               })}
             </div>
-            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs text-blue-700 border-l-4 border-l-blue-400">
+            <div className="rounded-lg border border-[#e8e0d4] bg-[#fdf8f3] px-4 py-2.5 text-xs text-[#6b5d4f] border-l-4 border-l-[#c8956c]">
               📋 以下归档清单已自动从各阶段提取，请确认各项文件就绪
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed',minWidth:'680px'}}>
                   <colgroup>
                     <col style={{width:'44px'}}/><col/><col style={{width:'80px'}}/><col style={{width:'110px'}}/><col style={{width:'70px'}}/>
                   </colgroup>
-                  <thead className="bg-gray-50">
+                  <thead className="bg-[#faf6f0]">
                     <tr>{['序号','归档项名称','对应阶段','状态','操作'].map(h=>(
-                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-slate-600">{h}</th>
+                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-[#5c4f3d]">{h}</th>
                     ))}</tr>
                   </thead>
                   <tbody>
                     {archiveItems.map((item,ii)=>(
-                      <tr key={item.id} className={ii%2===0?'bg-white':'bg-gray-50'} style={{height:'44px'}}>
+                      <tr key={item.id} className={ii%2===0?'bg-white':'bg-[#faf6f0]'} style={{height:'44px'}}>
                         <td className="border border-gray-200 px-2 py-2 text-center text-slate-400">{ii+1}</td>
                         <td className="border border-gray-200 px-3 py-2 text-slate-700">{item.name}</td>
                         <td className="border border-gray-200 px-3 py-2 text-center text-slate-500">{item.stage}</td>
@@ -3685,8 +3665,8 @@ export default function TrainingDetail() {
                   )
                 })()}
                 <button type="button" onClick={()=>alert('导出功能即将上线')}
-                  className="w-full rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
-                  📦 一键导出归档包
+                  className="w-full rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60 py-2.5">
+                  📦 导出归档包
                 </button>
               </div>
             </div>
@@ -3695,7 +3675,7 @@ export default function TrainingDetail() {
         ) : stage === '评估归档' && activeTab === '改进建议' ? (
           /* ── 评估归档 / 改进建议 ── */
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               {(['效果评估','归档打包','改进建议'] as const).map((sub, idx) => {
                 const done = sub === '效果评估' && evalStatus === '已完成'
                 const current = activeTab === sub
@@ -3711,7 +3691,7 @@ export default function TrainingDetail() {
               })}
             </div>
             {/* AI entry */}
-            <div className="rounded-xl border border-purple-100 bg-purple-50 px-5 py-4 shadow-sm flex items-center justify-between">
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] border-[#e8dff5] bg-[#faf7ff] flex items-center justify-between">
               <div>
                 <div className="text-sm font-medium text-purple-800">✨ AI 助手</div>
                 <div className="text-xs text-purple-600 mt-0.5">基于本次评估数据生成改进建议草稿</div>
@@ -3723,8 +3703,8 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组1: 本次培训总结 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">本次培训总结</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-5">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">本次培训总结</div>
               <div>
                 <label className="mb-2 block text-xs font-medium text-gray-700">培训亮点</label>
                 <div className="space-y-1.5">
@@ -3756,8 +3736,8 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组2: 改进建议 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">改进建议</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">改进建议</div>
               <div>
                 <label className="mb-2 block text-xs font-medium text-gray-700">改进建议列表</label>
                 <div className="space-y-1.5">
@@ -3780,14 +3760,14 @@ export default function TrainingDetail() {
             </div>
 
             {/* 组3: 课件归库 */}
-            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-              <div className="border-l-[3px] border-blue-500 pl-2.5 text-sm font-semibold text-slate-800">课件归库</div>
+            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">课件归库</div>
               <div>
                 <label className="mb-2 block text-xs font-medium text-gray-700">课件是否纳入材料库</label>
                 <div className="flex gap-2">
                   {(['全部纳入','部分纳入','不纳入'] as const).map(s=>(
                     <button key={s} type="button" onClick={()=>setImproveCoursewarePolicy(s)}
-                      className={`rounded-full border px-3 py-1 text-xs ${improveCoursewarePolicy===s?'border-blue-400 bg-blue-50 text-blue-700':'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{s}</button>
+                      className={`rounded-full border px-3 py-1 text-xs ${improveCoursewarePolicy===s?'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]':'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{s}</button>
                   ))}
                 </div>
               </div>
@@ -3799,17 +3779,17 @@ export default function TrainingDetail() {
             </div>
 
             {/* 交付物 */}
-            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center justify-between rounded-[10px] border border-[#ede8df] bg-white px-6 py-3 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="flex items-center gap-2 text-xs text-slate-600">
                 <span className="font-medium">交付物：改进建议书</span>
                 <span className="rounded-full bg-yellow-50 px-2 py-0.5 text-yellow-600">草稿中</span>
               </div>
               <button type="button" onClick={()=>alert('导出功能即将上线')}
-                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">导出建议书</button>
+                className="rounded-lg border border-[#d6cfc4] bg-white px-4 py-2 text-sm text-[#5c4f3d] hover:bg-[#f5f0ea] text-xs">导出建议书</button>
             </div>
 
             {/* Completion banner */}
-            <div className="rounded-xl border border-green-200 bg-green-50 px-6 py-5 text-center shadow-sm">
+            <div className="rounded-[10px] border border-[#c5dcc8] bg-[#f0f7f2] px-6 py-5 text-center shadow-sm">
               <div className="text-2xl mb-2">🎉</div>
               <div className="text-sm font-semibold text-green-800">本次培训项目全流程已完成！</div>
               <div className="mt-1.5 text-xs text-green-600 leading-relaxed">
@@ -3819,7 +3799,7 @@ export default function TrainingDetail() {
           </div>
 
         ) : (
-          <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">该视图正在建设中</div>
+          <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-4 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] text-sm text-slate-500">该视图正在建设中</div>
         )}
       </div>
 
