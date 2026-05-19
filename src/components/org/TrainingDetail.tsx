@@ -59,18 +59,8 @@ type DocSourceKind = '政策' | '指令' | '岗位' | '日常'
 type SurveyKind = '问卷' | '访谈' | '座谈'
 
 type SurveyEntry = {
-  // Step 1 – design
   topic: string
-  purpose: string
-  items: { id: string; text: string }[]
-  outputFormat: string
-  // Step 2 – arrangement
   targetScope: string
-  deliveryMethod: string
-  planDate: string
-  responsible: string
-  // Step 3 – results
-  resultSummary: string
   findings: string
   trainingRequirements: { id: string; text: string }[]
   remark: string
@@ -203,14 +193,7 @@ function createEmptyDemandDetail(kind: DemandMethodKind, label: string): DemandD
     return {
       kind,
       topic: '',
-      purpose: '',
-      items: [],
-      outputFormat: '线上电子问卷',
       targetScope: '',
-      deliveryMethod: '',
-      planDate: '',
-      responsible: '',
-      resultSummary: '',
       findings: '',
       trainingRequirements: [],
       remark: '',
@@ -779,71 +762,30 @@ function CustomDemandDialog({
 
 // ── Survey mock data ──────────────────────────────────────────────────────────
 
-const SURVEY_STEPS: Record<SurveyKind, [string, string, string]> = {
-  问卷: ['设计问卷', '发放安排', '回收总结'],
-  访谈: ['访谈提纲', '访谈安排', '访谈总结'],
-  座谈: ['议题设置', '会议安排', '会议总结'],
-}
-
-const SURVEY_ITEM_LABELS: Record<SurveyKind, string> = {
-  问卷: '问卷题目',
-  访谈: '访谈问题',
-  座谈: '讨论议题',
-}
-
-const SURVEY_ITEM_PLACEHOLDERS: Record<SurveyKind, string> = {
-  问卷: '输入问卷题目…',
-  访谈: '输入访谈问题…',
-  座谈: '输入讨论议题…',
-}
-
-const SURVEY_PURPOSE_PLACEHOLDERS: Record<SurveyKind, string> = {
-  问卷: '希望通过此次问卷了解哪些问题…',
-  访谈: '希望通过此次访谈了解哪些问题…',
-  座谈: '希望通过此次座谈了解哪些问题…',
-}
-
-const SURVEY_OUTPUT_FORMATS = ['线上电子问卷', '线下 Word 文档', '线下 PDF 文档'] as const
-
-const SURVEY_TARGET_LABELS: Record<SurveyKind, string> = {
-  问卷: '发放/参与对象',
-  访谈: '发放/参与对象',
-  座谈: '发放/参与对象',
-}
-
-const SURVEY_TARGET_PLACEHOLDERS: Record<SurveyKind, string> = {
-  问卷: '发放范围，如：全体员工 / 合规部门…',
-  访谈: '访谈对象，如：各部门负责人…',
-  座谈: '参与人员，如：部门代表、管理层…',
-}
-
-const SURVEY_DELIVERY_METHODS: Record<SurveyKind, string[]> = {
-  问卷: ['线上发送', '现场填写', '邮件发送'],
-  访谈: ['一对一访谈', '小组访谈'],
-  座谈: ['线下会议', '线上会议', '混合'],
-}
-
-const SURVEY_RESULT_LABELS: Record<SurveyKind, string> = {
-  问卷: '回收情况',
-  访谈: '访谈情况',
-  座谈: '会议情况',
-}
-
-const SURVEY_RESULT_PLACEHOLDERS: Record<SurveyKind, string> = {
-  问卷: '共发放X份，回收X份，回收率X%…',
-  访谈: '完成访谈人数、访谈时长等…',
-  座谈: '参与人数、会议时长、出席率等…',
-}
-
-const SURVEY_MOCK_REQS: Record<SurveyKind, string[]> = {
-  问卷: ['员工对合规流程理解存在偏差', '需加强反洗钱实操培训', '新员工入职培训需系统化'],
-  访谈: ['中层管理者需提升合规意识', '部门间协作流程不清晰', '需针对岗位差异化设计课程'],
-  座谈: ['现有培训形式参与度低', '建议增加案例讨论环节', '需定期复盘培训效果'],
+const SURVEY_CONFIG: Record<SurveyKind, { label2: string; placeholder2: string; placeholder3: string; footnote: string }> = {
+  问卷: {
+    label2: '调查范围',
+    placeholder2: '如：全体员工 / 合规部门 / 柜员岗位',
+    placeholder3: '记录问卷回收后的主要发现和共识，3~5条即可',
+    footnote: '问卷设计与在线发放功能将在第二期上线',
+  },
+  访谈: {
+    label2: '受访对象',
+    placeholder2: '如：部门负责人 / 岗位骨干',
+    placeholder3: '访谈中发现的主要问题和需求线索',
+    footnote: '访谈提纲生成与结构化记录功能将在第二期上线',
+  },
+  座谈: {
+    label2: '参与人员',
+    placeholder2: '如：合规部全体 / 各部门代表',
+    placeholder3: '座谈中形成的主要共识和发现',
+    footnote: '议题设置与会议纪要自动整理功能将在第二期上线',
+  },
 }
 
 type SurveyDraft = { kind: SurveyKind } & SurveyEntry
 
-function SurveyActivityDialog({
+function SurveySimpleDialog({
   draft,
   onClose,
   onSave,
@@ -853,10 +795,8 @@ function SurveyActivityDialog({
   onSave: (d: SurveyDraft) => void
 }) {
   const kind = draft.kind
-  const [step, setStep] = useState(1)
+  const cfg = SURVEY_CONFIG[kind]
   const [local, setLocal] = useState<SurveyDraft>(draft)
-  const steps = SURVEY_STEPS[kind]
-  const mockReqs = SURVEY_MOCK_REQS[kind]
 
   const inputCls = 'w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100'
   const textareaCls = `${inputCls} resize-none`
@@ -864,8 +804,8 @@ function SurveyActivityDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-      <div className="flex w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl" style={{ maxHeight: '90vh' }}>
-        {/* Title row */}
+      <div className="flex w-full max-w-lg flex-col rounded-xl bg-white shadow-xl" style={{ maxHeight: '90vh' }}>
+        {/* Title */}
         <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
           <h3 className="text-base font-semibold text-slate-900">{kind}详情</h3>
           <button
@@ -877,258 +817,101 @@ function SurveyActivityDialog({
           </button>
         </div>
 
-        {/* Step bar */}
-        <div className="flex shrink-0 items-center border-b border-slate-100 px-5 py-3">
-          {steps.map((label, i) => {
-            const num = i + 1
-            const done = num < step
-            const current = num === step
-            return (
-              <div key={num} className="flex items-center">
-                <div className="flex items-center gap-1.5">
-                  <div
-                    className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
-                      done
-                        ? 'bg-emerald-500 text-white'
-                        : current
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-slate-200 text-slate-400'
-                    }`}
-                  >
-                    {done ? <Check className="h-3.5 w-3.5" /> : num}
-                  </div>
-                  <span
-                    className={`text-sm transition-colors ${
-                      current ? 'font-medium text-slate-900' : done ? 'text-emerald-600' : 'text-slate-400'
-                    }`}
-                  >
-                    {label}
-                  </span>
-                </div>
-                {i < 2 && <ChevronRight className="mx-2 h-3.5 w-3.5 shrink-0 text-slate-300" />}
-              </div>
-            )
-          })}
-        </div>
+        {/* Content */}
+        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+          {/* Field 1: topic */}
+          <div className="space-y-1.5">
+            <label className={labelCls}>{kind}主题</label>
+            <input
+              value={local.topic}
+              onChange={(e) => setLocal({ ...local, topic: e.target.value })}
+              placeholder={`本次${kind}调查的主题`}
+              className={inputCls}
+            />
+          </div>
 
-        {/* Content area */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {/* Field 2: target scope */}
+          <div className="space-y-1.5">
+            <label className={labelCls}>{cfg.label2}</label>
+            <input
+              value={local.targetScope}
+              onChange={(e) => setLocal({ ...local, targetScope: e.target.value })}
+              placeholder={cfg.placeholder2}
+              className={inputCls}
+            />
+          </div>
 
-          {/* ── Step 1: Design ── */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className={labelCls}>主题</label>
-                <input
-                  value={local.topic}
-                  onChange={(e) => setLocal({ ...local, topic: e.target.value })}
-                  placeholder={`请输入本次${kind}的主题…`}
-                  className={inputCls}
-                />
-              </div>
+          {/* Field 3: findings */}
+          <div className="space-y-1.5">
+            <label className={labelCls}>主要发现</label>
+            <textarea
+              value={local.findings}
+              onChange={(e) => setLocal({ ...local, findings: e.target.value })}
+              rows={4}
+              placeholder={cfg.placeholder3}
+              className={textareaCls}
+            />
+          </div>
 
-              <div className="space-y-1.5">
-                <label className={labelCls}>调查目的</label>
-                <textarea
-                  value={local.purpose}
-                  onChange={(e) => setLocal({ ...local, purpose: e.target.value })}
-                  rows={2}
-                  placeholder={SURVEY_PURPOSE_PLACEHOLDERS[kind]}
-                  className={textareaCls}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className={labelCls}>{SURVEY_ITEM_LABELS[kind]}</label>
-                <div className="space-y-2">
-                  {local.items.map((item, idx) => (
-                    <div key={item.id} className="flex items-center gap-2">
-                      <span className="w-5 shrink-0 text-center text-xs text-slate-400">{idx + 1}</span>
-                      <input
-                        value={item.text}
-                        onChange={(e) => {
-                          const v = e.target.value
-                          setLocal({ ...local, items: local.items.map((it) => (it.id === item.id ? { ...it, text: v } : it)) })
-                        }}
-                        className="flex-1 rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
-                        placeholder={SURVEY_ITEM_PLACEHOLDERS[kind]}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setLocal({ ...local, items: local.items.filter((it) => it.id !== item.id) })}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-200 text-slate-400 hover:border-red-200 hover:text-red-500"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setLocal({
-                      ...local,
-                      items: [...local.items, { id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: '' }],
-                    })
-                  }
-                  className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  添加条目
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                <label className={labelCls}>输出格式</label>
-                <div className="flex flex-wrap gap-3">
-                  {SURVEY_OUTPUT_FORMATS.map((fmt) => (
-                    <label key={fmt} className="flex cursor-pointer items-center gap-1.5 text-sm text-slate-700">
-                      <input
-                        type="radio"
-                        name={`outputFormat-${kind}`}
-                        value={fmt}
-                        checked={local.outputFormat === fmt}
-                        onChange={() => setLocal({ ...local, outputFormat: fmt })}
-                        className="accent-blue-600"
-                      />
-                      {fmt}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
+          {/* Field 4: training requirements */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className={labelCls}>培训需求</label>
               <button
                 type="button"
                 disabled
-                className="inline-flex cursor-not-allowed items-center gap-1.5 rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-400"
+                className="inline-flex cursor-not-allowed items-center gap-1 rounded border border-slate-200 px-2 py-1 text-xs text-slate-400"
               >
-                ✨ AI辅助生成内容（即将上线）
+                ✨ 根据结论提炼需求（即将上线）
               </button>
             </div>
-          )}
-
-          {/* ── Step 2: Arrangement ── */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className={labelCls}>{SURVEY_TARGET_LABELS[kind]}</label>
-                <textarea
-                  value={local.targetScope}
-                  onChange={(e) => setLocal({ ...local, targetScope: e.target.value })}
-                  rows={3}
-                  placeholder={SURVEY_TARGET_PLACEHOLDERS[kind]}
-                  className={textareaCls}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className={labelCls}>发放/执行方式</label>
-                <select
-                  value={local.deliveryMethod}
-                  onChange={(e) => setLocal({ ...local, deliveryMethod: e.target.value })}
-                  className={inputCls}
-                >
-                  <option value="">-- 请选择 --</option>
-                  {SURVEY_DELIVERY_METHODS[kind].map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className={labelCls}>计划时间</label>
+            <div className="space-y-2">
+              {local.trainingRequirements.map((req) => (
+                <div key={req.id} className="flex items-center gap-2">
                   <input
-                    type="date"
-                    value={local.planDate}
-                    onChange={(e) => setLocal({ ...local, planDate: e.target.value })}
-                    className={inputCls}
+                    value={req.text}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      setLocal({ ...local, trainingRequirements: local.trainingRequirements.map((r) => r.id === req.id ? { ...r, text: v } : r) })
+                    }}
+                    placeholder="输入培训需求…"
+                    className="flex-1 rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setLocal({ ...local, trainingRequirements: local.trainingRequirements.filter((r) => r.id !== req.id) })}
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 text-slate-400 hover:border-red-200 hover:text-red-500"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-                <div className="space-y-1.5">
-                  <label className={labelCls}>负责人</label>
-                  <input
-                    value={local.responsible}
-                    onChange={(e) => setLocal({ ...local, responsible: e.target.value })}
-                    placeholder="请填写负责人姓名"
-                    className={inputCls}
-                  />
-                </div>
-              </div>
+              ))}
             </div>
-          )}
+            <button
+              type="button"
+              onClick={() => setLocal({ ...local, trainingRequirements: [...local.trainingRequirements, { id: `req-${Date.now()}`, text: '' }] })}
+              className="text-sm text-blue-600 hover:text-blue-700"
+            >
+              + 新增需求
+            </button>
+          </div>
 
-          {/* ── Step 3: Results & requirements ── */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className={labelCls}>{SURVEY_RESULT_LABELS[kind]}</label>
-                <textarea
-                  value={local.resultSummary}
-                  onChange={(e) => setLocal({ ...local, resultSummary: e.target.value })}
-                  rows={3}
-                  placeholder={SURVEY_RESULT_PLACEHOLDERS[kind]}
-                  className={textareaCls}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className={labelCls}>主要发现</label>
-                <textarea
-                  value={local.findings}
-                  onChange={(e) => setLocal({ ...local, findings: e.target.value })}
-                  rows={3}
-                  placeholder="记录本次调查/访谈/座谈中发现的主要问题和共识…"
-                  className={textareaCls}
-                />
-              </div>
-
-              <ReqListBlock
-                reqs={local.trainingRequirements}
-                onChange={(next) => setLocal({ ...local, trainingRequirements: next })}
-                onExtract={() => {
-                  const count = 2 + Math.floor(Math.random() * 2)
-                  setLocal({
-                    ...local,
-                    trainingRequirements: mockReqs.slice(0, count).map((t) => ({
-                      id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                      text: t,
-                    })),
-                  })
-                }}
-                extractLabel="根据结论提炼需求"
-              />
-
-              <div className="space-y-1.5">
-                <label className={labelCls}>备注（选填）</label>
-                <textarea
-                  value={local.remark}
-                  onChange={(e) => setLocal({ ...local, remark: e.target.value })}
-                  rows={2}
-                  placeholder="补充说明…"
-                  className={textareaCls}
-                />
-              </div>
-            </div>
-          )}
+          {/* Field 5: remark */}
+          <div className="space-y-1.5">
+            <label className={labelCls}>备注（选填）</label>
+            <textarea
+              value={local.remark}
+              onChange={(e) => setLocal({ ...local, remark: e.target.value })}
+              rows={2}
+              placeholder={kind === '问卷' ? '补充说明，如问卷发放时间、回收率等' : '补充说明…'}
+              className={textareaCls}
+            />
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="flex shrink-0 items-center justify-between border-t border-slate-200 px-5 py-3">
-          <div>
-            {step > 1 && (
-              <button
-                type="button"
-                onClick={() => setStep(step - 1)}
-                className="rounded border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-              >
-                上一步
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
+        <div className="shrink-0 border-t border-slate-200 px-5 py-3">
+          <div className="flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
@@ -1136,24 +919,15 @@ function SurveyActivityDialog({
             >
               取消
             </button>
-            {step < 3 ? (
-              <button
-                type="button"
-                onClick={() => setStep(step + 1)}
-                className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                下一步
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onSave(local)}
-                className="rounded bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
-              >
-                完成
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => onSave(local)}
+              className="rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              保存
+            </button>
           </div>
+          <p className="mt-2 text-center text-xs text-slate-400">{cfg.footnote}</p>
         </div>
       </div>
     </div>
@@ -2550,9 +2324,9 @@ export default function TrainingDetail() {
         ) : null}
       </Modal>
 
-      {/* ── SurveyActivityDialog for B-type tags ── */}
+      {/* ── SurveySimpleDialog for B-type tags ── */}
       {surveyDialogOptId !== null && demandMatrix[surveyDialogOptId] ? (
-        <SurveyActivityDialog
+        <SurveySimpleDialog
           draft={demandMatrix[surveyDialogOptId].detail as SurveyDraft}
           onClose={() => setSurveyDialogOptId(null)}
           onSave={(d) => {
