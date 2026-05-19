@@ -365,7 +365,7 @@ function UnifiedSourcePanel({
                       type="button"
                       disabled={aiLoading}
                       onClick={handleExtract}
-                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-[#c8956c] text-white shadow-[0_2px_0_#a0714a] hover:-translate-y-px'}`}
+                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-[#b85c3a] text-white shadow-[0_2px_0_#8c3e24] hover:-translate-y-px hover:bg-[#a04f30]'}`}
                     >
                       {aiLoading ? '⏳ 分析中...' : '✨ 提取需求'}
                     </button>
@@ -426,7 +426,7 @@ function UnifiedSourcePanel({
                       type="button"
                       disabled={aiLoading}
                       onClick={handleExtract}
-                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-[#c8956c] text-white shadow-[0_2px_0_#a0714a] hover:-translate-y-px'}`}
+                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-[#b85c3a] text-white shadow-[0_2px_0_#8c3e24] hover:-translate-y-px hover:bg-[#a04f30]'}`}
                     >
                       {aiLoading ? '⏳ 分析中...' : '✨ 提取需求'}
                     </button>
@@ -477,7 +477,7 @@ function UnifiedSourcePanel({
                       type="button"
                       disabled={aiLoading}
                       onClick={handleExtract}
-                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-[#c8956c] text-white shadow-[0_2px_0_#a0714a] hover:-translate-y-px'}`}
+                      className={`inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm ${aiLoading ? 'cursor-not-allowed bg-slate-100 text-slate-400' : 'bg-[#b85c3a] text-white shadow-[0_2px_0_#8c3e24] hover:-translate-y-px hover:bg-[#a04f30]'}`}
                     >
                       {aiLoading ? '⏳ 分析中...' : '✨ 提取需求'}
                     </button>
@@ -520,7 +520,7 @@ function UnifiedSourcePanel({
           <button type="button" onClick={onClose} className="rounded border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
             取消
           </button>
-          <button type="button" onClick={() => onSave(local)} className="rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a]">
+          <button type="button" onClick={() => onSave(local)} className="rounded-lg bg-[#b85c3a] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#8c3e24] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#8c3e24]">
             保存
           </button>
         </div>
@@ -936,7 +936,7 @@ export default function TrainingDetail() {
                   setStageConfirmOpen(false)
                   await updateStage(targetStage)
                 }}
-                className="rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60"
+                className="rounded-lg bg-[#b85c3a] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#8c3e24] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#8c3e24] disabled:opacity-60"
               >
                 确认
               </button>
@@ -995,20 +995,21 @@ export default function TrainingDetail() {
                         gap: '3px',
                         transition: 'filter 150ms',
                         position: 'relative',
-                        background: done ? '#7aab8a' : current ? '#c8956c' : '#ede8df',
-                        color: done || current ? 'white' : '#5c4f3d',
+                        background: done ? '#5a8f70' : current ? '#b85c3a' : '#ede8df',
+                        color: done || current ? '#ffffff' : '#1a1208',
+                        fontWeight: done ? 600 : current ? 700 : 500,
                         border: done || current ? 'none' : '1px solid #d6cfc4',
-                        boxShadow: current ? '0 2px 10px rgba(200,149,108,0.35)' : 'none',
+                        boxShadow: current ? '0 2px 10px rgba(184,92,58,0.4)' : 'none',
                       }}
                       onMouseEnter={(e) => { if (!current) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)' }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = '' }}
                       className="disabled:opacity-70"
                     >
-                      <span style={{fontSize:'11px',fontWeight:500,opacity:0.75,lineHeight:1}}>{STEP_LABELS[idx]}</span>
-                      <span style={{fontSize:'14px',fontWeight:600,lineHeight:1}}>
+                      <span style={{fontSize:'11px',fontWeight:500,lineHeight:1,color:done||current?'rgba(255,255,255,0.85)':'#3d2e1a'}}>{STEP_LABELS[idx]}</span>
+                      <span style={{fontSize:'14px',fontWeight:current?700:600,lineHeight:1}}>
                         {done ? '✓ ' : ''}{s}
                       </span>
-                      {current && <span style={{position:'absolute',bottom:0,left:0,right:0,height:'3px',background:'#a0714a',borderRadius:'0 0 8px 8px'}} />}
+                      {current && <span style={{position:'absolute',bottom:0,left:0,right:0,height:'3px',background:'#8c3e24',borderRadius:'0 0 8px 8px'}} />}
                     </button>
                     {idx < STAGES.length - 1 && (
                       <span style={{flexShrink:0,margin:'0 4px',fontSize:'20px',color:'#b8a898',lineHeight:1,userSelect:'none'}}>›</span>
@@ -1049,8 +1050,9 @@ export default function TrainingDetail() {
                               transition: 'filter 150ms',
                               position: 'relative',
                               borderRadius: '0 0 6px 6px',
-                              background: subActive ? '#d4a574' : subDone ? '#9abfa8' : '#e8e2d8',
-                              color: subActive || subDone ? 'white' : '#6b5d4f',
+                              background: subActive ? '#c96a45' : subDone ? '#6fa882' : '#e8e2d8',
+                              color: subActive || subDone ? '#ffffff' : '#1a1208',
+                              fontWeight: subActive || subDone ? 600 : 500,
                               border: subActive || subDone ? 'none' : '1px solid #d6cfc4',
                             }}
                             onMouseEnter={(e) => { if (!subActive) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)' }}
@@ -1060,7 +1062,7 @@ export default function TrainingDetail() {
                             <span style={{fontSize:'12px',fontWeight:600,lineHeight:1}}>
                               {subDone && !subActive ? '✓ ' : ''}{sub.label}
                             </span>
-                            {subActive && <span style={{position:'absolute',bottom:0,left:0,right:0,height:'2px',background:'#a0714a',borderRadius:'0 0 6px 6px'}} />}
+                            {subActive && <span style={{position:'absolute',bottom:0,left:0,right:0,height:'2px',background:'#8c3e24',borderRadius:'0 0 6px 6px'}} />}
                           </button>
                         )
                       })}
@@ -1117,7 +1119,7 @@ export default function TrainingDetail() {
                   setAiInput('')
                   showToast('AI功能即将上线，敬请期待')
                 }}
-                className="rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60"
+                className="rounded-lg bg-[#b85c3a] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#8c3e24] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#8c3e24] disabled:opacity-60"
               >
                 发送
               </button>
@@ -1203,7 +1205,7 @@ export default function TrainingDetail() {
                 }}
                 disabled={creatingTask}
                 className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm text-white ${
-                  creatingTask ? 'bg-slate-400' : 'bg-[#c8956c] shadow-[0_2px_0_#a0714a] hover:-translate-y-px'
+                  creatingTask ? 'bg-slate-400' : 'bg-[#b85c3a] shadow-[0_2px_0_#8c3e24] hover:-translate-y-px hover:bg-[#a04f30]'
                 }`}
               >
                 <Plus className="h-4 w-4" />
@@ -1276,7 +1278,8 @@ export default function TrainingDetail() {
 
         ) : stage === '需求立项' && activeTab === '信息收集' ? (
           <div className="space-y-4">
-            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-4 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+            <div className="flex items-start gap-4">
+            <div className="min-w-0 flex-[0_0_33%] rounded-[10px] border border-[#ede8df] bg-white px-6 py-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-semibold text-slate-900">需求描述</div>
                 <button
@@ -1301,14 +1304,10 @@ export default function TrainingDetail() {
                     />
                     <div className="absolute bottom-2 right-3 text-xs text-slate-400 select-none">{ideaText.length} 字</div>
                   </div>
-                  {/* 2. Button row: voice | record */}
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      disabled
-                      className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-[#d6cfc4] px-3 py-1.5 text-xs text-slate-400"
-                    >
-                      🎤 语音输入（即将上线）
+                  {/* Action buttons — single row */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button type="button" disabled className="inline-flex items-center gap-1 rounded-lg border border-[#d0c4b8] bg-white px-[14px] py-1.5 text-[13px] font-semibold text-[#5c4f3d] shadow-[0_2px_0_#c4b8ac] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#c4b8ac] disabled:cursor-not-allowed disabled:opacity-50">
+                      🎤 语音
                     </button>
                     <button
                       type="button"
@@ -1329,47 +1328,10 @@ export default function TrainingDetail() {
                         }, ...prev])
                         setIdeaText('')
                       }}
-                      className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                      className="inline-flex items-center gap-1 rounded-lg border border-[#d0c4b8] bg-white px-[14px] py-1.5 text-[13px] font-semibold text-[#5c4f3d] shadow-[0_2px_0_#c4b8ac] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#c4b8ac] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      📝 记录本次想法
+                      📝 记录想法
                     </button>
-                  </div>
-                  {/* 3. Thought logs – collapsible */}
-                  {ideaLogs.length > 0 && (
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => setIdeaLogsCollapsed((p) => !p)}
-                        className="flex w-full items-center justify-between text-xs font-medium text-slate-400 hover:text-slate-600"
-                      >
-                        <span>思考记录</span>
-                        <span>{ideaLogsCollapsed ? `▼ 展开（共 ${ideaLogs.length} 条）` : '▲ 收起'}</span>
-                      </button>
-                      {!ideaLogsCollapsed && (
-                        <div className="mt-2 space-y-2">
-                          {ideaLogs.map((log) => (
-                            <div key={log.id} className="relative rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
-                              <button
-                                type="button"
-                                onClick={() => setIdeaLogs((prev) => prev.filter((l) => l.id !== log.id))}
-                                className="absolute right-2 top-2 inline-flex h-4 w-4 items-center justify-center rounded text-slate-300 hover:bg-slate-200 hover:text-slate-600"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                              <div className="mb-1.5 text-xs font-medium text-slate-500">第 {log.seq} 次 · {log.time}</div>
-                              <p className="mb-2 rounded bg-white px-2 py-1.5 text-xs leading-relaxed text-slate-700">{log.text}</p>
-                              <div className="flex gap-4 text-xs text-slate-500">
-                                <span>AI 建议来源：{log.aiSources ? log.aiSources.join(' / ') : '—'}</span>
-                                <span>最终选择：{log.selectedSources.length > 0 ? log.selectedSources.join(' / ') : '—'}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {/* 4. Get AI suggestion button */}
-                  <div className="flex justify-end border-t border-slate-100 pt-3">
                     <button
                       type="button"
                       disabled={ideaSuggestionLoading}
@@ -1437,52 +1399,86 @@ export default function TrainingDetail() {
                           setIdeaSuggestionLoading(false)
                         }
                       }}
-                      className={`rounded px-3 py-1.5 text-xs font-medium text-white ${ideaSuggestionLoading ? 'cursor-not-allowed bg-blue-400' : 'bg-[#c8956c] shadow-[0_2px_0_#a0714a] hover:-translate-y-px'}`}
+                      className={`inline-flex items-center gap-1 rounded-lg border-0 bg-[#b85c3a] px-[14px] py-1.5 text-[13px] font-bold text-white shadow-[0_2px_0_#8c3e24] transition-transform hover:-translate-y-px hover:bg-[#a04f30] active:translate-y-px active:shadow-[0_1px_0_#8c3e24] disabled:cursor-not-allowed disabled:opacity-60 ${ideaSuggestionLoading ? 'opacity-70' : ''}`}
                     >
-                      {ideaSuggestionLoading ? '✨ 分析中...' : '✨ 获取来源建议'}
+                      {ideaSuggestionLoading ? '✨ 分析中...' : '✨ 来源建议'}
                     </button>
                   </div>
-                  {/* 5. Suggestion card – persistent, collapsible */}
                   {ideaSuggestionError && (
-                    <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{ideaSuggestionError}</div>
+                    <div className="mt-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">{ideaSuggestionError}</div>
                   )}
-                  {ideaSuggestionVisible && (
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-                      <div className="flex items-center justify-between">
-                        {ideaSuggestionCollapsed
-                          ? <span className="text-xs text-blue-600">AI 信息来源建议（点击展开）</span>
-                          : <span className="text-xs font-medium text-blue-800">AI 建议通过以下方式收集信息：</span>}
-                        <button
-                          type="button"
-                          onClick={() => setIdeaSuggestionCollapsed((prev) => !prev)}
-                          className="text-xs text-blue-500 hover:text-blue-700"
-                        >
-                          {ideaSuggestionCollapsed ? '▼ 展开' : '▲ 收起'}
-                        </button>
+                  <div
+                    className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ${ideaSuggestionVisible ? 'max-h-[480px]' : 'max-h-0'}`}
+                  >
+                    {ideaSuggestionVisible && (
+                      <div className="mt-3 rounded-lg border border-[#e8e0d4] border-l-4 border-l-[#b85c3a] bg-[#fdf8f3] px-4 py-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-[#5c4f3d]">AI 建议通过以下方式收集信息：</span>
+                          <button
+                            type="button"
+                            onClick={() => { setIdeaSuggestionVisible(false); setIdeaSuggestionCollapsed(true) }}
+                            className="text-xs font-medium text-[#b85c3a] hover:text-[#8c3e24]"
+                          >
+                            收起 ∧
+                          </button>
+                        </div>
+                        {!ideaSuggestionCollapsed && (
+                          <>
+                            <ul className="mt-2 space-y-1 text-xs text-[#5c4f3d]">
+                              {ideaSuggestions.map((s) => (
+                                <li key={s.label}>· {s.label} — {s.reason}</li>
+                              ))}
+                            </ul>
+                            <div className="mt-2 text-xs text-[#8c3e24]">已为您自动选中以上来源，可手动调整 ↓</div>
+                          </>
+                        )}
                       </div>
-                      {!ideaSuggestionCollapsed && (
-                        <>
-                          <ul className="mt-2 space-y-1 text-xs text-blue-700">
-                            {ideaSuggestions.map((s) => (
-                              <li key={s.label}>· {s.label} — {s.reason}</li>
-                            ))}
-                          </ul>
-                          <div className="mt-2 text-xs text-blue-500">已为您自动选中以上来源，可手动调整 ↓</div>
-                        </>
+                    )}
+                  </div>
+                  {/* 3. Thought logs – collapsible */}
+                  {ideaLogs.length > 0 && (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setIdeaLogsCollapsed((p) => !p)}
+                        className="flex w-full items-center justify-between text-xs font-medium text-slate-400 hover:text-slate-600"
+                      >
+                        <span>思考记录</span>
+                        <span>{ideaLogsCollapsed ? `▼ 展开（共 ${ideaLogs.length} 条）` : '▲ 收起'}</span>
+                      </button>
+                      {!ideaLogsCollapsed && (
+                        <div className="mt-2 space-y-2">
+                          {ideaLogs.map((log) => (
+                            <div key={log.id} className="relative rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
+                              <button
+                                type="button"
+                                onClick={() => setIdeaLogs((prev) => prev.filter((l) => l.id !== log.id))}
+                                className="absolute right-2 top-2 inline-flex h-4 w-4 items-center justify-center rounded text-slate-300 hover:bg-slate-200 hover:text-slate-600"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                              <div className="mb-1.5 text-xs font-medium text-slate-500">第 {log.seq} 次 · {log.time}</div>
+                              <p className="mb-2 rounded bg-white px-2 py-1.5 text-xs leading-relaxed text-slate-700">{log.text}</p>
+                              <div className="flex gap-4 text-xs text-slate-500">
+                                <span>AI 建议来源：{log.aiSources ? log.aiSources.join(' / ') : '—'}</span>
+                                <span>最终选择：{log.selectedSources.length > 0 ? log.selectedSources.join(' / ') : '—'}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   )}
                 </div>
               )}
             </div>
-            <hr className="border-slate-100" />
-            <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-4 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+            <div className="min-w-0 flex-1 rounded-[10px] border border-[#ede8df] bg-white px-6 py-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
               <div className="text-sm font-semibold text-slate-900">信息来源</div>
               <div className="mt-3 flex items-center gap-2 overflow-x-auto">
                 {demandOptions.map((opt) => {
                   const selected = selectedDemandOptionIds.includes(opt.id)
                   const base = opt.recommended ? 'border-orange-300 text-orange-700' : 'border-slate-200 text-slate-700'
-                  const cls = selected ? 'border-[#c8956c] bg-[#c8956c] text-white' : `bg-white hover:bg-[#f5f0ea] ${base}`
+                  const cls = selected ? 'border-[#b85c3a] bg-[#b85c3a] text-white' : `bg-white hover:bg-[#f5f0ea] ${base}`
                   return (
                     <button
                       key={opt.id}
@@ -1513,14 +1509,22 @@ export default function TrainingDetail() {
               </div>
               <div className="mt-3 text-xs text-slate-500">提示：政策 / 指令 为建议优先选择项</div>
             </div>
+            </div>
 
             <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-              <table className="w-full min-w-[540px] border-collapse text-left text-xs">
+              <table className="w-full min-w-[500px] border-collapse text-left text-xs" style={{ tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: '40px' }} />
+                  <col style={{ width: '80px' }} />
+                  <col style={{ width: '60px' }} />
+                  <col />
+                  <col style={{ width: '120px' }} />
+                </colgroup>
                 <thead>
                   <tr className="bg-[#faf6f0]">
-                    <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]" style={{width:'40px'}}>序号</th>
+                    <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]">序号</th>
                     <th className="border border-gray-200 px-3 py-3 font-semibold text-[#5c4f3d]">来源</th>
-                    <th className="border border-gray-200 px-3 py-3 font-semibold text-[#5c4f3d]" style={{width:'64px'}}>需求数</th>
+                    <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-[#5c4f3d]">需求数</th>
                     <th className="border border-gray-200 px-3 py-3 font-semibold text-[#5c4f3d]">关键词</th>
                     <th className="border border-gray-200 px-3 py-3 font-semibold text-[#5c4f3d]">转化进度</th>
                   </tr>
@@ -1646,7 +1650,7 @@ export default function TrainingDetail() {
                 <button
                   type="button"
                   onClick={() => setReqList((prev) => [...prev, { id: Date.now(), title: '', desc: '', keywords: [], sources: [], priority: '中', status: '待转化', expanded: false, trainingSubject: [], scenario: '', requirementType: '', relatedAction: '', expandDetail: false }])}
-                  className="rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60 text-xs"
+                  className="rounded-lg bg-[#b85c3a] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#8c3e24] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#8c3e24] disabled:opacity-60 text-xs"
                 >
                   + 新增需求
                 </button>
@@ -1916,7 +1920,7 @@ export default function TrainingDetail() {
                                               key={opt}
                                               type="button"
                                               onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, requirementType: selected ? '' : opt } : r))}
-                                              className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${selected ? 'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]' : 'border-slate-200 bg-white text-slate-500 hover:border-blue-300'}`}
+                                              className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${selected ? 'border-[#b85c3a] bg-[#fdf3ea] text-[#8c3e24]' : 'border-slate-200 bg-white text-slate-500 hover:border-blue-300'}`}
                                             >{opt}</button>
                                           )
                                         })}
@@ -1949,7 +1953,7 @@ export default function TrainingDetail() {
                                     <button
                                       type="button"
                                       onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, expandDetail: false } : r))}
-                                      className="rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60 text-xs"
+                                      className="rounded-lg bg-[#b85c3a] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#8c3e24] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#8c3e24] disabled:opacity-60 text-xs"
                                     >保存</button>
                                   </div>
                                 </td>
@@ -2021,7 +2025,7 @@ export default function TrainingDetail() {
                 )
               })}
               {planDesignStatus === '已完成' && (
-                <button type="button" className="ml-auto rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60 text-xs" onClick={() => alert('任务清单生成功能即将上线')}>
+                <button type="button" className="ml-auto rounded-lg bg-[#b85c3a] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#8c3e24] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#8c3e24] disabled:opacity-60 text-xs" onClick={() => alert('任务清单生成功能即将上线')}>
                   生成任务清单
                 </button>
               )}
@@ -2038,7 +2042,7 @@ export default function TrainingDetail() {
               <button
                 type="button"
                 onClick={() => setPlanDesignStatus((p) => p === '已完成' ? '草稿中' : '已完成')}
-                className={`rounded border px-3 py-1.5 text-xs ${planDesignStatus === '已完成' ? 'border-slate-200 text-slate-500 hover:text-slate-700' : 'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a] hover:bg-[#f5e8dc]'}`}
+                className={`rounded border px-3 py-1.5 text-xs ${planDesignStatus === '已完成' ? 'border-slate-200 text-slate-500 hover:text-slate-700' : 'border-[#b85c3a] bg-[#fdf3ea] text-[#8c3e24] hover:bg-[#f5e8dc]'}`}
               >
                 {planDesignStatus === '已完成' ? '撤回完成标记' : '标记为已完成'}
               </button>
@@ -2051,7 +2055,7 @@ export default function TrainingDetail() {
 
                 {/* 组1：培训目标与对象 */}
                 <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-                  <div className="mb-4 border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">培训目标与对象</div>
+                  <div className="mb-4 border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">培训目标与对象</div>
                   <div className="space-y-4">
 
                     {/* 培训目标 */}
@@ -2116,7 +2120,7 @@ export default function TrainingDetail() {
 
                 {/* 组2：培训方式与内容 */}
                 <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-                  <div className="mb-4 border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">培训方式与内容</div>
+                  <div className="mb-4 border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">培训方式与内容</div>
                   <div className="space-y-5">
 
                     {/* 培训方式 */}
@@ -2128,7 +2132,7 @@ export default function TrainingDetail() {
                           return (
                             <button key={m} type="button"
                               onClick={() => setPlanMethods((p) => active ? p.filter((x) => x !== m) : [...p, m])}
-                              className={`rounded-full border px-3 py-1 text-xs transition-colors ${active ? 'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>
+                              className={`rounded-full border px-3 py-1 text-xs transition-colors ${active ? 'border-[#b85c3a] bg-[#fdf3ea] text-[#8c3e24]' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>
                               {m}
                             </button>
                           )
@@ -2193,7 +2197,7 @@ export default function TrainingDetail() {
 
                 {/* 组3：效果预期与检验 */}
                 <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-                  <div className="mb-4 border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">效果预期与检验</div>
+                  <div className="mb-4 border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">效果预期与检验</div>
                   <div className="space-y-4">
 
                     {/* 预计总时长 */}
@@ -2222,7 +2226,7 @@ export default function TrainingDetail() {
                         {['考试','问卷调查','现场观察','不做检验'].map((m) => (
                           <button key={m} type="button"
                             onClick={() => setPlanCheckMethod((p) => p === m ? '' : m)}
-                            className={`rounded-full border px-3 py-1 text-xs transition-colors ${planCheckMethod === m ? 'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>
+                            className={`rounded-full border px-3 py-1 text-xs transition-colors ${planCheckMethod === m ? 'border-[#b85c3a] bg-[#fdf3ea] text-[#8c3e24]' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>
                             {m}
                           </button>
                         ))}
@@ -2329,14 +2333,14 @@ export default function TrainingDetail() {
                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${resPlanStatus === '已完成' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>{resPlanStatus}</span>
               </div>
               <button type="button" onClick={() => setResPlanStatus((p) => p === '已完成' ? '草稿中' : '已完成')}
-                className={`rounded border px-3 py-1.5 text-xs ${resPlanStatus === '已完成' ? 'border-slate-200 text-slate-500 hover:text-slate-700' : 'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a] hover:bg-[#f5e8dc]'}`}>
+                className={`rounded border px-3 py-1.5 text-xs ${resPlanStatus === '已完成' ? 'border-slate-200 text-slate-500 hover:text-slate-700' : 'border-[#b85c3a] bg-[#fdf3ea] text-[#8c3e24] hover:bg-[#f5e8dc]'}`}>
                 {resPlanStatus === '已完成' ? '撤回完成标记' : '标记为已完成'}
               </button>
             </div>
 
             {/* 组1: 时间安排 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">时间安排</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">时间安排</div>
               <div className="space-y-2">
                 {resSessions.map((sess) => (
                   <div key={sess.id} className="flex items-center gap-2">
@@ -2359,7 +2363,7 @@ export default function TrainingDetail() {
 
             {/* 组2: 人员与场地 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">人员与场地</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">人员与场地</div>
 
               {/* 讲师 */}
               <div>
@@ -2371,7 +2375,7 @@ export default function TrainingDetail() {
                         {(['内部','外部'] as const).map((tp) => (
                           <button key={tp} type="button"
                             onClick={() => setResTeachers((p) => p.map((x) => x.id === t.id ? {...x, type: tp} : x))}
-                            className={`rounded border px-2 py-1 text-xs ${t.type === tp ? 'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{tp}</button>
+                            className={`rounded border px-2 py-1 text-xs ${t.type === tp ? 'border-[#b85c3a] bg-[#fdf3ea] text-[#8c3e24]' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{tp}</button>
                         ))}
                       </div>
                       <input value={t.name} onChange={(e) => setResTeachers((p) => p.map((x) => x.id === t.id ? {...x, name: e.target.value} : x))}
@@ -2407,7 +2411,7 @@ export default function TrainingDetail() {
 
             {/* 组3: 物资与费用 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">物资与费用</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">物资与费用</div>
 
               {/* 设备 tags */}
               <div>
@@ -2508,7 +2512,7 @@ export default function TrainingDetail() {
 
                 {/* 区域1: 需求覆盖检查表 */}
                 <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-                  <div className="mb-4 border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">需求覆盖检查表</div>
+                  <div className="mb-4 border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">需求覆盖检查表</div>
                   <div className="overflow-x-auto rounded-lg border border-gray-200">
                     <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed'}}>
                       <colgroup>
@@ -2559,7 +2563,7 @@ export default function TrainingDetail() {
                                   {['已修正','保留说明','暂搁置'].map((c) => (
                                     <button key={c} type="button"
                                       onClick={() => setReviewChecks((p) => p.map((x) => x.id === chk.id ? {...x, conclusion: c} : x))}
-                                      className={`rounded-full border px-2 py-0.5 text-xs ${chk.conclusion === c ? 'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]' : 'border-slate-200 text-slate-400 hover:border-slate-300'}`}>{c}</button>
+                                      className={`rounded-full border px-2 py-0.5 text-xs ${chk.conclusion === c ? 'border-[#b85c3a] bg-[#fdf3ea] text-[#8c3e24]' : 'border-slate-200 text-slate-400 hover:border-slate-300'}`}>{c}</button>
                                   ))}
                                 </div>
                               ) : <span className="text-xs text-slate-300">—</span>}
@@ -2593,7 +2597,7 @@ export default function TrainingDetail() {
 
                 {/* 区域2: 审核结论 */}
                 <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-                  <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">审核结论</div>
+                  <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">审核结论</div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="mb-1.5 block text-xs font-medium text-gray-700">审核人</label>
@@ -2630,13 +2634,13 @@ export default function TrainingDetail() {
                 {reviewConclusion === '审核通过' && (
                   <div className="space-y-3">
                     <button type="button" onClick={() => setShowTaskList((p) => !p)}
-                      className="w-full rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60 w-full py-3">
+                      className="w-full rounded-lg bg-[#b85c3a] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#8c3e24] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#8c3e24] disabled:opacity-60 w-full py-3">
                       🗂️ {showTaskList ? '收起' : '生成'}培训计划任务清单
                     </button>
                     {showTaskList && (
                       <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-4 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
                         <div className="mb-3 flex items-center justify-between">
-                          <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">培训计划任务清单</div>
+                          <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">培训计划任务清单</div>
                           <button type="button" onClick={() => alert('导出功能即将上线')}
                             className="rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">📄 导出任务清单</button>
                         </div>
@@ -2753,7 +2757,7 @@ export default function TrainingDetail() {
             </div>
 
             {/* Hint */}
-            <div className="rounded-lg border border-[#e8e0d4] bg-[#fdf8f3] px-4 py-2.5 text-xs text-[#6b5d4f] border-l-4 border-l-[#c8956c]">
+            <div className="rounded-lg border border-[#e8e0d4] bg-[#fdf8f3] px-4 py-2.5 text-xs text-[#6b5d4f] border-l-4 border-l-[#b85c3a]">
               📋 本阶段任务清单已从阶段二任务清单自动导入，可在此追踪制作进度
             </div>
 
@@ -2865,7 +2869,7 @@ export default function TrainingDetail() {
             {/* Op bar */}
             <div className="flex items-center gap-2">
               <button type="button" onClick={()=>alert('上传功能即将接入')}
-                className="rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60">📤 上传新材料</button>
+                className="rounded-lg bg-[#b85c3a] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#8c3e24] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#8c3e24] disabled:opacity-60">📤 上传新材料</button>
               <button type="button" onClick={()=>alert('材料库即将上线')}
                 className="rounded border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">📚 从材料库选取</button>
             </div>
@@ -3079,14 +3083,14 @@ export default function TrainingDetail() {
                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${implPrepStatus==='已完成'?'bg-green-50 text-green-600':'bg-yellow-50 text-yellow-600'}`}>{implPrepStatus}</span>
               </div>
               <button type="button" onClick={()=>setImplPrepStatus(p=>p==='已完成'?'草稿中':'已完成')}
-                className={`rounded border px-3 py-1.5 text-xs ${implPrepStatus==='已完成'?'border-slate-200 text-slate-500':'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a] hover:bg-[#f5e8dc]'}`}>
+                className={`rounded border px-3 py-1.5 text-xs ${implPrepStatus==='已完成'?'border-slate-200 text-slate-500':'border-[#b85c3a] bg-[#fdf3ea] text-[#8c3e24] hover:bg-[#f5e8dc]'}`}>
                 {implPrepStatus==='已完成'?'撤回完成标记':'标记为已完成'}
               </button>
             </div>
 
             {/* 组1: 通知发送 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-3">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">通知发送</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">通知发送</div>
               {implNotices.map((n) => (
                 <div key={n.id} className="flex flex-wrap items-center gap-2">
                   <input type="datetime-local" value={n.sendTime} onChange={(e)=>setImplNotices(p=>p.map(x=>x.id===n.id?{...x,sendTime:e.target.value}:x))}
@@ -3096,7 +3100,7 @@ export default function TrainingDetail() {
                   <div className="flex gap-1">
                     {(['企业微信','邮件','系统通知'] as const).map(m=>(
                       <button key={m} type="button" onClick={()=>setImplNotices(p=>p.map(x=>x.id===n.id?{...x,method:m}:x))}
-                        className={`rounded border px-2 py-1 text-xs ${n.method===m?'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]':'border-slate-200 text-slate-400 hover:border-blue-200'}`}>{m}</button>
+                        className={`rounded border px-2 py-1 text-xs ${n.method===m?'border-[#b85c3a] bg-[#fdf3ea] text-[#8c3e24]':'border-slate-200 text-slate-400 hover:border-blue-200'}`}>{m}</button>
                     ))}
                   </div>
                   <button type="button" onClick={()=>setImplNotices(p=>p.map(x=>x.id===n.id?{...x,sent:!x.sent}:x))}
@@ -3110,7 +3114,7 @@ export default function TrainingDetail() {
 
             {/* 组2: 报名管理 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">报名管理</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">报名管理</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">计划参训人数</label>
@@ -3142,7 +3146,7 @@ export default function TrainingDetail() {
 
             {/* 组3: 场地确认 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">场地确认</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">场地确认</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">场地 / 平台
@@ -3173,7 +3177,7 @@ export default function TrainingDetail() {
 
             {/* 组4: 物料就绪确认 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-3">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">物料就绪确认</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">物料就绪确认</div>
               <div className="text-xs text-slate-400">以下材料已从阶段三课件材料自动导入，请逐项确认已就绪</div>
               <div className="space-y-2">
                 {implMaterials.map((m)=>(
@@ -3219,13 +3223,13 @@ export default function TrainingDetail() {
               })}
             </div>
             {/* Hint */}
-            <div className="rounded-lg border border-[#e8e0d4] bg-[#fdf8f3] px-4 py-2.5 text-xs text-[#6b5d4f] border-l-4 border-l-[#c8956c]">
+            <div className="rounded-lg border border-[#e8e0d4] bg-[#fdf8f3] px-4 py-2.5 text-xs text-[#6b5d4f] border-l-4 border-l-[#b85c3a]">
               📋 请在培训当天或结束后及时填写本项内容
             </div>
 
             {/* 组1: 签到记录 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">签到记录</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">签到记录</div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">实际签到人数</label>
@@ -3240,7 +3244,7 @@ export default function TrainingDetail() {
                   <div className="flex flex-wrap gap-1.5">
                     {(['纸质','扫码','系统自动'] as const).map(m=>(
                       <button key={m} type="button" onClick={()=>setImplSignMethod(m)}
-                        className={`rounded-full border px-2.5 py-0.5 text-xs ${implSignMethod===m?'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]':'border-slate-200 text-slate-400 hover:border-blue-200'}`}>{m}</button>
+                        className={`rounded-full border px-2.5 py-0.5 text-xs ${implSignMethod===m?'border-[#b85c3a] bg-[#fdf3ea] text-[#8c3e24]':'border-slate-200 text-slate-400 hover:border-blue-200'}`}>{m}</button>
                     ))}
                   </div>
                 </div>
@@ -3253,7 +3257,7 @@ export default function TrainingDetail() {
 
             {/* 组2: 实际培训信息 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">实际培训信息</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">实际培训信息</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">实际开始时间</label>
@@ -3280,7 +3284,7 @@ export default function TrainingDetail() {
 
             {/* 组3: 过程记录 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">过程记录</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">过程记录</div>
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-gray-700">过程说明</label>
                 <textarea value={implProcessNote} onChange={(e)=>setImplProcessNote(e.target.value)} rows={3}
@@ -3333,13 +3337,13 @@ export default function TrainingDetail() {
 
             {/* 组1: 考核方式 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">考核方式</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">考核方式</div>
               <div>
                 <label className="mb-2 block text-xs font-medium text-gray-700">考核方式</label>
                 <div className="flex flex-wrap gap-2">
                   {(['笔试','线上答题','口头问答','现场演练','无考核'] as const).map(m=>(
                     <button key={m} type="button" onClick={()=>setImplExamMethod(m)}
-                      className={`rounded-full border px-3 py-1 text-xs ${implExamMethod===m?'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]':'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{m}</button>
+                      className={`rounded-full border px-3 py-1 text-xs ${implExamMethod===m?'border-[#b85c3a] bg-[#fdf3ea] text-[#8c3e24]':'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{m}</button>
                   ))}
                 </div>
               </div>
@@ -3355,7 +3359,7 @@ export default function TrainingDetail() {
 
             {/* 组2: 成绩录入 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-              <div className="mb-4 border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">成绩录入</div>
+              <div className="mb-4 border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">成绩录入</div>
               <div className="overflow-x-auto rounded-lg border border-gray-200">
                 <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed'}}>
                   <colgroup>
@@ -3407,7 +3411,7 @@ export default function TrainingDetail() {
 
             {/* 组3: 不合格处理 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">不合格处理</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">不合格处理</div>
               {(() => {
                 const failed = implScores.filter(x=>!x.pass)
                 return failed.length===0 ? (
@@ -3469,14 +3473,14 @@ export default function TrainingDetail() {
                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${evalStatus==='已完成'?'bg-green-50 text-green-600':'bg-yellow-50 text-yellow-600'}`}>{evalStatus}</span>
               </div>
               <button type="button" onClick={()=>setEvalStatus(p=>p==='已完成'?'草稿中':'已完成')}
-                className={`rounded border px-3 py-1.5 text-xs ${evalStatus==='已完成'?'border-slate-200 text-slate-500':'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a] hover:bg-[#f5e8dc]'}`}>
+                className={`rounded border px-3 py-1.5 text-xs ${evalStatus==='已完成'?'border-slate-200 text-slate-500':'border-[#b85c3a] bg-[#fdf3ea] text-[#8c3e24] hover:bg-[#f5e8dc]'}`}>
                 {evalStatus==='已完成'?'撤回完成标记':'标记为已完成'}
               </button>
             </div>
 
             {/* 组1: 满意度调查 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">满意度调查</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">满意度调查</div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-700">问卷状态</label>
@@ -3518,7 +3522,7 @@ export default function TrainingDetail() {
 
             {/* 组2: 培训目标达成 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-              <div className="mb-1 border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">培训目标达成评估</div>
+              <div className="mb-1 border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">培训目标达成评估</div>
               <div className="mb-3 text-xs text-slate-400">以下目标已从阶段二方案设计自动导入</div>
               <div className="overflow-x-auto rounded-lg border border-gray-200">
                 <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed'}}>
@@ -3554,7 +3558,7 @@ export default function TrainingDetail() {
 
             {/* 组3: 考核数据分析 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">考核数据分析</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">考核数据分析</div>
               <div className="text-xs text-slate-400">以下数据已从阶段四考核测试自动导入</div>
               <div className="grid grid-cols-3 gap-3">
                 {[
@@ -3577,7 +3581,7 @@ export default function TrainingDetail() {
 
             {/* 组4: 综合评估结论 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-              <div className="mb-3 border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">综合评估结论</div>
+              <div className="mb-3 border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">综合评估结论</div>
               <textarea value={evalConclusion} onChange={(e)=>setEvalConclusion(e.target.value)} rows={4}
                 className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"/>
             </div>
@@ -3611,7 +3615,7 @@ export default function TrainingDetail() {
                 )
               })}
             </div>
-            <div className="rounded-lg border border-[#e8e0d4] bg-[#fdf8f3] px-4 py-2.5 text-xs text-[#6b5d4f] border-l-4 border-l-[#c8956c]">
+            <div className="rounded-lg border border-[#e8e0d4] bg-[#fdf8f3] px-4 py-2.5 text-xs text-[#6b5d4f] border-l-4 border-l-[#b85c3a]">
               📋 以下归档清单已自动从各阶段提取，请确认各项文件就绪
             </div>
 
@@ -3662,7 +3666,7 @@ export default function TrainingDetail() {
                   )
                 })()}
                 <button type="button" onClick={()=>alert('导出功能即将上线')}
-                  className="w-full rounded-lg bg-[#c8956c] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#a0714a] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#a0714a] disabled:opacity-60 py-2.5">
+                  className="w-full rounded-lg bg-[#b85c3a] px-[18px] py-2 text-sm font-semibold text-white shadow-[0_2px_0_#8c3e24] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#8c3e24] disabled:opacity-60 py-2.5">
                   📦 导出归档包
                 </button>
               </div>
@@ -3701,7 +3705,7 @@ export default function TrainingDetail() {
 
             {/* 组1: 本次培训总结 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-5">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">本次培训总结</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">本次培训总结</div>
               <div>
                 <label className="mb-2 block text-xs font-medium text-gray-700">培训亮点</label>
                 <div className="space-y-1.5">
@@ -3734,7 +3738,7 @@ export default function TrainingDetail() {
 
             {/* 组2: 改进建议 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">改进建议</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">改进建议</div>
               <div>
                 <label className="mb-2 block text-xs font-medium text-gray-700">改进建议列表</label>
                 <div className="space-y-1.5">
@@ -3758,13 +3762,13 @@ export default function TrainingDetail() {
 
             {/* 组3: 课件归库 */}
             <div className="rounded-[10px] border border-[#ede8df] bg-white px-6 py-5 mb-4 shadow-[0_1px_4px_rgba(0,0,0,0.06)] space-y-4">
-              <div className="border-l-4 border-[#c8956c] pl-2.5 text-[15px] font-bold text-[#c8956c]">课件归库</div>
+              <div className="border-l-4 border-[#b85c3a] pl-2.5 text-[15px] font-bold text-[#b85c3a]">课件归库</div>
               <div>
                 <label className="mb-2 block text-xs font-medium text-gray-700">课件是否纳入材料库</label>
                 <div className="flex gap-2">
                   {(['全部纳入','部分纳入','不纳入'] as const).map(s=>(
                     <button key={s} type="button" onClick={()=>setImproveCoursewarePolicy(s)}
-                      className={`rounded-full border px-3 py-1 text-xs ${improveCoursewarePolicy===s?'border-[#c8956c] bg-[#fdf3ea] text-[#a0714a]':'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{s}</button>
+                      className={`rounded-full border px-3 py-1 text-xs ${improveCoursewarePolicy===s?'border-[#b85c3a] bg-[#fdf3ea] text-[#8c3e24]':'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{s}</button>
                   ))}
                 </div>
               </div>
