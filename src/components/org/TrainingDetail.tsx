@@ -601,12 +601,25 @@ export default function TrainingDetail() {
   const [progressPopoverId, setProgressPopoverId] = useState<string | null>(null)
   const [unifiedDialogOptId, setUnifiedDialogOptId] = useState<string | null>(null)
 
-  const MOCK_REQ_LIST: Array<{id:number;title:string;desc:string;keywords:string[];sources:string[];priority:string;status:string;expanded:boolean}> = [
-    { id: 1, title: '掌握反洗钱识别方法', desc: '员工需能识别日常业务中的洗钱风险信号并及时上报', keywords: ['反洗钱', '风险识别'], sources: ['政策规则'], priority: '高', status: '已纳入计划', expanded: false },
-    { id: 2, title: '熟悉可疑交易报告流程', desc: '规范化可疑交易填报操作，确保合规申报率达标', keywords: ['可疑交易', '合规申报'], sources: ['专项指令'], priority: '中', status: '待转化', expanded: false },
-    { id: 3, title: '了解岗位合规操作规范', desc: '各岗位人员需掌握本岗位对应的操作合规要点与禁忌', keywords: ['岗位合规', '操作规范'], sources: ['岗位职责'], priority: '低', status: '暂不处理', expanded: false },
+  type ReqItem = {
+    id: number; title: string; desc: string; keywords: string[];
+    sources: string[]; priority: string; status: string; expanded: boolean;
+    trainingSubject: string[]; scenario: string; requirementType: string; relatedAction: string;
+    expandDetail: boolean;
+  }
+  const MOCK_REQ_LIST: ReqItem[] = [
+    { id: 1, title: '掌握反洗钱交易识别方法', desc: '员工需能识别日常业务中的洗钱风险信号并及时上报',
+      keywords: ['反洗钱', '合规义务'], sources: ['政策规则'], priority: '高', status: '已纳入计划', expanded: false,
+      trainingSubject: ['合规岗', '客户经理'], scenario: '日常业务审核中发现异常交易',
+      requirementType: '实操类', relatedAction: '识别 → 记录 → 上报', expandDetail: false },
+    { id: 2, title: '了解监管合规基本框架', desc: '员工需理解公司合规体系的层级结构和基本要求',
+      keywords: ['合规框架', '监管要求'], sources: ['专项指令'], priority: '中', status: '待转化', expanded: false,
+      trainingSubject: ['全员'], scenario: '', requirementType: '理念类', relatedAction: '', expandDetail: false },
+    { id: 3, title: '熟悉客户风险分级操作规程', desc: '客户经理需掌握 KYC 流程中的风险评级方法',
+      keywords: ['KYC', '风险分级'], sources: ['岗位职责'], priority: '高', status: '暂不处理', expanded: false,
+      trainingSubject: [], scenario: '', requirementType: '', relatedAction: '', expandDetail: false },
   ]
-  const [reqList, setReqList] = useState<Array<{id:number;title:string;desc:string;keywords:string[];sources:string[];priority:string;status:string;expanded:boolean}>>(MOCK_REQ_LIST)
+  const [reqList, setReqList] = useState<ReqItem[]>(MOCK_REQ_LIST)
   const [sourceDropdownRowId, setSourceDropdownRowId] = useState<number | null>(null)
   const [ideaText, setIdeaText] = useState('')
   const [ideaLogs, setIdeaLogs] = useState<Array<{id:number;seq:number;time:string;text:string;aiSources:string[]|null;selectedSources:string[]}>>([])  
@@ -1453,7 +1466,7 @@ export default function TrainingDetail() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setReqList((prev) => [...prev, { id: Date.now(), title: '', desc: '', keywords: [], sources: [], priority: '中', status: '待转化', expanded: false }])}
+                  onClick={() => setReqList((prev) => [...prev, { id: Date.now(), title: '', desc: '', keywords: [], sources: [], priority: '中', status: '待转化', expanded: false, trainingSubject: [], scenario: '', requirementType: '', relatedAction: '', expandDetail: false }])}
                   className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
                 >
                   + 新增需求
@@ -1465,160 +1478,294 @@ export default function TrainingDetail() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] border-collapse text-xs">
+                  <table className="border-collapse text-xs" style={{tableLayout:'fixed',width:'1220px'}}>
                     <thead>
                       <tr className="bg-gray-50">
                         <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600" style={{width:'40px'}}>序号</th>
                         <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'120px'}}>需求名称</th>
-                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600 min-w-[200px]">需求描述</th>
-                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'150px'}}>来源关键词</th>
+                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'180px'}}>需求描述</th>
+                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'120px'}}>培训主体</th>
+                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'150px'}}>对应场景</th>
+                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'90px'}}>需求属性</th>
+                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'150px'}}>关联操作</th>
+                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'130px'}}>来源关键词</th>
                         <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'80px'}}>优先级</th>
                         <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'100px'}}>状态</th>
                         <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600" style={{width:'60px'}}>操作</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {reqList.map((row, idx) => (
-                        <tr key={row.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} style={{height:'48px'}}>
-                          {/* 序号 */}
-                          <td className="border border-gray-200 px-3 py-2 text-center text-slate-400">{idx + 1}</td>
+                      {reqList.map((row, idx) => {
+                        const isComplete = row.trainingSubject.length > 0 && !!row.scenario && !!row.requirementType && !!row.relatedAction
+                        return (
+                          <React.Fragment key={row.id}>
+                            {/* Main data row */}
+                            <tr className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} style={{height:'48px'}}>
+                              {/* 序号 */}
+                              <td className="border border-gray-200 px-3 py-2 text-center text-slate-400">{idx + 1}</td>
 
-                          {/* 需求名称 */}
-                          <td className="border border-gray-200 px-3 py-2">
-                            <input
-                              value={row.title}
-                              onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, title: e.target.value } : r))}
-                              placeholder="输入需求名称…"
-                              className="w-full rounded border-0 bg-transparent text-xs text-slate-800 outline-none placeholder:text-slate-300 focus:ring-0"
-                            />
-                          </td>
+                              {/* 需求名称 */}
+                              <td className="border border-gray-200 px-3 py-2">
+                                <input
+                                  value={row.title}
+                                  onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, title: e.target.value } : r))}
+                                  placeholder="输入需求名称…"
+                                  className="w-full rounded border-0 bg-transparent text-xs text-slate-800 outline-none placeholder:text-slate-300 focus:ring-0"
+                                />
+                              </td>
 
-                          {/* 需求描述 */}
-                          <td className="border border-gray-200 px-3 py-2 align-middle">
-                            {row.expanded ? (
-                              <textarea
-                                autoFocus
-                                value={row.desc}
-                                onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, desc: e.target.value } : r))}
-                                onBlur={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, expanded: false } : r))}
-                                onKeyDown={(e) => { if (e.key === 'Escape') setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, expanded: false } : r)) }}
-                                rows={2}
-                                className="w-full resize-none rounded border border-blue-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none focus:ring-1 focus:ring-blue-100"
-                              />
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, expanded: true } : r))}
-                                className="w-full text-left text-xs text-slate-600 hover:text-blue-600"
-                              >
-                                {row.desc || <span className="text-slate-300">点击添加描述…</span>}
-                              </button>
-                            )}
-                          </td>
+                              {/* 需求描述 */}
+                              <td className="border border-gray-200 px-3 py-2 align-middle">
+                                {row.expanded ? (
+                                  <textarea
+                                    autoFocus
+                                    value={row.desc}
+                                    onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, desc: e.target.value } : r))}
+                                    onBlur={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, expanded: false } : r))}
+                                    onKeyDown={(e) => { if (e.key === 'Escape') setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, expanded: false } : r)) }}
+                                    rows={2}
+                                    className="w-full resize-none rounded border border-blue-200 bg-white px-2 py-1 text-xs text-slate-700 outline-none focus:ring-1 focus:ring-blue-100"
+                                  />
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, expanded: true } : r))}
+                                    className="w-full text-left text-xs text-slate-600 hover:text-blue-600"
+                                  >
+                                    {row.desc || <span className="text-slate-300">点击添加描述…</span>}
+                                  </button>
+                                )}
+                              </td>
 
-                          {/* 来源关键词 */}
-                          <td className="border border-gray-200 px-3 py-2">
-                            <div className="relative flex flex-wrap items-center gap-1">
-                              {row.keywords.length === 0 && row.sources.length === 0 && (
-                                <span className="text-xs text-slate-300">—</span>
-                              )}
-                              {row.keywords.map((kw) => (
-                                <span key={kw} className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                                  {kw}
-                                  <button type="button" onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, keywords: r.keywords.filter((k) => k !== kw) } : r))} className="ml-0.5 text-slate-400 hover:text-slate-700">×</button>
-                                </span>
-                              ))}
-                              {row.sources.map((src) => (
-                                <span key={src} className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600">
-                                  {src}
-                                  {row.sources.length > 1 && (
-                                    <button type="button" onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, sources: r.sources.filter((s) => s !== src) } : r))} className="ml-0.5 text-blue-400 hover:text-blue-700">×</button>
-                                  )}
-                                </span>
-                              ))}
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); setSourceDropdownRowId(sourceDropdownRowId === row.id ? null : row.id) }}
-                                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-slate-300 text-xs text-slate-400 hover:border-blue-400 hover:text-blue-500"
-                              >＋</button>
-                              {sourceDropdownRowId === row.id && (
-                                <div className="absolute left-0 top-7 z-30 min-w-[160px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-                                  {['政策规则','专项指令','岗位职责','工作计划','日常沟通','问卷调查','人员访谈','专题座谈','项目复盘'].map((label) => {
-                                    const checked = row.sources.includes(label)
-                                    return (
-                                      <button key={label} type="button"
-                                        onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, sources: checked ? r.sources.filter((s) => s !== label) : [...r.sources, label] } : r))}
-                                        className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-slate-50"
-                                      >
-                                        <span className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border ${checked ? 'border-blue-500 bg-blue-500 text-white' : 'border-slate-300'}`}>
-                                          {checked && <Check className="h-2.5 w-2.5" />}
-                                        </span>
-                                        {label}
-                                      </button>
-                                    )
-                                  })}
-                                  <div className="border-t border-slate-100 px-3 pt-1 pb-1">
-                                    <button type="button" onClick={() => setSourceDropdownRowId(null)} className="text-xs text-slate-400 hover:text-slate-600">完成</button>
+                              {/* 培训主体 */}
+                              <td className="border border-gray-200 px-3 py-2">
+                                {row.trainingSubject.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {row.trainingSubject.map((s) => (
+                                      <span key={s} className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-600">{s}</span>
+                                    ))}
                                   </div>
+                                ) : (
+                                  <span className="text-xs text-slate-300">—</span>
+                                )}
+                              </td>
+
+                              {/* 对应场景 */}
+                              <td className="border border-gray-200 px-3 py-2">
+                                <span className="text-xs text-slate-600">{row.scenario || <span className="text-slate-300">—</span>}</span>
+                              </td>
+
+                              {/* 需求属性 */}
+                              <td className="border border-gray-200 px-3 py-2">
+                                {row.requirementType ? (
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                    row.requirementType === '实操类' ? 'bg-blue-50 text-blue-600' :
+                                    row.requirementType === '理念类' ? 'bg-purple-50 text-purple-600' :
+                                    row.requirementType === '技术类' ? 'bg-teal-50 text-teal-600' :
+                                    'bg-orange-50 text-orange-600'
+                                  }`}>{row.requirementType}</span>
+                                ) : (
+                                  <span className="text-xs text-slate-300">—</span>
+                                )}
+                              </td>
+
+                              {/* 关联操作 */}
+                              <td className="border border-gray-200 px-3 py-2">
+                                <span className="text-xs text-slate-600">{row.relatedAction || <span className="text-slate-300">—</span>}</span>
+                              </td>
+
+                              {/* 来源关键词 */}
+                              <td className="border border-gray-200 px-3 py-2">
+                                <div className="relative flex flex-wrap items-center gap-1">
+                                  {row.keywords.length === 0 && row.sources.length === 0 && (
+                                    <span className="text-xs text-slate-300">—</span>
+                                  )}
+                                  {row.keywords.map((kw) => (
+                                    <span key={kw} className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                                      {kw}
+                                      <button type="button" onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, keywords: r.keywords.filter((k) => k !== kw) } : r))} className="ml-0.5 text-slate-400 hover:text-slate-700">×</button>
+                                    </span>
+                                  ))}
+                                  {row.sources.map((src) => (
+                                    <span key={src} className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600">
+                                      {src}
+                                      {row.sources.length > 1 && (
+                                        <button type="button" onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, sources: r.sources.filter((s) => s !== src) } : r))} className="ml-0.5 text-blue-400 hover:text-blue-700">×</button>
+                                      )}
+                                    </span>
+                                  ))}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setSourceDropdownRowId(sourceDropdownRowId === row.id ? null : row.id) }}
+                                    className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-slate-300 text-xs text-slate-400 hover:border-blue-400 hover:text-blue-500"
+                                  >＋</button>
+                                  {sourceDropdownRowId === row.id && (
+                                    <div className="absolute left-0 top-7 z-30 min-w-[160px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                                      {['政策规则','专项指令','岗位职责','工作计划','日常沟通','问卷调查','人员访谈','专题座谈','项目复盘'].map((label) => {
+                                        const checked = row.sources.includes(label)
+                                        return (
+                                          <button key={label} type="button"
+                                            onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, sources: checked ? r.sources.filter((s) => s !== label) : [...r.sources, label] } : r))}
+                                            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-slate-50"
+                                          >
+                                            <span className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border ${checked ? 'border-blue-500 bg-blue-500 text-white' : 'border-slate-300'}`}>
+                                              {checked && <Check className="h-2.5 w-2.5" />}
+                                            </span>
+                                            {label}
+                                          </button>
+                                        )
+                                      })}
+                                      <div className="border-t border-slate-100 px-3 pt-1 pb-1">
+                                        <button type="button" onClick={() => setSourceDropdownRowId(null)} className="text-xs text-slate-400 hover:text-slate-600">完成</button>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          </td>
+                              </td>
 
-                          {/* 优先级 badge + dropdown */}
-                          <td className="border border-gray-200 px-3 py-2">
-                            <select
-                              value={row.priority}
-                              onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, priority: e.target.value } : r))}
-                              className={`rounded px-2 py-1 text-xs font-medium outline-none border ${
-                                row.priority === '高'
-                                  ? 'border-red-200 bg-red-50 text-red-600'
-                                  : row.priority === '中'
-                                    ? 'border-orange-200 bg-orange-50 text-orange-600'
-                                    : 'border-slate-200 bg-slate-50 text-slate-500'
-                              }`}
-                            >
-                              <option value="高">高</option>
-                              <option value="中">中</option>
-                              <option value="低">低</option>
-                            </select>
-                          </td>
+                              {/* 优先级 */}
+                              <td className="border border-gray-200 px-3 py-2">
+                                <select
+                                  value={row.priority}
+                                  onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, priority: e.target.value } : r))}
+                                  className={`rounded px-2 py-1 text-xs font-medium outline-none border ${
+                                    row.priority === '高'
+                                      ? 'border-red-200 bg-red-50 text-red-600'
+                                      : row.priority === '中'
+                                        ? 'border-orange-200 bg-orange-50 text-orange-600'
+                                        : 'border-slate-200 bg-slate-50 text-slate-500'
+                                  }`}
+                                >
+                                  <option value="高">高</option>
+                                  <option value="中">中</option>
+                                  <option value="低">低</option>
+                                </select>
+                              </td>
 
-                          {/* 状态 badge */}
-                          <td className="border border-gray-200 px-3 py-2">
-                            {row.status === '待转化' ? (
-                              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-500">待转化</span>
-                            ) : row.status === '已纳入计划' ? (
-                              <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs text-blue-600">已纳入计划</span>
-                            ) : (
-                              <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs text-orange-600">暂不处理</span>
+                              {/* 状态 */}
+                              <td className="border border-gray-200 px-3 py-2">
+                                {row.status === '待转化' ? (
+                                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-500">待转化</span>
+                                ) : row.status === '已纳入计划' ? (
+                                  <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs text-blue-600">已纳入计划</span>
+                                ) : (
+                                  <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs text-orange-600">暂不处理</span>
+                                )}
+                                {row.status !== '暂不处理' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (window.confirm('确定标记为暂不处理？')) {
+                                        setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, status: '暂不处理' } : r))
+                                      }
+                                    }}
+                                    className="ml-1 text-xs text-slate-300 hover:text-orange-500"
+                                    title="标记为暂不处理"
+                                  >⊘</button>
+                                )}
+                              </td>
+
+                              {/* 操作列：完整/待完善 badge + 删除 */}
+                              <td className="border border-gray-200 px-2 py-2 text-center">
+                                <div className="flex flex-col items-center gap-1">
+                                  {isComplete ? (
+                                    <span className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs text-green-600">✓ 完整</span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, expandDetail: !r.expandDetail } : r))}
+                                      className="inline-flex items-center rounded-full border border-yellow-300 bg-yellow-50 px-2 py-0.5 text-xs text-yellow-700 hover:bg-yellow-100"
+                                    >待完善</button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => setReqList((prev) => prev.filter((r) => r.id !== row.id))}
+                                    className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-300 hover:bg-red-50 hover:text-red-500"
+                                  ><X className="h-3 w-3" /></button>
+                                </div>
+                              </td>
+                            </tr>
+
+                            {/* Inline detail form row */}
+                            {row.expandDetail && (
+                              <tr className="bg-amber-50/40">
+                                <td colSpan={11} className="border border-gray-200 px-4 py-4">
+                                  <div className="grid grid-cols-2 gap-4">
+                                    {/* 培训主体 multi-select */}
+                                    <div>
+                                      <div className="mb-1.5 text-xs font-medium text-slate-600">培训主体 <span className="text-slate-400 font-normal">（多选）</span></div>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {['合规岗','客户经理','运营岗','管理层','全员'].map((opt) => {
+                                          const selected = row.trainingSubject.includes(opt)
+                                          return (
+                                            <button
+                                              key={opt}
+                                              type="button"
+                                              onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? {
+                                                ...r, trainingSubject: selected
+                                                  ? r.trainingSubject.filter((s) => s !== opt)
+                                                  : [...r.trainingSubject, opt]
+                                              } : r))}
+                                              className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${selected ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-500 hover:border-indigo-300'}`}
+                                            >{opt}</button>
+                                          )
+                                        })}
+                                      </div>
+                                    </div>
+
+                                    {/* 需求属性 single-select */}
+                                    <div>
+                                      <div className="mb-1.5 text-xs font-medium text-slate-600">需求属性</div>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {['理念类','实操类','技术类','合规类'].map((opt) => {
+                                          const selected = row.requirementType === opt
+                                          return (
+                                            <button
+                                              key={opt}
+                                              type="button"
+                                              onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, requirementType: selected ? '' : opt } : r))}
+                                              className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${selected ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-500 hover:border-blue-300'}`}
+                                            >{opt}</button>
+                                          )
+                                        })}
+                                      </div>
+                                    </div>
+
+                                    {/* 对应场景 */}
+                                    <div>
+                                      <div className="mb-1.5 text-xs font-medium text-slate-600">对应场景</div>
+                                      <input
+                                        value={row.scenario}
+                                        onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, scenario: e.target.value } : r))}
+                                        placeholder="描述触发该需求的工作场景"
+                                        className="w-full rounded border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+                                      />
+                                    </div>
+
+                                    {/* 关联操作 */}
+                                    <div>
+                                      <div className="mb-1.5 text-xs font-medium text-slate-600">关联操作</div>
+                                      <input
+                                        value={row.relatedAction}
+                                        onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, relatedAction: e.target.value } : r))}
+                                        placeholder="如：识别→记录→上报"
+                                        className="w-full rounded border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="mt-3 flex justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, expandDetail: false } : r))}
+                                      className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                                    >保存</button>
+                                  </div>
+                                </td>
+                              </tr>
                             )}
-                            {row.status !== '暂不处理' && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (window.confirm('确定标记为暂不处理？')) {
-                                    setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, status: '暂不处理' } : r))
-                                  }
-                                }}
-                                className="ml-1 text-xs text-slate-300 hover:text-orange-500"
-                                title="标记为暂不处理"
-                              >⊘</button>
-                            )}
-                          </td>
-
-                          {/* 操作 */}
-                          <td className="border border-gray-200 px-3 py-2 text-center">
-                            <button
-                              type="button"
-                              onClick={() => setReqList((prev) => prev.filter((r) => r.id !== row.id))}
-                              className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-300 hover:bg-red-50 hover:text-red-500"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                          </React.Fragment>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1626,6 +1773,19 @@ export default function TrainingDetail() {
             </div>
             {/* bottom actions */}
             <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
+              {/* stats summary */}
+              {reqList.length > 0 && (() => {
+                const totalCount = reqList.length
+                const completeCount = reqList.filter((r) => r.trainingSubject.length > 0 && !!r.scenario && !!r.requirementType && !!r.relatedAction).length
+                const pendingCount = totalCount - completeCount
+                return (
+                  <div className="mb-3 text-xs text-slate-500">
+                    共 <span className="font-medium text-slate-700">{totalCount}</span> 条需求，
+                    <span className="font-medium text-green-600">{completeCount}</span> 条已完整，
+                    <span className="font-medium text-orange-500">{pendingCount}</span> 条待完善
+                  </div>
+                )
+              })()}
               <div className="flex items-center justify-between">
                 <button
                   type="button"
@@ -1679,6 +1839,11 @@ export default function TrainingDetail() {
                   priority: '中',
                   status: '待转化',
                   expanded: false,
+                  trainingSubject: [],
+                  scenario: '',
+                  requirementType: '',
+                  relatedAction: '',
+                  expandDetail: false,
                 }))
               return [...filtered, ...newRows]
             })
