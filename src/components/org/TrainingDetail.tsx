@@ -616,6 +616,38 @@ export default function TrainingDetail() {
   const [planEffectDesc, setPlanEffectDesc] = useState('')
   const [planCheckMethod, setPlanCheckMethod] = useState('')
 
+  // ── 资源计划 state ──────────────────────────────────────────
+  const [resPlanStatus, setResPlanStatus] = useState<'草稿中'|'已完成'>('草稿中')
+  const [resSessions, setResSessions] = useState<Array<{id:number;name:string;date:string;startTime:string;endTime:string}>>(
+    [{id:1,name:'第一场',date:'2026-06-15',startTime:'09:00',endTime:'12:00'}]
+  )
+  const [resTeachers, setResTeachers] = useState<Array<{id:number;type:'内部'|'外部';name:string;dept:string}>>(
+    [{id:1,type:'内部',name:'张合规',dept:'合规部'}]
+  )
+  const [resVenue, setResVenue] = useState('')
+  const [resCapacity, setResCapacity] = useState('')
+  const [resEquipment, setResEquipment] = useState<string[]>(['投影仪','签到平板','问卷系统'])
+  const [resEquipmentInput, setResEquipmentInput] = useState('')
+  const [resDepts, setResDepts] = useState<string[]>(['人力资源部','IT部'])
+  const [resDeptsInput, setResDeptsInput] = useState('')
+  const [resBudget, setResBudget] = useState('')
+  const [resBudgetNote, setResBudgetNote] = useState('')
+
+  // ── 需求回顾 state ──────────────────────────────────────────
+  const [reviewStatus, setReviewStatus] = useState<'草稿中'|'已完成'>('草稿中')
+  const [reviewChecks, setReviewChecks] = useState<Array<{id:number;reqTitle:string;reqType:string;coverStatus:string;note:string;conclusion:string}>>(
+    [
+      {id:1,reqTitle:'掌握反洗钱交易识别方法',reqType:'实操类',coverStatus:'已覆盖',note:'',conclusion:''},
+      {id:2,reqTitle:'了解监管合规基本框架',reqType:'理念类',coverStatus:'部分覆盖',note:'场景覆盖不足，需补充线上直播场景',conclusion:'已修正'},
+      {id:3,reqTitle:'熟悉客户风险分级操作规程',reqType:'技术类',coverStatus:'已覆盖',note:'',conclusion:''},
+    ]
+  )
+  const [reviewAuditor, setReviewAuditor] = useState('')
+  const [reviewOpinion, setReviewOpinion] = useState('')
+  const [reviewConclusion, setReviewConclusion] = useState<''|'审核通过'|'需修改'>('审核通过')
+  const [showTaskList, setShowTaskList] = useState(false)
+
+
   type ReqItem = {
     id: number; title: string; desc: string; keywords: string[];
     sources: string[]; priority: string; status: string; expanded: boolean;
@@ -2129,12 +2161,14 @@ export default function TrainingDetail() {
             </div>
           </div>
 
-        ) : stage === '计划设计' && (activeTab === '资源计划' || activeTab === '需求回顾') ? (
+        ) : stage === '计划设计' && activeTab === '资源计划' ? (
+          /* ── 计划设计 / 资源计划 ── */
           <div className="space-y-4">
             {/* Sub-stage progress bar */}
             <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
               {(['方案设计','资源计划','需求回顾'] as const).map((sub, idx) => {
-                const done = sub === '方案设计' && planDesignStatus === '已完成'
+                const done = (sub === '方案设计' && planDesignStatus === '已完成') ||
+                             (sub === '资源计划' && resPlanStatus === '已完成')
                 const current = activeTab === sub
                 return (
                   <React.Fragment key={sub}>
@@ -2143,17 +2177,421 @@ export default function TrainingDetail() {
                       <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${done ? 'bg-green-100' : current ? 'bg-blue-100' : 'bg-slate-100'}`}>
                         {done ? '✓' : idx + 1}
                       </span>
-                      {sub}
-                      {done && <span className="text-green-500">✓</span>}
+                      {sub}{done && <span className="text-green-500">✓</span>}
                     </div>
                   </React.Fragment>
                 )
               })}
             </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-              <div className="text-2xl mb-2">🚧</div>
-              <div className="text-sm font-medium text-slate-600">{activeTab}</div>
-              <div className="mt-1 text-xs text-slate-400">本子项开发中，即将上线</div>
+
+            {/* Hint */}
+            <div className="flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs text-blue-700">
+              <span>💡 培训方式会影响场地和设备需求，建议先完成方案设计后填写本项</span>
+              <button type="button" onClick={() => setActiveTab('方案设计')} className="ml-4 flex-shrink-0 text-blue-500 underline hover:text-blue-700">前往方案设计</button>
+            </div>
+
+            {/* Status bar */}
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-slate-800">资源计划</span>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${resPlanStatus === '已完成' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>{resPlanStatus}</span>
+              </div>
+              <button type="button" onClick={() => setResPlanStatus((p) => p === '已完成' ? '草稿中' : '已完成')}
+                className={`rounded border px-3 py-1.5 text-xs ${resPlanStatus === '已完成' ? 'border-slate-200 text-slate-500 hover:text-slate-700' : 'border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
+                {resPlanStatus === '已完成' ? '撤回完成标记' : '标记为已完成'}
+              </button>
+            </div>
+
+            {/* 组1: 时间安排 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="text-sm font-semibold text-slate-700">时间安排</div>
+              <div className="space-y-2">
+                {resSessions.map((sess) => (
+                  <div key={sess.id} className="flex items-center gap-2">
+                    <input value={sess.name} onChange={(e) => setResSessions((p) => p.map((s) => s.id === sess.id ? {...s, name: e.target.value} : s))}
+                      placeholder="场次名称" className="w-20 rounded-md border border-gray-300 px-2 py-1.5 text-xs outline-none focus:border-blue-500" />
+                    <input type="date" value={sess.date} onChange={(e) => setResSessions((p) => p.map((s) => s.id === sess.id ? {...s, date: e.target.value} : s))}
+                      className="rounded-md border border-gray-300 px-2 py-1.5 text-xs outline-none focus:border-blue-500" />
+                    <input type="time" value={sess.startTime} onChange={(e) => setResSessions((p) => p.map((s) => s.id === sess.id ? {...s, startTime: e.target.value} : s))}
+                      className="rounded-md border border-gray-300 px-2 py-1.5 text-xs outline-none focus:border-blue-500" />
+                    <span className="text-xs text-slate-400">—</span>
+                    <input type="time" value={sess.endTime} onChange={(e) => setResSessions((p) => p.map((s) => s.id === sess.id ? {...s, endTime: e.target.value} : s))}
+                      className="rounded-md border border-gray-300 px-2 py-1.5 text-xs outline-none focus:border-blue-500" />
+                    <button type="button" onClick={() => setResSessions((p) => p.filter((s) => s.id !== sess.id))} className="text-slate-300 hover:text-red-500"><X className="h-3.5 w-3.5" /></button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => setResSessions((p) => [...p, {id: Date.now(), name:'', date:'', startTime:'', endTime:''}])}
+                  className="text-xs text-blue-500 hover:text-blue-700">+ 添加场次</button>
+              </div>
+            </div>
+
+            {/* 组2: 人员与场地 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="text-sm font-semibold text-slate-700">人员与场地</div>
+
+              {/* 讲师 */}
+              <div>
+                <label className="mb-2 block text-xs font-medium text-gray-700">讲师安排</label>
+                <div className="space-y-2">
+                  {resTeachers.map((t) => (
+                    <div key={t.id} className="flex items-center gap-2">
+                      <div className="flex gap-1">
+                        {(['内部','外部'] as const).map((tp) => (
+                          <button key={tp} type="button"
+                            onClick={() => setResTeachers((p) => p.map((x) => x.id === t.id ? {...x, type: tp} : x))}
+                            className={`rounded border px-2 py-1 text-xs ${t.type === tp ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{tp}</button>
+                        ))}
+                      </div>
+                      <input value={t.name} onChange={(e) => setResTeachers((p) => p.map((x) => x.id === t.id ? {...x, name: e.target.value} : x))}
+                        placeholder={t.type === '内部' ? '姓名' : '机构名称'} className="w-28 rounded-md border border-gray-300 px-2 py-1.5 text-xs outline-none focus:border-blue-500" />
+                      {t.type === '内部' && (
+                        <input value={t.dept} onChange={(e) => setResTeachers((p) => p.map((x) => x.id === t.id ? {...x, dept: e.target.value} : x))}
+                          placeholder="所属部门" className="w-28 rounded-md border border-gray-300 px-2 py-1.5 text-xs outline-none focus:border-blue-500" />
+                      )}
+                      <button type="button" onClick={() => setResTeachers((p) => p.filter((x) => x.id !== t.id))} className="text-slate-300 hover:text-red-500"><X className="h-3.5 w-3.5" /></button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setResTeachers((p) => [...p, {id: Date.now(), type:'内部', name:'', dept:''}])}
+                    className="text-xs text-blue-500 hover:text-blue-700">+ 添加讲师</button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">场地 / 平台</label>
+                  <input value={resVenue} onChange={(e) => setResVenue(e.target.value)} placeholder="线下填具体地点；线上填会议平台及链接"
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs outline-none focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">预计容纳人数</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min={0} value={resCapacity} onChange={(e) => setResCapacity(e.target.value)} placeholder="0"
+                      className="w-24 rounded-md border border-gray-300 px-3 py-1.5 text-xs outline-none focus:border-blue-500" />
+                    <span className="text-xs text-slate-500">人</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 组3: 物资与费用 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="text-sm font-semibold text-slate-700">物资与费用</div>
+
+              {/* 设备 tags */}
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700">所需设备工具</label>
+                <div className="flex flex-wrap gap-1.5 rounded-md border border-gray-300 p-2 min-h-[36px] focus-within:border-blue-500">
+                  {resEquipment.map((e) => (
+                    <span key={e} className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600">
+                      {e}<button type="button" onClick={() => setResEquipment((p) => p.filter((x) => x !== e))} className="text-slate-400 hover:text-slate-700">×</button>
+                    </span>
+                  ))}
+                  <input value={resEquipmentInput} onChange={(e) => setResEquipmentInput(e.target.value)}
+                    onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ',') && resEquipmentInput.trim()) { setResEquipment((p) => [...p, resEquipmentInput.trim()]); setResEquipmentInput(''); e.preventDefault() }}}
+                    placeholder="输入后回车添加" className="min-w-[80px] flex-1 border-0 bg-transparent text-xs outline-none placeholder:text-slate-300" />
+                </div>
+              </div>
+
+              {/* 协同部门 tags */}
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700">协同部门</label>
+                <div className="flex flex-wrap gap-1.5 rounded-md border border-gray-300 p-2 min-h-[36px] focus-within:border-blue-500">
+                  {resDepts.map((d) => (
+                    <span key={d} className="inline-flex items-center gap-0.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs text-indigo-600">
+                      {d}<button type="button" onClick={() => setResDepts((p) => p.filter((x) => x !== d))} className="text-indigo-400 hover:text-indigo-700">×</button>
+                    </span>
+                  ))}
+                  <input value={resDeptsInput} onChange={(e) => setResDeptsInput(e.target.value)}
+                    onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ',') && resDeptsInput.trim()) { setResDepts((p) => [...p, resDeptsInput.trim()]); setResDeptsInput(''); e.preventDefault() }}}
+                    placeholder="输入后回车添加" className="min-w-[80px] flex-1 border-0 bg-transparent text-xs outline-none placeholder:text-slate-300" />
+                </div>
+              </div>
+
+              {/* 预算 */}
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700">预算估算</label>
+                <div className="flex items-center gap-2">
+                  <input type="number" min={0} value={resBudget} onChange={(e) => setResBudget(e.target.value)} placeholder="0"
+                    className="w-28 rounded-md border border-gray-300 px-3 py-1.5 text-xs outline-none focus:border-blue-500" />
+                  <span className="text-xs text-slate-500 flex-shrink-0">元</span>
+                  <input value={resBudgetNote} onChange={(e) => setResBudgetNote(e.target.value)} placeholder="备注（如：含讲师差旅）"
+                    className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-xs outline-none focus:border-blue-500" />
+                </div>
+              </div>
+            </div>
+
+            {/* 底部交付物 */}
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2 text-xs text-slate-600">
+                <span className="font-medium">交付物：资源需求清单</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${resPlanStatus === '已完成' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>{resPlanStatus}</span>
+              </div>
+              <button type="button" onClick={() => alert('导出功能即将上线')}
+                className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">导出清单</button>
+            </div>
+          </div>
+
+        ) : stage === '计划设计' && activeTab === '需求回顾' ? (
+          /* ── 计划设计 / 需求回顾 ── */
+          <div className="space-y-4">
+            {/* Sub-stage progress bar */}
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              {(['方案设计','资源计划','需求回顾'] as const).map((sub, idx) => {
+                const done = (sub === '方案设计' && planDesignStatus === '已完成') ||
+                             (sub === '资源计划' && resPlanStatus === '已完成')
+                const current = activeTab === sub
+                return (
+                  <React.Fragment key={sub}>
+                    {idx > 0 && <div className="h-px flex-1 bg-slate-200" />}
+                    <div className={`flex items-center gap-1.5 text-xs font-medium ${done ? 'text-green-600' : current ? 'text-blue-600' : 'text-slate-400'}`}>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${done ? 'bg-green-100' : current ? 'bg-blue-100' : 'bg-slate-100'}`}>
+                        {done ? '✓' : idx + 1}
+                      </span>
+                      {sub}{done && <span className="text-green-500">✓</span>}
+                    </div>
+                  </React.Fragment>
+                )
+              })}
+            </div>
+
+            {/* Hint */}
+            <div className="flex items-center gap-3 rounded-lg border border-orange-100 bg-orange-50 px-4 py-2.5 text-xs text-orange-700">
+              <span>⚠️ 本环节需确认方案设计和资源计划已完成，再进行需求覆盖核查</span>
+            </div>
+
+            {/* Status bar */}
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-slate-800">需求回顾</span>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${reviewConclusion === '审核通过' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>
+                  {reviewConclusion === '审核通过' ? '审核通过' : '待审核'}
+                </span>
+                <span className="text-xs text-slate-400">审核通过后方可生成任务清单</span>
+              </div>
+            </div>
+
+            {/* Main: form + sidebar */}
+            <div className="flex gap-4">
+              <div className="min-w-0 flex-1 space-y-4">
+
+                {/* 区域1: 需求覆盖检查表 */}
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 text-sm font-semibold text-slate-700">需求覆盖检查表</div>
+                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed'}}>
+                      <colgroup>
+                        <col style={{width:'40px'}} /><col style={{width:'160px'}} /><col style={{width:'80px'}} />
+                        <col style={{width:'150px'}} /><col /><col style={{width:'110px'}} />
+                      </colgroup>
+                      <thead className="bg-gray-50">
+                        <tr>
+                          {['序号','需求名称','需求属性','覆盖状态','存疑说明','处置结论'].map((h) => (
+                            <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-slate-600">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reviewChecks.map((chk, ci) => (
+                          <tr key={chk.id} className={ci % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            <td className="border border-gray-200 px-3 py-2.5 text-center text-slate-400">{ci + 1}</td>
+                            <td className="border border-gray-200 px-3 py-2.5 text-slate-700">{chk.reqTitle}</td>
+                            <td className="border border-gray-200 px-3 py-2.5 text-center">
+                              {chk.reqType && (
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${
+                                  chk.reqType === '实操类' ? 'bg-blue-50 text-blue-600' :
+                                  chk.reqType === '理念类' ? 'bg-purple-50 text-purple-600' :
+                                  chk.reqType === '技术类' ? 'bg-teal-50 text-teal-600' :
+                                  'bg-orange-50 text-orange-600'}`}>{chk.reqType}</span>
+                              )}
+                            </td>
+                            <td className="border border-gray-200 px-3 py-2.5">
+                              <div className="flex flex-wrap gap-1">
+                                {['已覆盖','部分覆盖','未覆盖'].map((s) => (
+                                  <button key={s} type="button"
+                                    onClick={() => setReviewChecks((p) => p.map((c) => c.id === chk.id ? {...c, coverStatus: s} : c))}
+                                    className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${chk.coverStatus === s
+                                      ? (s === '已覆盖' ? 'border-green-400 bg-green-50 text-green-700' : s === '部分覆盖' ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-red-400 bg-red-50 text-red-700')
+                                      : 'border-slate-200 text-slate-400 hover:border-slate-300'}`}>{s}</button>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="border border-gray-200 px-3 py-2.5">
+                              <input value={chk.note}
+                                onChange={(e) => setReviewChecks((p) => p.map((c) => c.id === chk.id ? {...c, note: e.target.value} : c))}
+                                placeholder={chk.coverStatus !== '已覆盖' ? '请填写存疑说明（必填）' : '—'}
+                                className={`w-full rounded border bg-transparent px-2 py-0.5 text-xs outline-none focus:ring-1 ${chk.coverStatus !== '已覆盖' && !chk.note ? 'border-orange-300 focus:ring-orange-100 placeholder:text-orange-300' : 'border-slate-200 focus:ring-blue-100 placeholder:text-slate-300'}`} />
+                            </td>
+                            <td className="border border-gray-200 px-3 py-2.5">
+                              {chk.note ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {['已修正','保留说明','暂搁置'].map((c) => (
+                                    <button key={c} type="button"
+                                      onClick={() => setReviewChecks((p) => p.map((x) => x.id === chk.id ? {...x, conclusion: c} : x))}
+                                      className={`rounded-full border px-2 py-0.5 text-xs ${chk.conclusion === c ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-400 hover:border-slate-300'}`}>{c}</button>
+                                  ))}
+                                </div>
+                              ) : <span className="text-xs text-slate-300">—</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Coverage stats */}
+                  {(() => {
+                    const covered = reviewChecks.filter((c) => c.coverStatus === '已覆盖').length
+                    const partial = reviewChecks.filter((c) => c.coverStatus === '部分覆盖').length
+                    const none = reviewChecks.filter((c) => c.coverStatus === '未覆盖').length
+                    const total = reviewChecks.length
+                    const pct = total > 0 ? Math.round(((covered + partial) / total) * 100) : 0
+                    return (
+                      <div className="mt-3 flex items-center gap-3 text-xs">
+                        <span className="text-slate-500">已覆盖 <span className="font-medium text-green-600">{covered}</span></span>
+                        <span className="text-slate-300">·</span>
+                        <span className="text-slate-500">部分覆盖 <span className="font-medium text-orange-500">{partial}</span></span>
+                        <span className="text-slate-300">·</span>
+                        <span className="text-slate-500">未覆盖 <span className="font-medium text-red-500">{none}</span></span>
+                        <span className="text-slate-300">·</span>
+                        <span className="text-slate-500">覆盖率 <span className="font-medium text-blue-600">{pct}%（含处置）</span></span>
+                      </div>
+                    )
+                  })()}
+                </div>
+
+                {/* 区域2: 审核结论 */}
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                  <div className="text-sm font-semibold text-slate-700">审核结论</div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-gray-700">审核人</label>
+                      <input value={reviewAuditor} onChange={(e) => setReviewAuditor(e.target.value)} placeholder="填写审核人姓名"
+                        className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500" />
+                    </div>
+                    <div></div>
+                    <div className="col-span-2">
+                      <label className="mb-1.5 block text-xs font-medium text-gray-700">审核意见</label>
+                      <textarea value={reviewOpinion} onChange={(e) => setReviewOpinion(e.target.value)} rows={3}
+                        placeholder="填写审核意见…"
+                        className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100" />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="mb-2 block text-xs font-medium text-gray-700">审核结论</label>
+                      <div className="flex gap-3">
+                        {([['审核通过','border-green-400 bg-green-50 text-green-700','border-slate-200 text-slate-500'],
+                           ['需修改','border-orange-400 bg-orange-50 text-orange-700','border-slate-200 text-slate-500']] as const).map(([label, activeClass, inactiveClass]) => (
+                          <button key={label} type="button"
+                            onClick={() => setReviewConclusion(reviewConclusion === label ? '' : label)}
+                            className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ${reviewConclusion === label ? activeClass : inactiveClass + ' hover:border-slate-300'}`}>
+                            {label === '审核通过' ? '✅' : '⚠️'} {label}
+                          </button>
+                        ))}
+                      </div>
+                      {reviewConclusion === '需修改' && (
+                        <div className="mt-2 text-xs text-orange-600">请完善上方存疑项后重新提交</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 生成任务清单 */}
+                {reviewConclusion === '审核通过' && (
+                  <div className="space-y-3">
+                    <button type="button" onClick={() => setShowTaskList((p) => !p)}
+                      className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white shadow hover:bg-blue-700">
+                      🗂️ {showTaskList ? '收起' : '生成'}培训计划任务清单
+                    </button>
+                    {showTaskList && (
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between">
+                          <div className="text-sm font-semibold text-slate-700">培训计划任务清单</div>
+                          <button type="button" onClick={() => alert('导出功能即将上线')}
+                            className="rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">📄 导出任务清单</button>
+                        </div>
+                        <div className="overflow-x-auto rounded-lg border border-gray-200">
+                          <table className="w-full border-collapse text-xs">
+                            <thead className="bg-gray-50">
+                              <tr>{['序号','任务名称','类别','负责人','截止日期','前置依赖','状态'].map((h) => (
+                                <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-slate-600">{h}</th>
+                              ))}</tr>
+                            </thead>
+                            <tbody>
+                              {[
+                                {n:'制作反洗钱识别方法课件',cat:'内容准备',owner:'张合规',due:'2026-06-10',dep:'无'},
+                                {n:'设计可疑交易案例集',cat:'内容准备',owner:'李培训',due:'2026-06-10',dep:'任务1'},
+                                {n:'预订培训场地',cat:'行政安排',owner:'王行政',due:'2026-06-05',dep:'无'},
+                                {n:'发送培训通知',cat:'沟通通知',owner:'王行政',due:'2026-06-08',dep:'任务3'},
+                                {n:'准备签到系统',cat:'技术准备',owner:'IT支持',due:'2026-06-12',dep:'无'},
+                              ].map((t, ti) => (
+                                <tr key={ti} className={ti % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                  <td className="border border-gray-200 px-3 py-2.5 text-center text-slate-400">{ti + 1}</td>
+                                  <td className="border border-gray-200 px-3 py-2.5 text-slate-700">{t.n}</td>
+                                  <td className="border border-gray-200 px-3 py-2.5 text-center">
+                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">{t.cat}</span>
+                                  </td>
+                                  <td className="border border-gray-200 px-3 py-2.5 text-center text-slate-600">{t.owner}</td>
+                                  <td className="border border-gray-200 px-3 py-2.5 text-center text-slate-600">{t.due}</td>
+                                  <td className="border border-gray-200 px-3 py-2.5 text-center text-slate-400">{t.dep}</td>
+                                  <td className="border border-gray-200 px-3 py-2.5 text-center">
+                                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-500">未开始</span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Sidebar */}
+              {planSidebarOpen ? (
+                <div className="flex-shrink-0" style={{width:'280px'}}>
+                  <div className="sticky top-4 rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                      <span className="text-xs font-semibold text-slate-700">📋 需求清单（阶段一）</span>
+                      <button type="button" onClick={() => setPlanSidebarOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">收起</button>
+                    </div>
+                    <div className="max-h-[70vh] overflow-y-auto p-3 space-y-2">
+                      {reqList.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-slate-400">阶段一暂无需求条目</div>
+                      ) : reqList.map((r) => {
+                        const complete = r.trainingSubject.length > 0 && !!r.scenario && !!r.requirementType && !!r.relatedAction
+                        return (
+                          <div key={r.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3 space-y-1.5">
+                            <div className="text-xs font-semibold text-slate-800 leading-tight">{r.title || '（未命名）'}</div>
+                            <div className="flex flex-wrap items-center gap-1">
+                              {r.requirementType && (
+                                <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-xs ${
+                                  r.requirementType === '实操类' ? 'bg-blue-50 text-blue-600' :
+                                  r.requirementType === '理念类' ? 'bg-purple-50 text-purple-600' :
+                                  r.requirementType === '技术类' ? 'bg-teal-50 text-teal-600' :
+                                  'bg-orange-50 text-orange-600'
+                                }`}>{r.requirementType}</span>
+                              )}
+                              {r.trainingSubject.map((s) => (
+                                <span key={s} className="inline-flex items-center rounded-full bg-indigo-50 px-1.5 py-0.5 text-xs text-indigo-600">{s}</span>
+                              ))}
+                              <span className={`ml-auto inline-flex items-center rounded-full px-1.5 py-0.5 text-xs ${complete ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>
+                                {complete ? '✓ 完整' : '待完善'}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-shrink-0">
+                  <button type="button" onClick={() => setPlanSidebarOpen(true)}
+                    className="sticky top-4 flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white shadow-sm text-sm hover:bg-slate-50" title="展开需求清单">
+                    📋
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
