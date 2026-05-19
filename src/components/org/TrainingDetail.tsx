@@ -25,9 +25,9 @@ type NotionNodeRow = {
   [key: string]: unknown
 }
 
-type StageKey = '需求立项' | '计划设计' | '材料准备' | '培训实施' | '归档评估'
+type StageKey = '需求立项' | '计划设计' | '材料准备' | '培训实施' | '评估归档'
 
-const STAGES: StageKey[] = ['需求立项', '计划设计', '材料准备', '培训实施', '归档评估']
+const STAGES: StageKey[] = ['需求立项', '计划设计', '材料准备', '培训实施', '评估归档']
 
 type DemandStatus = '待开始' | '进行中' | '已完成'
 
@@ -73,7 +73,7 @@ function stageIndex(value: string): number {
 
 function normalizeStage(value: string): StageKey {
   if (value === '课件制作') return '材料准备'
-  if (value === '归档闭环') return '归档评估'
+  if (value === '归档闭环') return '评估归档'
   if (STAGES.includes(value as StageKey)) return value as StageKey
   return '需求立项'
 }
@@ -704,7 +704,7 @@ export default function TrainingDetail() {
   ])
   const [implFailMeasure, setImplFailMeasure] = useState('安排补考，时间2026-06-22，补考前需重新学习录播课程')
 
-  // ── 归档评估 state ────────────────────────────────────────────
+  // ── 评估归档 state ────────────────────────────────────────────
   // 效果评估
   const [evalStatus, setEvalStatus] = useState<'草稿中'|'已完成'>('草稿中')
   const [evalSurveyIssued, setEvalSurveyIssued] = useState('已发放')
@@ -849,7 +849,7 @@ export default function TrainingDetail() {
     if (stage === '计划设计') return ['方案设计', '资源计划', '需求回顾']
     if (stage === '材料准备') return ['任务清单', '课件材料', '审核状态']
     if (stage === '培训实施') return ['任务清单', '参训人员', '签到记录']
-    if (stage === '归档评估') return ['效果评估', '数据记录', '证据归档']
+    if (stage === '评估归档') return ['效果评估', '数据记录', '证据归档']
     return ['任务清单']
   }, [stage])
 
@@ -973,71 +973,132 @@ export default function TrainingDetail() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-3">
-        <div className="flex items-center">
-          {STAGES.map((s, idx) => {
-            const done = idx < stageIdx
-            const current = idx === stageIdx
-            return (
-              <React.Fragment key={s}>
-                <button
-                  type="button"
-                  disabled={stageUpdating}
-                  onClick={() => onClickStage(s)}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-medium transition-all disabled:opacity-70 ${
-                    done
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : current
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                  }`}
-                >
-                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                    done ? 'bg-emerald-700 text-white' : current ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-400'
-                  }`}>
-                    {done ? <Check className="h-2.5 w-2.5" /> : idx + 1}
-                  </span>
-                  <span className="truncate">{s}</span>
-                </button>
-                {idx < STAGES.length - 1 && (
-                  <span className="mx-1 shrink-0 select-none text-slate-300">&rsaquo;</span>
-                )}
-              </React.Fragment>
-            )
-          })}
-        </div>
-        {stageUpdateError ? <div className="mt-3 text-sm text-red-700">阶段切换失败：{stageUpdateError}</div> : null}
-      </div>
+      {/* ── Stage navigation ─────────────────────────────────── */}
+      {(() => {
+        const SUB_MAP: Record<string, {code:string; label:string}[]> = {
+          '需求立项': [{code:'1A',label:'信息收集'},{code:'1B',label:'需求清单'}],
+          '计划设计': [{code:'2A',label:'方案设计'},{code:'2B',label:'资源计划'},{code:'2C',label:'需求回顾'}],
+          '材料准备': [{code:'3A',label:'任务清单'},{code:'3B',label:'课件材料'},{code:'3C',label:'审核状态'}],
+          '培训实施': [{code:'4A',label:'实施准备'},{code:'4B',label:'现场执行'},{code:'4C',label:'考核测试'}],
+          '评估归档': [{code:'5A',label:'效果评估'},{code:'5B',label:'归档打包'},{code:'5C',label:'改进建议'}],
+        }
+        const STEP_LABELS = ['STEP 1','STEP 2','STEP 3','STEP 4','STEP 5']
+        return (
+          <div style={{background:'#1e293b',borderRadius:'12px',padding:'16px',marginBottom:'24px'}}>
+            {/* Row 1: parent stage blocks */}
+            <div className="flex items-center">
+              {STAGES.map((s, idx) => {
+                const done = idx < stageIdx
+                const current = idx === stageIdx
+                return (
+                  <React.Fragment key={s}>
+                    <button
+                      type="button"
+                      disabled={stageUpdating}
+                      onClick={() => onClickStage(s)}
+                      style={{
+                        flex: 1,
+                        height: '52px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '3px',
+                        transition: 'filter 150ms',
+                        position: 'relative',
+                        background: done ? '#0f766e' : current ? '#1e40af' : '#334155',
+                        color: done || current ? 'white' : '#e2e8f0',
+                        boxShadow: current ? '0 2px 12px rgba(30,64,175,0.35)' : 'none',
+                      }}
+                      onMouseEnter={(e) => { if (!current) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)' }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = '' }}
+                      className="disabled:opacity-70"
+                    >
+                      <span style={{fontSize:'11px',fontWeight:500,opacity:0.75,lineHeight:1}}>{STEP_LABELS[idx]}</span>
+                      <span style={{fontSize:'14px',fontWeight:600,lineHeight:1}}>
+                        {done ? '✓ ' : ''}{s}
+                      </span>
+                      {current && <span style={{position:'absolute',bottom:0,left:0,right:0,height:'3px',background:'#60a5fa',borderRadius:'0 0 8px 8px'}} />}
+                    </button>
+                    {idx < STAGES.length - 1 && (
+                      <span style={{flexShrink:0,margin:'0 4px',fontSize:'20px',color:'#94a3b8',lineHeight:1,userSelect:'none'}}>›</span>
+                    )}
+                  </React.Fragment>
+                )
+              })}
+            </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-0 mt-1">
-        <div className="inline-flex flex-wrap">
-          {stageTabs.map((tab) => {
-            const selected = activeTab === tab
-            return (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`relative px-5 pb-3 pt-2 text-sm font-medium transition-colors duration-100 ${
-                  selected ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                {tab}
-                {selected && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t bg-blue-600" />}
-              </button>
-            )
-          })}
-        </div>
+            {/* Row 2: sub-item blocks */}
+            <div className="mt-2 flex">
+              {STAGES.map((s, sIdx) => {
+                const subs = SUB_MAP[s] ?? []
+                const isCurrentStage = sIdx === stageIdx
+                return (
+                  <React.Fragment key={s}>
+                    <div style={{flex:1,display:'flex',gap:'1px'}}>
+                      {subs.map((sub) => {
+                        const subActive = isCurrentStage && activeTab === sub.label
+                        const subDone = sIdx < stageIdx
+                        return (
+                          <button
+                            key={sub.code}
+                            type="button"
+                            onClick={() => {
+                              if (!isCurrentStage) onClickStage(s)
+                              setActiveTab(sub.label)
+                            }}
+                            style={{
+                              flex: 1,
+                              height: '40px',
+                              border: 'none',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '2px',
+                              transition: 'filter 150ms',
+                              position: 'relative',
+                              borderRadius: '0 0 6px 6px',
+                              background: subActive ? '#1d4ed8' : subDone ? '#0d9488' : '#475569',
+                              color: subActive || subDone ? 'white' : '#cbd5e1',
+                            }}
+                            onMouseEnter={(e) => { if (!subActive) (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.1)' }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.filter = '' }}
+                          >
+                            <span style={{fontSize:'10px',fontWeight:500,opacity:0.7,lineHeight:1}}>{sub.code}</span>
+                            <span style={{fontSize:'12px',fontWeight:600,lineHeight:1}}>
+                              {subDone && !subActive ? '✓ ' : ''}{sub.label}
+                            </span>
+                            {subActive && <span style={{position:'absolute',bottom:0,left:0,right:0,height:'2px',background:'#93c5fd',borderRadius:'0 0 6px 6px'}} />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {sIdx < STAGES.length - 1 && (
+                      <div style={{width:'28px',flexShrink:0}} />
+                    )}
+                  </React.Fragment>
+                )
+              })}
+            </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setAiOpen((prev) => !prev)}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-          >
-            🤖 人工智能助手
-          </button>
-        </div>
+            {stageUpdateError ? <div className="mt-2 text-xs text-red-400">阶段切换失败：{stageUpdateError}</div> : null}
+          </div>
+        )
+      })()}
+
+      <div className="flex items-center justify-end gap-2 mb-4">
+        <button
+          type="button"
+          onClick={() => setAiOpen((prev) => !prev)}
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+        >
+          🤖 人工智能助手
+        </button>
       </div>
 
       {workUnitLoading ? <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">加载中...</div> : null}
@@ -3406,8 +3467,8 @@ export default function TrainingDetail() {
             </div>
           </div>
 
-        ) : stage === '归档评估' && activeTab === '效果评估' ? (
-          /* ── 归档评估 / 效果评估 ── */
+        ) : stage === '评估归档' && activeTab === '效果评估' ? (
+          /* ── 评估归档 / 效果评估 ── */
           <div className="space-y-4">
             <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
               {(['效果评估','归档打包','改进建议'] as const).map((sub, idx) => {
@@ -3555,8 +3616,8 @@ export default function TrainingDetail() {
             </div>
           </div>
 
-        ) : stage === '归档评估' && activeTab === '归档打包' ? (
-          /* ── 归档评估 / 归档打包 ── */
+        ) : stage === '评估归档' && activeTab === '归档打包' ? (
+          /* ── 评估归档 / 归档打包 ── */
           <div className="space-y-4">
             <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
               {(['效果评估','归档打包','改进建议'] as const).map((sub, idx) => {
@@ -3631,8 +3692,8 @@ export default function TrainingDetail() {
             </div>
           </div>
 
-        ) : stage === '归档评估' && activeTab === '改进建议' ? (
-          /* ── 归档评估 / 改进建议 ── */
+        ) : stage === '评估归档' && activeTab === '改进建议' ? (
+          /* ── 评估归档 / 改进建议 ── */
           <div className="space-y-4">
             <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
               {(['效果评估','归档打包','改进建议'] as const).map((sub, idx) => {
