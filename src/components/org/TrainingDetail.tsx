@@ -7,7 +7,7 @@ import {
   X,
 } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 
 type NotionWorkUnitRow = {
   id: string
@@ -532,7 +532,6 @@ function UnifiedSourcePanel({
 
 export default function TrainingDetail() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const initialTab = String(searchParams.get('tab') ?? '').trim()
 
@@ -988,7 +987,6 @@ export default function TrainingDetail() {
                         flex: 1,
                         height: '52px',
                         borderRadius: '8px',
-                        border: 'none',
                         cursor: 'pointer',
                         display: 'flex',
                         flexDirection: 'column',
@@ -1042,7 +1040,6 @@ export default function TrainingDetail() {
                             style={{
                               flex: 1,
                               height: '40px',
-                              border: 'none',
                               cursor: 'pointer',
                               display: 'flex',
                               flexDirection: 'column',
