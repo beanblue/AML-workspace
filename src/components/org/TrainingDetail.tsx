@@ -1478,20 +1478,33 @@ export default function TrainingDetail() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="border-collapse text-xs" style={{tableLayout:'fixed',width:'1220px'}}>
+                  <table className="border-collapse text-xs" style={{tableLayout:'fixed',minWidth:'1400px',width:'100%'}}>
+                    <colgroup>
+                      <col style={{width:'48px'}} />
+                      <col style={{width:'130px'}} />
+                      <col style={{width:'180px'}} />
+                      <col style={{width:'120px'}} />
+                      <col style={{width:'150px'}} />
+                      <col style={{width:'90px'}} />
+                      <col style={{width:'140px'}} />
+                      <col style={{width:'130px'}} />
+                      <col style={{width:'80px'}} />
+                      <col style={{width:'100px'}} />
+                      <col style={{width:'80px'}} />
+                    </colgroup>
                     <thead>
                       <tr className="bg-gray-50">
-                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600" style={{width:'40px'}}>序号</th>
-                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'120px'}}>需求名称</th>
-                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'180px'}}>需求描述</th>
-                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'120px'}}>培训主体</th>
-                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'150px'}}>对应场景</th>
-                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'90px'}}>需求属性</th>
-                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'150px'}}>关联操作</th>
-                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'130px'}}>来源关键词</th>
-                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'80px'}}>优先级</th>
-                        <th className="border border-gray-200 px-3 py-3 text-left font-semibold text-slate-600" style={{width:'100px'}}>状态</th>
-                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600" style={{width:'60px'}}>操作</th>
+                        <th className="border border-gray-200 px-2 py-3 text-center font-semibold text-slate-600">序号</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">需求名称</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">需求描述</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">培训主体</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">对应场景</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">需求属性</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">关联操作</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">来源关键词</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">优先级</th>
+                        <th className="border border-gray-200 px-3 py-3 text-center font-semibold text-slate-600">状态</th>
+                        <th className="border border-gray-200 px-2 py-3 text-center font-semibold text-slate-600">操作</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1502,10 +1515,10 @@ export default function TrainingDetail() {
                             {/* Main data row */}
                             <tr className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} style={{height:'48px'}}>
                               {/* 序号 */}
-                              <td className="border border-gray-200 px-3 py-2 text-center text-slate-400">{idx + 1}</td>
+                              <td className="border border-gray-200 px-2 py-2 text-center align-middle text-slate-400">{idx + 1}</td>
 
                               {/* 需求名称 */}
-                              <td className="border border-gray-200 px-3 py-2">
+                              <td className="border border-gray-200 px-3 py-2 align-middle" style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                                 <input
                                   value={row.title}
                                   onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, title: e.target.value } : r))}
@@ -1515,7 +1528,7 @@ export default function TrainingDetail() {
                               </td>
 
                               {/* 需求描述 */}
-                              <td className="border border-gray-200 px-3 py-2 align-middle">
+                              <td className="border border-gray-200 px-3 py-2 align-middle" style={{overflow:'hidden',whiteSpace:'normal',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>
                                 {row.expanded ? (
                                   <textarea
                                     autoFocus
@@ -1538,7 +1551,7 @@ export default function TrainingDetail() {
                               </td>
 
                               {/* 培训主体 */}
-                              <td className="border border-gray-200 px-3 py-2">
+                              <td className="border border-gray-200 px-3 py-2 align-middle">
                                 {row.trainingSubject.length > 0 ? (
                                   <div className="flex flex-wrap gap-1">
                                     {row.trainingSubject.map((s) => (
@@ -1551,12 +1564,12 @@ export default function TrainingDetail() {
                               </td>
 
                               {/* 对应场景 */}
-                              <td className="border border-gray-200 px-3 py-2">
+                              <td className="border border-gray-200 px-3 py-2 align-middle" style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                                 <span className="text-xs text-slate-600">{row.scenario || <span className="text-slate-300">—</span>}</span>
                               </td>
 
                               {/* 需求属性 */}
-                              <td className="border border-gray-200 px-3 py-2">
+                              <td className="border border-gray-200 px-3 py-2 align-middle">
                                 {row.requirementType ? (
                                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                                     row.requirementType === '实操类' ? 'bg-blue-50 text-blue-600' :
@@ -1570,12 +1583,12 @@ export default function TrainingDetail() {
                               </td>
 
                               {/* 关联操作 */}
-                              <td className="border border-gray-200 px-3 py-2">
+                              <td className="border border-gray-200 px-3 py-2 align-middle" style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                                 <span className="text-xs text-slate-600">{row.relatedAction || <span className="text-slate-300">—</span>}</span>
                               </td>
 
                               {/* 来源关键词 */}
-                              <td className="border border-gray-200 px-3 py-2">
+                              <td className="border border-gray-200 px-3 py-2 align-middle">
                                 <div className="relative flex flex-wrap items-center gap-1">
                                   {row.keywords.length === 0 && row.sources.length === 0 && (
                                     <span className="text-xs text-slate-300">—</span>
@@ -1624,7 +1637,7 @@ export default function TrainingDetail() {
                               </td>
 
                               {/* 优先级 */}
-                              <td className="border border-gray-200 px-3 py-2">
+                              <td className="border border-gray-200 px-3 py-2 align-middle">
                                 <select
                                   value={row.priority}
                                   onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, priority: e.target.value } : r))}
@@ -1643,7 +1656,7 @@ export default function TrainingDetail() {
                               </td>
 
                               {/* 状态 */}
-                              <td className="border border-gray-200 px-3 py-2">
+                              <td className="border border-gray-200 px-3 py-2 align-middle">
                                 {row.status === '待转化' ? (
                                   <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-500">待转化</span>
                                 ) : row.status === '已纳入计划' ? (
@@ -1666,7 +1679,7 @@ export default function TrainingDetail() {
                               </td>
 
                               {/* 操作列：完整/待完善 badge + 删除 */}
-                              <td className="border border-gray-200 px-2 py-2 text-center">
+                              <td className="border border-gray-200 px-2 py-2 text-center align-middle">
                                 <div className="flex flex-col items-center gap-1">
                                   {isComplete ? (
                                     <span className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs text-green-600">✓ 完整</span>
