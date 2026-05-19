@@ -1011,7 +1011,7 @@ export default function TrainingDetail() {
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-0 mt-1">
         <div className="inline-flex flex-wrap">
-          {stageTabs.map((tab, tabIdx) => {
+          {stageTabs.map((tab) => {
             const selected = activeTab === tab
             return (
               <button
