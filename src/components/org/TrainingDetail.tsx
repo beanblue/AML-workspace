@@ -807,8 +807,6 @@ function SurveySimpleDialog({
               </div>
             )}
           </div>
-
-          </div>
           {/* 3. 培训需求 */}
           <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-2">
             <div className="flex items-center justify-between">
@@ -833,8 +831,6 @@ function SurveySimpleDialog({
             </div>
             <button type="button" onClick={() => setLocal({ ...local, trainingRequirements: [...local.trainingRequirements, { id: `req-${Date.now()}`, text: '' }] })}
               className="text-sm text-blue-600 hover:text-blue-700">+ 新增需求</button>
-          </div>
-
           </div>
           {/* 4. 备注 */}
           <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-1.5">
