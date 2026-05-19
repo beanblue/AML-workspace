@@ -745,8 +745,8 @@ function SurveySimpleDialog({
           </div>
 
           {/* 2. 资料来源 */}
-          <div className="space-y-2">
-            <label className={labelCls}>资料来源</label>
+          <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-2">
+            <div className="mb-1 font-medium text-gray-700">资料来源</div>
             <div className="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
               {(['upload', 'paste'] as const).map((tab) => (
                 <button key={tab} type="button" onClick={() => setLocal({ ...local, sourceTab: tab })}
@@ -808,10 +808,11 @@ function SurveySimpleDialog({
             )}
           </div>
 
+          </div>
           {/* 3. 培训需求 */}
-          <div className="space-y-2">
+          <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-2">
             <div className="flex items-center justify-between">
-              <label className={labelCls}>培训需求</label>
+              <div className="mb-1 font-medium text-gray-700">培训需求</div>
               <button type="button" disabled className="inline-flex cursor-not-allowed items-center gap-1 rounded border border-slate-200 px-2 py-1 text-xs text-slate-400">
                 ✨ 根据资料提炼需求（即将上线）
               </button>
@@ -834,9 +835,10 @@ function SurveySimpleDialog({
               className="text-sm text-blue-600 hover:text-blue-700">+ 新增需求</button>
           </div>
 
+          </div>
           {/* 4. 备注 */}
-          <div className="space-y-1.5">
-            <label className={labelCls}>备注（选填）</label>
+          <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-1.5">
+            <div className="mb-1 font-medium text-gray-700">备注（选填）</div>
             <textarea value={local.remark} onChange={(e) => setLocal({ ...local, remark: e.target.value })} rows={2}
               placeholder="补充说明…"
               className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100" />
@@ -1420,35 +1422,36 @@ export default function TrainingDetail() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="rounded-xl border border-slate-200 bg-white p-3">
+        <div className="flex items-center">
           {STAGES.map((s, idx) => {
             const done = idx < stageIdx
             const current = idx === stageIdx
             return (
-              <button
-                key={s}
-                type="button"
-                disabled={stageUpdating}
-                onClick={() => onClickStage(s)}
-                className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-slate-50 disabled:opacity-70"
-              >
-                <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
-                    done ? 'bg-emerald-600 text-white' : current ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'
+              <React.Fragment key={s}>
+                <button
+                  type="button"
+                  disabled={stageUpdating}
+                  onClick={() => onClickStage(s)}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-medium transition-all disabled:opacity-70 ${
+                    done
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : current
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                   }`}
                 >
-                  {done ? <Check className="h-4 w-4" /> : idx + 1}
-                </div>
-                <div
-                  className={`min-w-0 truncate text-sm ${
-                    done ? 'text-emerald-700' : current ? 'font-semibold text-blue-700' : 'text-slate-600'
-                  }`}
-                >
-                  {s}
-                </div>
-                {idx < STAGES.length - 1 ? <div className="h-[2px] flex-1 bg-slate-200" /> : null}
-              </button>
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                    done ? 'bg-emerald-700 text-white' : current ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-400'
+                  }`}>
+                    {done ? <Check className="h-2.5 w-2.5" /> : idx + 1}
+                  </span>
+                  <span className="truncate">{s}</span>
+                </button>
+                {idx < STAGES.length - 1 && (
+                  <span className={`mx-1 shrink-0 text-xs ${done ? 'text-emerald-400' : current ? 'text-blue-400' : 'text-slate-300'}`}>→</span>
+                )}
+              </React.Fragment>
             )
           })}
         </div>
@@ -1456,17 +1459,22 @@ export default function TrainingDetail() {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex flex-wrap rounded-xl border border-slate-200 bg-white p-1">
-          {stageTabs.map((tab) => {
+        <div className="inline-flex flex-wrap border-b-2 border-transparent">
+          {stageTabs.map((tab, tabIdx) => {
             const selected = activeTab === tab
+            const seq = '①②③④⑤⑥⑦⑧⑨'[tabIdx] ?? ''
             return (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`rounded-lg px-3 py-2 text-sm ${selected ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                className={`relative px-4 pb-2 pt-2 text-sm transition-colors duration-100 ${
+                  selected ? 'font-semibold text-blue-700' : 'text-slate-500 hover:text-slate-700'
+                }`}
               >
+                <span className="mr-1 text-xs text-slate-400">{seq}</span>
                 {tab}
+                {selected && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-t bg-blue-600" />}
               </button>
             )
           })}
@@ -1859,7 +1867,7 @@ export default function TrainingDetail() {
 
             <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
               <table className="w-full min-w-[540px] text-left text-sm">
-                <thead className="bg-slate-50 text-xs text-slate-600">
+                <thead className="bg-gray-50 text-xs text-slate-600">
                   <tr>
                     <th className="w-10 px-3 py-2 font-medium">序号</th>
                     <th className="px-3 py-2 font-medium">来源</th>
@@ -1868,7 +1876,7 @@ export default function TrainingDetail() {
                     <th className="px-3 py-2 font-medium">转化进度</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-gray-100">
                   {selectedDemandOptionIds.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-3 py-6 text-center text-sm text-slate-500">
@@ -1991,9 +1999,9 @@ export default function TrainingDetail() {
         ) : stage === '需求立项' && activeTab === '需求清单' ? (
           <div className="space-y-4">
             {/* table card */}
-            <div className="rounded-xl border border-slate-200 bg-white">
+            <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
               {/* header row */}
-              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
                 <div>
                   <div className="text-sm font-semibold text-slate-900">需求清单</div>
                   <div className="mt-0.5 text-xs text-slate-400">已自动汇入来自各信息来源的需求条目，可手动新增或调整</div>
@@ -2013,7 +2021,7 @@ export default function TrainingDetail() {
               ) : (
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50 text-slate-500">
+                    <tr className="border-b border-gray-200 bg-gray-50 text-slate-500">
                       <th className="w-10 py-2.5 text-center font-medium">序号</th>
                       <th className="py-2.5 pl-3 text-left font-medium">需求标题</th>
                       <th className="w-40 py-2.5 pl-3 text-left font-medium">需求描述</th>
@@ -2023,7 +2031,7 @@ export default function TrainingDetail() {
                       <th className="w-12 py-2.5 text-center font-medium">操作</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
+                  <tbody className="divide-y divide-gray-100">
                     {reqList.map((row, idx) => (
                       <React.Fragment key={row.id}>
                         <tr className="group hover:bg-slate-50">
@@ -2102,7 +2110,7 @@ export default function TrainingDetail() {
               )}
             </div>
             {/* bottom actions */}
-            <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
+            <div className="rounded-xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <button
                   type="button"
