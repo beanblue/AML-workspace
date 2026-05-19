@@ -1292,7 +1292,7 @@ export default function TrainingDetail() {
   const [customDialogOptId, setCustomDialogOptId] = useState<string | null>(null)
   const [demandDetailDraft, setDemandDetailDraft] = useState<DemandDetail | null>(null)
 
-  const [reqList, setReqList] = useState<Array<{id:number;title:string;desc:string;sources:string[];priority:string;status:string;expanded:boolean}>>([])
+  const [reqList, setReqList] = useState<Array<{id:number;title:string;desc:string;sourceKey:string;priority:string;status:string;expanded:boolean}>>([])
   const [ideaText, setIdeaText] = useState('')
   const [ideaLogs, setIdeaLogs] = useState<Array<{id:number;seq:number;time:string;text:string;aiSources:string[]|null;selectedSources:string[]}>>([])  
   const [ideaCollapsed, setIdeaCollapsed] = useState(false)
@@ -2072,10 +2072,13 @@ export default function TrainingDetail() {
             <div className="rounded-xl border border-slate-200 bg-white">
               {/* header row */}
               <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                <div className="text-sm font-semibold text-slate-900">需求清单</div>
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">需求清单</div>
+                  <div className="mt-0.5 text-xs text-slate-400">已自动汇入来自各信息来源的需求条目，可手动新增或调整</div>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setReqList((prev) => [...prev, { id: Date.now(), title: '', desc: '', sources: [], priority: '重要', status: '待转化', expanded: false }])}
+                  onClick={() => setReqList((prev) => [...prev, { id: Date.now(), title: '', desc: '', sourceKey: '', priority: '重要', status: '待转化', expanded: false }])}
                   className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
                 >
                   + 新增需求
@@ -2120,13 +2123,9 @@ export default function TrainingDetail() {
                             </div>
                           </td>
                           <td className="py-2.5 pl-3">
-                            <div className="flex flex-wrap gap-1">
-                              {row.sources.length > 0
-                                ? row.sources.map((s) => (
-                                    <span key={s} className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">{s}</span>
-                                  ))
-                                : <span className="text-slate-300">—</span>}
-                            </div>
+                            {row.sourceKey
+                              ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">{row.sourceKey}</span>
+                              : <span className="rounded-full bg-slate-50 px-2 py-0.5 text-slate-400">手动添加</span>}
                           </td>
                           <td className="py-2.5 pl-3">
                             <select
@@ -2269,6 +2268,15 @@ export default function TrainingDetail() {
             <button
               type="button"
               onClick={() => {
+                const _srcLabel = demandMatrix[optionId]?.label ?? (draft as any).kind
+                const _reqs: { id: string; text: string }[] = 'trainingRequirements' in draft ? (draft as any).trainingRequirements : []
+                setReqList((prev) => {
+                  const filtered = prev.filter((r) => r.sourceKey !== _srcLabel)
+                  const newRows = _reqs.filter((r) => r.text.trim()).map((r) => ({
+                    id: Date.now() + Math.random(), title: r.text.trim(), desc: '', sourceKey: _srcLabel, priority: '重要', status: '待转化', expanded: false,
+                  }))
+                  return [...filtered, ...newRows]
+                })
                 setDemandDetailOpen(false)
                 setDemandDetailOptionId(null)
                 setDemandDetailDraft(null)
@@ -2335,6 +2343,15 @@ export default function TrainingDetail() {
               ...prev,
               [optId]: { ...prev[optId], detail: d },
             }))
+            const _srcLabel = demandMatrix[optId]?.label ?? '问卷'
+            const _reqs = d.trainingRequirements
+            setReqList((prev) => {
+              const filtered = prev.filter((r) => r.sourceKey !== _srcLabel)
+              const newRows = _reqs.filter((r: {text:string}) => r.text.trim()).map((r: {id:string;text:string}) => ({
+                id: Date.now() + Math.random(), title: r.text.trim(), desc: '', sourceKey: _srcLabel, priority: '重要', status: '待转化', expanded: false,
+              }))
+              return [...filtered, ...newRows]
+            })
             setSurveyDialogOptId(null)
           }}
         />
@@ -2351,6 +2368,15 @@ export default function TrainingDetail() {
               ...prev,
               [optId]: { ...prev[optId], detail: d },
             }))
+            const _srcLabel = demandMatrix[optId]?.label ?? '计划'
+            const _reqs = d.trainingRequirements
+            setReqList((prev) => {
+              const filtered = prev.filter((r) => r.sourceKey !== _srcLabel)
+              const newRows = _reqs.filter((r: {text:string}) => r.text.trim()).map((r: {id:string;text:string}) => ({
+                id: Date.now() + Math.random(), title: r.text.trim(), desc: '', sourceKey: _srcLabel, priority: '重要', status: '待转化', expanded: false,
+              }))
+              return [...filtered, ...newRows]
+            })
             setPlanDialogOptId(null)
           }}
         />
@@ -2367,6 +2393,15 @@ export default function TrainingDetail() {
               ...prev,
               [optId]: { ...prev[optId], detail: d },
             }))
+            const _srcLabel = demandMatrix[optId]?.label ?? '复盘'
+            const _reqs = d.trainingRequirements
+            setReqList((prev) => {
+              const filtered = prev.filter((r) => r.sourceKey !== _srcLabel)
+              const newRows = _reqs.filter((r: {text:string}) => r.text.trim()).map((r: {id:string;text:string}) => ({
+                id: Date.now() + Math.random(), title: r.text.trim(), desc: '', sourceKey: _srcLabel, priority: '重要', status: '待转化', expanded: false,
+              }))
+              return [...filtered, ...newRows]
+            })
             setReviewDialogOptId(null)
           }}
         />
@@ -2383,6 +2418,15 @@ export default function TrainingDetail() {
               ...prev,
               [optId]: { ...prev[optId], detail: d },
             }))
+            const _srcLabel = demandMatrix[optId]?.label ?? '自定义'
+            const _reqs = d.trainingRequirements
+            setReqList((prev) => {
+              const filtered = prev.filter((r) => r.sourceKey !== _srcLabel)
+              const newRows = _reqs.filter((r: {text:string}) => r.text.trim()).map((r: {id:string;text:string}) => ({
+                id: Date.now() + Math.random(), title: r.text.trim(), desc: '', sourceKey: _srcLabel, priority: '重要', status: '待转化', expanded: false,
+              }))
+              return [...filtered, ...newRows]
+            })
             setCustomDialogOptId(null)
           }}
         />
