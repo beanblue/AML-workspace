@@ -1527,6 +1527,7 @@ export default function TrainingDetail() {
   const [ideaText, setIdeaText] = useState('')
   const [ideaSaved, setIdeaSaved] = useState('')
   const [ideaCollapsed, setIdeaCollapsed] = useState(false)
+  const [ideaSuggestionVisible, setIdeaSuggestionVisible] = useState(false)
 
   const refreshWorkUnit = async (workUnitId: string) => {
     const res = await fetch('/api/workunit/list?type=%E5%9F%B9%E8%AE%AD')
@@ -1600,7 +1601,7 @@ export default function TrainingDetail() {
   const planRange = buildPlanRange(planStartDate, planEndDate)
 
   const stageTabs = useMemo(() => {
-    if (stage === '需求立项') return ['需求构思', '信息收集', '需求清单']
+    if (stage === '需求立项') return ['信息收集', '需求清单']
     if (stage === '计划设计') return ['方案设计', '资源计划', '需求回顾']
     if (stage === '材料准备') return ['任务清单', '课件材料', '审核状态']
     if (stage === '培训实施') return ['任务清单', '参训人员', '签到记录']
@@ -1985,75 +1986,7 @@ export default function TrainingDetail() {
               </button>
             </div>
           </article>
-        ) : stage === '需求立项' && activeTab === '需求构思' ? (
-          <div className="space-y-4">
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-slate-900">需求构思</div>
-                <button
-                  type="button"
-                  onClick={() => setIdeaCollapsed((prev) => !prev)}
-                  className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
-                >
-                  {ideaCollapsed ? '展开' : '收起'}
-                  <ChevronRight className={`h-3.5 w-3.5 transition-transform ${ideaCollapsed ? '' : 'rotate-90'}`} />
-                </button>
-              </div>
-              {!ideaCollapsed && (
-                <div className="mt-3 space-y-3">
-                  <div className="relative">
-                    <textarea
-                      value={ideaText}
-                      onChange={(e) => setIdeaText(e.target.value)}
-                      rows={5}
-                      placeholder="用自己的话描述这次培训的初始想法，不需要很完整，方向对了就行。例如：今年监管对反洗钱培训有新要求，需要覆盖全员，重点是识别可疑交易和客户身份核实…"
-                      className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 pb-7 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
-                    />
-                    <div className="absolute bottom-2 right-3 text-xs text-slate-400 select-none">{ideaText.length} 字</div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      disabled
-                      className="inline-flex cursor-not-allowed items-center gap-1.5 rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-400"
-                    >
-                      🎤 语音输入（即将上线）
-                    </button>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        disabled
-                        className="inline-flex cursor-not-allowed items-center gap-1.5 rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-400"
-                      >
-                        ✨ AI 帮我整理思路（即将上线）
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { if (ideaText.trim()) setIdeaSaved(ideaText.trim()) }}
-                        className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-                      >
-                        保存
-                      </button>
-                    </div>
-                  </div>
-                  {ideaSaved ? (
-                    <div className="flex items-start justify-between rounded-lg bg-slate-50 px-3 py-2.5">
-                      <p className="flex-1 text-xs leading-relaxed text-slate-600">
-                        {ideaSaved.length > 50 ? ideaSaved.slice(0, 50) + '…' : ideaSaved}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setIdeaText(ideaSaved)}
-                        className="ml-3 shrink-0 text-xs text-blue-600 hover:text-blue-700"
-                      >
-                        编辑
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </div>
-          </div>
+
         ) : stage === '需求立项' && activeTab === '信息收集' ? (
           <div className="space-y-4">
             <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -2075,7 +2008,7 @@ export default function TrainingDetail() {
                       value={ideaText}
                       onChange={(e) => setIdeaText(e.target.value)}
                       rows={5}
-                      placeholder="用自己的话描述这次培训的初始想法，不需要很完整，方向对了就行。例如：今年监管对反洗钱培训有新要求，需要覆盖全员，重点是识别可疑交易和客户身份核实…"
+                      placeholder="用自己的话描述这次培训的初始想法，方向对了就行。例如：今年监管对反洗钱培训有新要求，需要覆盖全员，重点是识别可疑交易…"
                       className="w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 pb-7 text-sm outline-none focus:border-blue-300 focus:ring-1 focus:ring-blue-100"
                     />
                     <div className="absolute bottom-2 right-3 text-xs text-slate-400 select-none">{ideaText.length} 字</div>
@@ -2091,20 +2024,56 @@ export default function TrainingDetail() {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        disabled
-                        className="inline-flex cursor-not-allowed items-center gap-1.5 rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-400"
+                        onClick={() => {
+                          const SUGG_IDS = ['policy', 'directive', 'questionnaire']
+                          setSelectedDemandOptionIds((prev) => {
+                            const next = [...prev]
+                            SUGG_IDS.forEach((sid) => { if (!next.includes(sid)) next.push(sid) })
+                            return next
+                          })
+                          setDemandMatrix((prev) => {
+                            const next = { ...prev }
+                            SUGG_IDS.forEach((sid) => {
+                              if (!next[sid]) {
+                                const opt = demandOptions.find((o) => o.id === sid)
+                                if (opt) next[sid] = createDemandMatrixRow(opt)
+                              }
+                            })
+                            return next
+                          })
+                          setIdeaSuggestionVisible(true)
+                        }}
+                        className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
                       >
-                        ✨ AI 帮我整理思路（即将上线）
+                        ✨ 获取信息来源建议
                       </button>
                       <button
                         type="button"
                         onClick={() => { if (ideaText.trim()) setIdeaSaved(ideaText.trim()) }}
-                        className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                        className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
                       >
                         保存
                       </button>
                     </div>
                   </div>
+                  {ideaSuggestionVisible && (
+                    <div className="relative rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => setIdeaSuggestionVisible(false)}
+                        className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full text-blue-400 hover:bg-blue-100 hover:text-blue-700"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                      <div className="mb-2 text-xs font-medium text-blue-800">AI 建议通过以下方式收集信息：</div>
+                      <ul className="space-y-1 text-xs text-blue-700">
+                        <li>· 政策 — 近期监管文件可能有新要求</li>
+                        <li>· 指令 — 建议确认是否有上级专项通知</li>
+                        <li>· 问卷 — 了解员工现有知识掌握情况</li>
+                      </ul>
+                      <div className="mt-2 text-xs text-blue-500">已为您自动选中以上来源，可手动调整 ↓</div>
+                    </div>
+                  )}
                   {ideaSaved ? (
                     <div className="flex items-start justify-between rounded-lg bg-slate-50 px-3 py-2.5">
                       <p className="flex-1 text-xs leading-relaxed text-slate-600">
@@ -2124,7 +2093,7 @@ export default function TrainingDetail() {
             </div>
             <hr className="border-slate-100" />
             <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="text-sm font-semibold text-slate-900">需求来源</div>
+              <div className="text-sm font-semibold text-slate-900">信息来源</div>
               <div className="mt-3 flex items-center gap-2 overflow-x-auto">
                 {demandOptions.map((opt) => {
                   const selected = selectedDemandOptionIds.includes(opt.id)
