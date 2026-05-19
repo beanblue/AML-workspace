@@ -209,7 +209,7 @@ function createEmptyDemandDetail(kind: DemandMethodKind, label: string): DemandD
     kind: '自定义',
     name: label,
     sourceDesc: '',
-    trainingRequirements: [{ id: `req-${Date.now()}`, text: '' }],
+    trainingRequirements: [],
     remark: '',
   }
 }
@@ -360,14 +360,6 @@ function ReqListBlock({
           </div>
         ))}
       </div>
-      <button
-        type="button"
-        onClick={() => onChange([...reqs, { id: `req-${Date.now()}-${Math.random().toString(36).slice(2)}`, text: '' }])}
-        className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700"
-      >
-        <Plus className="h-3.5 w-3.5" />
-        新增需求
-      </button>
     </div>
   )
 }
@@ -829,8 +821,6 @@ function SurveySimpleDialog({
                 </div>
               ))}
             </div>
-            <button type="button" onClick={() => setLocal({ ...local, trainingRequirements: [...local.trainingRequirements, { id: `req-${Date.now()}`, text: '' }] })}
-              className="text-sm text-blue-600 hover:text-blue-700">+ 新增需求</button>
           </div>
           {/* 4. 备注 */}
           <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-1.5">
@@ -1073,7 +1063,7 @@ function DocumentSourcePanel({
         <div className="space-y-2">
           {draft.trainingRequirements.length === 0 ? (
             <div className="rounded border border-dashed border-slate-200 bg-slate-50 py-3 text-center text-sm text-slate-400">
-              暂无需求，可点击「提取培训需求」自动生成或手动新增
+              暂无需求，可点击「提取培训需求」自动生成
             </div>
           ) : (
             draft.trainingRequirements.map((req, idx) => (
@@ -1102,16 +1092,6 @@ function DocumentSourcePanel({
             ))
           )}
         </div>
-        <button
-          type="button"
-          onClick={() =>
-            onChange({ ...draft, trainingRequirements: [...draft.trainingRequirements, { id: `req-${Date.now()}`, text: '' }] })
-          }
-          className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          新增需求
-        </button>
       </div>
 
       <div className="border-t border-slate-100" />
@@ -1217,6 +1197,7 @@ export default function TrainingDetail() {
   const [ideaLogs, setIdeaLogs] = useState<Array<{id:number;seq:number;time:string;text:string;aiSources:string[]|null;selectedSources:string[]}>>([])  
   const [ideaCollapsed, setIdeaCollapsed] = useState(false)
   const [ideaSuggestionVisible, setIdeaSuggestionVisible] = useState(false)
+  const [ideaSuggestionCollapsed, setIdeaSuggestionCollapsed] = useState(false)
 
   const refreshWorkUnit = async (workUnitId: string) => {
     const res = await fetch('/api/workunit/list?type=%E5%9F%B9%E8%AE%AD')
@@ -1698,6 +1679,7 @@ export default function TrainingDetail() {
               </div>
               {!ideaCollapsed && (
                 <div className="mt-3 space-y-3">
+                  {/* 1. Textarea */}
                   <div className="relative">
                     <textarea
                       value={ideaText}
@@ -1708,6 +1690,7 @@ export default function TrainingDetail() {
                     />
                     <div className="absolute bottom-2 right-3 text-xs text-slate-400 select-none">{ideaText.length} 字</div>
                   </div>
+                  {/* 2. Button row: voice | record */}
                   <div className="flex items-center justify-between">
                     <button
                       type="button"
@@ -1716,75 +1699,31 @@ export default function TrainingDetail() {
                     >
                       🎤 语音输入（即将上线）
                     </button>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const SUGG_IDS = ['policy', 'directive', 'questionnaire']
-                          setSelectedDemandOptionIds((prev) => {
-                            const next = [...prev]
-                            SUGG_IDS.forEach((sid) => { if (!next.includes(sid)) next.push(sid) })
-                            return next
-                          })
-                          setDemandMatrix((prev) => {
-                            const next = { ...prev }
-                            SUGG_IDS.forEach((sid) => {
-                              if (!next[sid]) {
-                                const opt = demandOptions.find((o) => o.id === sid)
-                                if (opt) next[sid] = createDemandMatrixRow(opt)
-                              }
-                            })
-                            return next
-                          })
-                          setIdeaSuggestionVisible(true)
-                        }}
-                        className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-                      >
-                        ✨ 获取信息来源建议
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!ideaText.trim()) return
-                          const now = new Date()
-                          const hhmm = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0')
-                          const selectedLabels = demandOptions
-                            .filter((o) => selectedDemandOptionIds.includes(o.id))
-                            .map((o) => o.label)
-                          setIdeaLogs((prev) => [{
-                            id: Date.now(),
-                            seq: prev.length + 1,
-                            time: hhmm,
-                            text: ideaText.trim(),
-                            aiSources: ideaSuggestionVisible ? ['政策', '指令', '问卷'] : null,
-                            selectedSources: selectedLabels,
-                          }, ...prev])
-                          setIdeaText('')
-                        }}
-                        className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
-                      >
-                        📝 记录本次想法
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!ideaText.trim()) return
+                        const now = new Date()
+                        const hhmm = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0')
+                        const selectedLabels = demandOptions
+                          .filter((o) => selectedDemandOptionIds.includes(o.id))
+                          .map((o) => o.label)
+                        setIdeaLogs((prev) => [{
+                          id: Date.now(),
+                          seq: prev.length + 1,
+                          time: hhmm,
+                          text: ideaText.trim(),
+                          aiSources: ideaSuggestionVisible ? ['政策', '指令', '问卷'] : null,
+                          selectedSources: selectedLabels,
+                        }, ...prev])
+                        setIdeaText('')
+                      }}
+                      className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                    >
+                      📝 记录本次想法
+                    </button>
                   </div>
-                  {ideaSuggestionVisible && (
-                    <div className="relative rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => setIdeaSuggestionVisible(false)}
-                        className="absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center rounded-full text-blue-400 hover:bg-blue-100 hover:text-blue-700"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                      <div className="mb-2 text-xs font-medium text-blue-800">AI 建议通过以下方式收集信息：</div>
-                      <ul className="space-y-1 text-xs text-blue-700">
-                        <li>· 政策 — 近期监管文件可能有新要求</li>
-                        <li>· 指令 — 建议确认是否有上级专项通知</li>
-                        <li>· 问卷 — 了解员工现有知识掌握情况</li>
-                      </ul>
-                      <div className="mt-2 text-xs text-blue-500">已为您自动选中以上来源，可手动调整 ↓</div>
-                    </div>
-                  )}
+                  {/* 3. Thought logs */}
                   {ideaLogs.length > 0 && (
                     <div>
                       <div className="mb-2 text-xs font-medium text-slate-400">思考记录</div>
@@ -1807,7 +1746,62 @@ export default function TrainingDetail() {
                           </div>
                         ))}
                       </div>
-                      <hr className="mt-3 border-slate-100" />
+                    </div>
+                  )}
+                  {/* 4. Get AI suggestion button */}
+                  <div className="border-t border-slate-100 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const SUGG_IDS = ['policy', 'directive', 'questionnaire']
+                        setSelectedDemandOptionIds((prev) => {
+                          const next = [...prev]
+                          SUGG_IDS.forEach((sid) => { if (!next.includes(sid)) next.push(sid) })
+                          return next
+                        })
+                        setDemandMatrix((prev) => {
+                          const next = { ...prev }
+                          SUGG_IDS.forEach((sid) => {
+                            if (!next[sid]) {
+                              const opt = demandOptions.find((o) => o.id === sid)
+                              if (opt) next[sid] = createDemandMatrixRow(opt)
+                            }
+                          })
+                          return next
+                        })
+                        setIdeaSuggestionVisible(true)
+                        setIdeaSuggestionCollapsed(false)
+                      }}
+                      className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                    >
+                      ✨ 获取信息来源建议
+                    </button>
+                  </div>
+                  {/* 5. Suggestion card – persistent, collapsible */}
+                  {ideaSuggestionVisible && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                      <div className="flex items-center justify-between">
+                        {ideaSuggestionCollapsed
+                          ? <span className="text-xs text-blue-600">AI 信息来源建议（点击展开）</span>
+                          : <span className="text-xs font-medium text-blue-800">AI 建议通过以下方式收集信息：</span>}
+                        <button
+                          type="button"
+                          onClick={() => setIdeaSuggestionCollapsed((prev) => !prev)}
+                          className="text-xs text-blue-500 hover:text-blue-700"
+                        >
+                          {ideaSuggestionCollapsed ? '▼ 展开' : '▲ 收起'}
+                        </button>
+                      </div>
+                      {!ideaSuggestionCollapsed && (
+                        <>
+                          <ul className="mt-2 space-y-1 text-xs text-blue-700">
+                            <li>· 政策 — 近期监管文件可能有新要求</li>
+                            <li>· 指令 — 建议确认是否有上级专项通知</li>
+                            <li>· 问卷 — 了解员工现有知识掌握情况</li>
+                          </ul>
+                          <div className="mt-2 text-xs text-blue-500">已为您自动选中以上来源，可手动调整 ↓</div>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
