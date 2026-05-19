@@ -1525,7 +1525,7 @@ export default function TrainingDetail() {
   const [summaryTopicInput, setSummaryTopicInput] = useState('')
   const [summaryRemark, setSummaryRemark] = useState('')
   const [ideaText, setIdeaText] = useState('')
-  const [ideaSaved, setIdeaSaved] = useState('')
+  const [ideaLogs, setIdeaLogs] = useState<Array<{id:number;seq:number;time:string;text:string;aiSources:string[]|null;selectedSources:string[]}>>([])  
   const [ideaCollapsed, setIdeaCollapsed] = useState(false)
   const [ideaSuggestionVisible, setIdeaSuggestionVisible] = useState(false)
 
@@ -1991,7 +1991,7 @@ export default function TrainingDetail() {
           <div className="space-y-4">
             <div className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-slate-900">需求构思</div>
+                <div className="text-sm font-semibold text-slate-900">需求描述</div>
                 <button
                   type="button"
                   onClick={() => setIdeaCollapsed((prev) => !prev)}
@@ -2049,10 +2049,26 @@ export default function TrainingDetail() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => { if (ideaText.trim()) setIdeaSaved(ideaText.trim()) }}
+                        onClick={() => {
+                          if (!ideaText.trim()) return
+                          const now = new Date()
+                          const hhmm = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0')
+                          const selectedLabels = demandOptions
+                            .filter((o) => selectedDemandOptionIds.includes(o.id))
+                            .map((o) => o.label)
+                          setIdeaLogs((prev) => [{
+                            id: Date.now(),
+                            seq: prev.length + 1,
+                            time: hhmm,
+                            text: ideaText.trim(),
+                            aiSources: ideaSuggestionVisible ? ['政策', '指令', '问卷'] : null,
+                            selectedSources: selectedLabels,
+                          }, ...prev])
+                          setIdeaText('')
+                        }}
                         className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
                       >
-                        保存
+                        📝 记录本次想法
                       </button>
                     </div>
                   </div>
@@ -2074,20 +2090,31 @@ export default function TrainingDetail() {
                       <div className="mt-2 text-xs text-blue-500">已为您自动选中以上来源，可手动调整 ↓</div>
                     </div>
                   )}
-                  {ideaSaved ? (
-                    <div className="flex items-start justify-between rounded-lg bg-slate-50 px-3 py-2.5">
-                      <p className="flex-1 text-xs leading-relaxed text-slate-600">
-                        {ideaSaved.length > 50 ? ideaSaved.slice(0, 50) + '…' : ideaSaved}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setIdeaText(ideaSaved)}
-                        className="ml-3 shrink-0 text-xs text-blue-600 hover:text-blue-700"
-                      >
-                        编辑
-                      </button>
+                  {ideaLogs.length > 0 && (
+                    <div>
+                      <div className="mb-2 text-xs font-medium text-slate-400">思考记录</div>
+                      <div className="space-y-2">
+                        {ideaLogs.map((log) => (
+                          <div key={log.id} className="relative rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
+                            <button
+                              type="button"
+                              onClick={() => setIdeaLogs((prev) => prev.filter((l) => l.id !== log.id))}
+                              className="absolute right-2 top-2 inline-flex h-4 w-4 items-center justify-center rounded text-slate-300 hover:bg-slate-200 hover:text-slate-600"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                            <div className="mb-1.5 text-xs font-medium text-slate-500">第 {log.seq} 次 · {log.time}</div>
+                            <p className="mb-2 rounded bg-white px-2 py-1.5 text-xs leading-relaxed text-slate-700">{log.text}</p>
+                            <div className="flex gap-4 text-xs text-slate-500">
+                              <span>AI 建议来源：{log.aiSources ? log.aiSources.join(' / ') : '—'}</span>
+                              <span>最终选择：{log.selectedSources.length > 0 ? log.selectedSources.join(' / ') : '—'}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <hr className="mt-3 border-slate-100" />
                     </div>
-                  ) : null}
+                  )}
                 </div>
               )}
             </div>
