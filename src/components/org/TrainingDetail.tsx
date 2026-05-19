@@ -1518,12 +1518,7 @@ export default function TrainingDetail() {
   const [customDialogOptId, setCustomDialogOptId] = useState<string | null>(null)
   const [demandDetailDraft, setDemandDetailDraft] = useState<DemandDetail | null>(null)
 
-  const [summaryGoal, setSummaryGoal] = useState('')
-  const [summaryTarget, setSummaryTarget] = useState('')
-  const [summaryParticipants, setSummaryParticipants] = useState<string>('')
-  const [summaryTopics, setSummaryTopics] = useState<string[]>([])
-  const [summaryTopicInput, setSummaryTopicInput] = useState('')
-  const [summaryRemark, setSummaryRemark] = useState('')
+  const [reqList, setReqList] = useState<Array<{id:number;title:string;desc:string;sources:string[];priority:string;status:string;expanded:boolean}>>([])
   const [ideaText, setIdeaText] = useState('')
   const [ideaLogs, setIdeaLogs] = useState<Array<{id:number;seq:number;time:string;text:string;aiSources:string[]|null;selectedSources:string[]}>>([])  
   const [ideaCollapsed, setIdeaCollapsed] = useState(false)
@@ -2298,88 +2293,139 @@ export default function TrainingDetail() {
             </div>
           </div>
         ) : stage === '需求立项' && activeTab === '需求清单' ? (
-          <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-slate-700">培训目标</div>
-                <input
-                  value={summaryGoal}
-                  onChange={(e) => setSummaryGoal(e.target.value)}
-                  className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                />
+          <div className="space-y-4">
+            {/* table card */}
+            <div className="rounded-xl border border-slate-200 bg-white">
+              {/* header row */}
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                <div className="text-sm font-semibold text-slate-900">需求清单</div>
+                <button
+                  type="button"
+                  onClick={() => setReqList((prev) => [...prev, { id: Date.now(), title: '', desc: '', sources: [], priority: '重要', status: '待转化', expanded: false }])}
+                  className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                >
+                  + 新增需求
+                </button>
               </div>
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-slate-700">目标对象</div>
-                <input
-                  value={summaryTarget}
-                  onChange={(e) => setSummaryTarget(e.target.value)}
-                  className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-slate-700">预计参训人数</div>
-                <input
-                  type="number"
-                  value={summaryParticipants}
-                  onChange={(e) => setSummaryParticipants(e.target.value)}
-                  className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                  min={0}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-slate-700">核心培训主题</div>
-                <div className="flex flex-wrap gap-2">
-                  {summaryTopics.map((t) => (
-                    <span key={t} className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">
-                      {t}
-                      <button type="button" onClick={() => setSummaryTopics((prev) => prev.filter((x) => x !== t))} className="text-slate-500 hover:text-slate-900">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
+              {reqList.length === 0 ? (
+                <div className="px-4 py-10 text-center text-xs text-slate-400">
+                  暂无需求条目，可点击右上角「+ 新增需求」手动添加，或从信息来源中提炼后自动汇总
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    value={summaryTopicInput}
-                    onChange={(e) => setSummaryTopicInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key !== 'Enter') return
-                      e.preventDefault()
-                      const v = summaryTopicInput.trim()
-                      if (!v) return
-                      setSummaryTopics((prev) => (prev.includes(v) ? prev : [...prev, v]))
-                      setSummaryTopicInput('')
-                    }}
-                    className="w-full rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-                    placeholder="输入主题后回车"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const v = summaryTopicInput.trim()
-                      if (!v) return
-                      setSummaryTopics((prev) => (prev.includes(v) ? prev : [...prev, v]))
-                      setSummaryTopicInput('')
-                    }}
-                    className="rounded bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700"
-                  >
-                    添加
-                  </button>
-                </div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50 text-slate-500">
+                      <th className="w-10 py-2.5 text-center font-medium">序号</th>
+                      <th className="py-2.5 pl-3 text-left font-medium">需求标题</th>
+                      <th className="w-28 py-2.5 pl-3 text-left font-medium">来源</th>
+                      <th className="w-32 py-2.5 pl-3 text-left font-medium">优先级</th>
+                      <th className="w-28 py-2.5 pl-3 text-left font-medium">状态</th>
+                      <th className="w-12 py-2.5 text-center font-medium">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {reqList.map((row, idx) => (
+                      <React.Fragment key={row.id}>
+                        <tr className="group hover:bg-slate-50">
+                          <td className="py-2.5 text-center text-slate-400">{idx + 1}</td>
+                          <td className="py-2.5 pl-3">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, expanded: !r.expanded } : r))}
+                                className="shrink-0 text-slate-300 hover:text-slate-600"
+                              >
+                                <ChevronRight className={`h-3.5 w-3.5 transition-transform ${row.expanded ? 'rotate-90' : ''}`} />
+                              </button>
+                              <input
+                                value={row.title}
+                                onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, title: e.target.value } : r))}
+                                placeholder="输入需求标题…"
+                                className="flex-1 rounded border-0 bg-transparent py-0.5 text-xs text-slate-800 outline-none placeholder:text-slate-300 focus:ring-0"
+                              />
+                            </div>
+                          </td>
+                          <td className="py-2.5 pl-3">
+                            <div className="flex flex-wrap gap-1">
+                              {row.sources.length > 0
+                                ? row.sources.map((s) => (
+                                    <span key={s} className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">{s}</span>
+                                  ))
+                                : <span className="text-slate-300">—</span>}
+                            </div>
+                          </td>
+                          <td className="py-2.5 pl-3">
+                            <select
+                              value={row.priority}
+                              onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, priority: e.target.value } : r))}
+                              className="rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300"
+                            >
+                              <option value="必须达标">🔴 必须达标</option>
+                              <option value="重要">🟡 重要</option>
+                              <option value="参考">⚪ 参考</option>
+                            </select>
+                          </td>
+                          <td className="py-2.5 pl-3">
+                            <select
+                              value={row.status}
+                              onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, status: e.target.value } : r))}
+                              className="rounded border border-slate-200 bg-white px-2 py-1 text-xs outline-none focus:border-blue-300"
+                            >
+                              <option value="待转化">待转化</option>
+                              <option value="已进入方案">已进入方案</option>
+                            </select>
+                          </td>
+                          <td className="py-2.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setReqList((prev) => prev.filter((r) => r.id !== row.id))}
+                              className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-300 hover:bg-red-50 hover:text-red-500"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                        {row.expanded && (
+                          <tr>
+                            <td />
+                            <td colSpan={5} className="pb-3 pl-8 pr-4">
+                              <textarea
+                                value={row.desc}
+                                onChange={(e) => setReqList((prev) => prev.map((r) => r.id === row.id ? { ...r, desc: e.target.value } : r))}
+                                rows={3}
+                                placeholder="补充需求描述（背景、目标、验收标准等）…"
+                                className="w-full resize-none rounded border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700 outline-none focus:border-blue-200 focus:ring-0"
+                              />
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {/* bottom actions */}
+            <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex cursor-not-allowed items-center gap-1.5 rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-400"
+                >
+                  📄 导出需求清单
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex cursor-not-allowed items-center gap-1.5 rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-400"
+                >
+                  📋 生成需求立项报告
+                </button>
               </div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-slate-700">备注</div>
-              <textarea
-                value={summaryRemark}
-                onChange={(e) => setSummaryRemark(e.target.value)}
-                className="h-24 w-full resize-none rounded border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-300"
-              />
-            </div>
-            <div className="flex justify-end">
-              <button type="button" onClick={() => showToast('已保存汇总')} className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700">
-                保存汇总
-              </button>
+              <p className="mt-3 text-center text-xs text-slate-400">
+                需求立项报告将包含：需求描述记录 + 各信息来源摘要 + 完整需求清单，可导出为 Word / PDF
+              </p>
             </div>
           </div>
         ) : (
