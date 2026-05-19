@@ -1305,7 +1305,7 @@ export default function TrainingDetail() {
                     <div className="absolute bottom-2 right-3 text-xs text-slate-400 select-none">{ideaText.length} 字</div>
                   </div>
                   {/* Action buttons — single row */}
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     <button type="button" disabled className="inline-flex items-center gap-1 rounded-lg border border-[#d0c4b8] bg-white px-[14px] py-1.5 text-[13px] font-semibold text-[#5c4f3d] shadow-[0_2px_0_#c4b8ac] transition-transform hover:-translate-y-px active:translate-y-px active:shadow-[0_1px_0_#c4b8ac] disabled:cursor-not-allowed disabled:opacity-50">
                       🎤 语音
                     </button>
@@ -1508,10 +1508,8 @@ export default function TrainingDetail() {
 
               </div>
               <div className="mt-3 text-xs text-slate-500">提示：政策 / 指令 为建议优先选择项</div>
-            </div>
-            </div>
-
-            <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+              <hr className="my-4 border-[#ede8df]" />
+              <div className="w-full overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
               <table className="w-full min-w-[500px] border-collapse text-left text-xs" style={{ tableLayout: 'fixed' }}>
                 <colgroup>
                   <col style={{ width: '40px' }} />
@@ -1635,6 +1633,8 @@ export default function TrainingDetail() {
                   )}
                 </tbody>
               </table>
+            </div>
+            </div>
             </div>
           </div>
         ) : stage === '需求立项' && activeTab === '需求清单' ? (
