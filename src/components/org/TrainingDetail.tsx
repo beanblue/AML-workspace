@@ -634,7 +634,6 @@ export default function TrainingDetail() {
   const [resBudgetNote, setResBudgetNote] = useState('')
 
   // ── 需求回顾 state ──────────────────────────────────────────
-  const [reviewStatus, setReviewStatus] = useState<'草稿中'|'已完成'>('草稿中')
   const [reviewChecks, setReviewChecks] = useState<Array<{id:number;reqTitle:string;reqType:string;coverStatus:string;note:string;conclusion:string}>>(
     [
       {id:1,reqTitle:'掌握反洗钱交易识别方法',reqType:'实操类',coverStatus:'已覆盖',note:'',conclusion:''},
