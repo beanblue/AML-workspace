@@ -646,6 +646,26 @@ export default function TrainingDetail() {
   const [reviewConclusion, setReviewConclusion] = useState<''|'审核通过'|'需修改'>('审核通过')
   const [showTaskList, setShowTaskList] = useState(false)
 
+  // ── 材料准备 state ────────────────────────────────────────────
+  type MatTask = { id:number; name:string; matType:string; owner:string; due:string; status:string; fromPlan:boolean }
+  type MatFile = { id:number; fileName:string; fileType:string; version:string; uploadDate:string; uploader:string; reviewStatus:string }
+  type MatReview = { id:number; fileName:string; fileType:string; checks:string[]; opinion:string; conclusion:string; auditor:string }
+  const [matTasks, setMatTasks] = useState<MatTask[]>([
+    {id:1,name:'制作反洗钱识别方法课件',matType:'PPT',owner:'张合规',due:'2026-06-10',status:'进行中',fromPlan:true},
+    {id:2,name:'设计可疑交易案例集',matType:'PDF',owner:'李培训',due:'2026-06-10',status:'未开始',fromPlan:true},
+    {id:3,name:'预订培训场地',matType:'其他',owner:'王行政',due:'2026-06-05',status:'已完成',fromPlan:true},
+    {id:4,name:'发送培训通知',matType:'其他',owner:'王行政',due:'2026-06-08',status:'未开始',fromPlan:true},
+    {id:5,name:'准备签到系统',matType:'其他',owner:'IT支持',due:'2026-06-12',status:'未开始',fromPlan:true},
+  ])
+  const [matFiles, setMatFiles] = useState<MatFile[]>([
+    {id:1,fileName:'反洗钱基础认知培训课件v1.pptx',fileType:'PPT',version:'v1.0',uploadDate:'2026-06-08',uploader:'张合规',reviewStatus:'待审核'},
+    {id:2,fileName:'可疑交易识别案例集.pdf',fileType:'PDF',version:'v1.0',uploadDate:'2026-06-09',uploader:'李培训',reviewStatus:'草稿'},
+  ])
+  const [matReviews, setMatReviews] = useState<MatReview[]>([
+    {id:1,fileName:'反洗钱基础认知培训课件v1.pptx',fileType:'PPT',checks:['内容准确性','合规性','格式规范','完整性'],opinion:'',conclusion:'通过',auditor:'陈审核'},
+    {id:2,fileName:'可疑交易识别案例集.pdf',fileType:'PDF',checks:['内容准确性','格式规范'],opinion:'',conclusion:'',auditor:''},
+  ])
+
 
   type ReqItem = {
     id: number; title: string; desc: string; keywords: string[];
@@ -2591,6 +2611,331 @@ export default function TrainingDetail() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+
+        ) : stage === '材料准备' && activeTab === '任务清单' ? (
+          /* ── 材料准备 / 任务清单 ── */
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              {(['任务清单','课件材料','审核状态'] as const).map((sub, idx) => {
+                const matDoneCount = matTasks.filter((t) => t.status === '已完成').length
+                const allFilesApproved = matReviews.length > 0 && matReviews.every((r) => r.conclusion === '通过')
+                const done = (sub === '任务清单' && matDoneCount === matTasks.length && matTasks.length > 0) ||
+                             (sub === '课件材料' && matFiles.length > 0) ||
+                             (sub === '审核状态' && allFilesApproved)
+                const current = activeTab === sub
+                return (
+                  <React.Fragment key={sub}>
+                    {idx > 0 && <div className="h-px flex-1 bg-slate-200" />}
+                    <div className={`flex items-center gap-1.5 text-xs font-medium ${done ? 'text-green-600' : current ? 'text-blue-600' : 'text-slate-400'}`}>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${done ? 'bg-green-100' : current ? 'bg-blue-100' : 'bg-slate-100'}`}>
+                        {done ? '✓' : idx + 1}
+                      </span>
+                      {sub}{done && <span className="text-green-500 ml-0.5">✓</span>}
+                    </div>
+                  </React.Fragment>
+                )
+              })}
+            </div>
+
+            {/* Hint */}
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs text-blue-700">
+              📋 本阶段任务清单已从阶段二任务清单自动导入，可在此追踪制作进度
+            </div>
+
+            {/* Table card */}
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              {/* header */}
+              <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                <div>
+                  <span className="text-sm font-semibold text-slate-800">任务清单</span>
+                  <span className="ml-2 text-xs text-slate-400">
+                    已完成 <span className="font-medium text-green-600">{matTasks.filter((t)=>t.status==='已完成').length}</span> / 共 {matTasks.length} 项
+                  </span>
+                </div>
+                <button type="button"
+                  onClick={() => setMatTasks((p) => [...p, {id:Date.now(),name:'',matType:'其他',owner:'',due:'',status:'未开始',fromPlan:false}])}
+                  className="rounded border border-dashed border-slate-300 px-3 py-1.5 text-xs text-slate-500 hover:border-blue-400 hover:text-blue-600">
+                  + 手动添加任务
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed',minWidth:'900px'}}>
+                  <colgroup>
+                    <col style={{width:'44px'}} /><col /><col style={{width:'90px'}} />
+                    <col style={{width:'90px'}} /><col style={{width:'100px'}} /><col style={{width:'90px'}} /><col style={{width:'120px'}} />
+                  </colgroup>
+                  <thead className="bg-gray-50">
+                    <tr>{['序号','任务名称','材料类型','负责人','截止日期','状态','关联文件'].map((h)=>(
+                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-slate-600">{h}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody>
+                    {matTasks.map((t, ti) => (
+                      <tr key={t.id} className={ti % 2 === 0 ? 'bg-white' : 'bg-gray-50'} style={{height:'44px'}}>
+                        <td className="border border-gray-200 px-2 py-2 text-center text-slate-400">{ti+1}</td>
+                        <td className="border border-gray-200 px-3 py-2">
+                          <div className="flex items-center gap-1.5">
+                            <input value={t.name} onChange={(e)=>setMatTasks((p)=>p.map((x)=>x.id===t.id?{...x,name:e.target.value}:x))}
+                              className="min-w-0 flex-1 rounded border-0 bg-transparent text-xs text-slate-800 outline-none placeholder:text-slate-300 focus:ring-0" placeholder="任务名称…"/>
+                            {t.fromPlan && <span className="flex-shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-400">来自计划设计</span>}
+                          </div>
+                        </td>
+                        <td className="border border-gray-200 px-2 py-2">
+                          <select value={t.matType} onChange={(e)=>setMatTasks((p)=>p.map((x)=>x.id===t.id?{...x,matType:e.target.value}:x))}
+                            className="w-full rounded border border-slate-200 bg-white px-1.5 py-0.5 text-xs outline-none focus:border-blue-300">
+                            {['PPT','PDF','案例集','题库','手册','视频','其他'].map((o)=><option key={o}>{o}</option>)}
+                          </select>
+                        </td>
+                        <td className="border border-gray-200 px-3 py-2">
+                          <input value={t.owner} onChange={(e)=>setMatTasks((p)=>p.map((x)=>x.id===t.id?{...x,owner:e.target.value}:x))}
+                            className="w-full rounded border-0 bg-transparent text-xs text-slate-600 outline-none focus:ring-0" placeholder="—"/>
+                        </td>
+                        <td className="border border-gray-200 px-2 py-2 text-center text-slate-500">{t.due||'—'}</td>
+                        <td className="border border-gray-200 px-2 py-2">
+                          <select value={t.status} onChange={(e)=>setMatTasks((p)=>p.map((x)=>x.id===t.id?{...x,status:e.target.value}:x))}
+                            className={`w-full rounded border px-1.5 py-0.5 text-xs outline-none ${t.status==='已完成'?'border-green-200 bg-green-50 text-green-700':t.status==='进行中'?'border-blue-200 bg-blue-50 text-blue-700':'border-slate-200 bg-white text-slate-500'}`}>
+                            {['未开始','进行中','已完成'].map((o)=><option key={o}>{o}</option>)}
+                          </select>
+                        </td>
+                        <td className="border border-gray-200 px-2 py-2 text-center text-slate-300 text-xs">—</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* Progress bar */}
+              <div className="border-t border-gray-100 px-4 py-3">
+                {(() => {
+                  const done = matTasks.filter((t)=>t.status==='已完成').length
+                  const total = matTasks.length
+                  const pct = total>0?Math.round((done/total)*100):0
+                  return (
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 overflow-hidden rounded-full bg-gray-100" style={{height:'6px'}}>
+                        <div className={`h-full rounded-full transition-all ${pct===100?'bg-green-500':pct>0?'bg-blue-500':'bg-gray-200'}`} style={{width:`${pct}%`}} />
+                      </div>
+                      <span className="text-xs text-slate-500">任务完成 {done}/{total}（{pct}%）</span>
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+          </div>
+
+        ) : stage === '材料准备' && activeTab === '课件材料' ? (
+          /* ── 材料准备 / 课件材料 ── */
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              {(['任务清单','课件材料','审核状态'] as const).map((sub, idx) => {
+                const matDoneCount = matTasks.filter((t) => t.status === '已完成').length
+                const allFilesApproved = matReviews.length > 0 && matReviews.every((r) => r.conclusion === '通过')
+                const done = (sub === '任务清单' && matDoneCount === matTasks.length && matTasks.length > 0) ||
+                             (sub === '课件材料' && matFiles.length > 0) ||
+                             (sub === '审核状态' && allFilesApproved)
+                const current = activeTab === sub
+                return (
+                  <React.Fragment key={sub}>
+                    {idx > 0 && <div className="h-px flex-1 bg-slate-200" />}
+                    <div className={`flex items-center gap-1.5 text-xs font-medium ${done ? 'text-green-600' : current ? 'text-blue-600' : 'text-slate-400'}`}>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${done ? 'bg-green-100' : current ? 'bg-blue-100' : 'bg-slate-100'}`}>
+                        {done ? '✓' : idx + 1}
+                      </span>
+                      {sub}{done && <span className="text-green-500 ml-0.5">✓</span>}
+                    </div>
+                  </React.Fragment>
+                )
+              })}
+            </div>
+
+            {/* Op bar */}
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={()=>alert('上传功能即将接入')}
+                className="rounded bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-700">📤 上传新材料</button>
+              <button type="button" onClick={()=>alert('材料库即将上线')}
+                className="rounded border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">📚 从材料库选取</button>
+            </div>
+
+            {/* File table */}
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed',minWidth:'860px'}}>
+                  <colgroup>
+                    <col style={{width:'44px'}} /><col /><col style={{width:'70px'}} />
+                    <col style={{width:'70px'}} /><col style={{width:'100px'}} /><col style={{width:'80px'}} />
+                    <col style={{width:'80px'}} /><col style={{width:'90px'}} />
+                  </colgroup>
+                  <thead className="bg-gray-50">
+                    <tr>{['序号','文件名称','类型','版本','上传时间','上传人','审核状态','操作'].map((h)=>(
+                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-slate-600">{h}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody>
+                    {matFiles.map((f, fi) => (
+                      <tr key={f.id} className={fi%2===0?'bg-white':'bg-gray-50'} style={{height:'44px'}}>
+                        <td className="border border-gray-200 px-2 py-2 text-center text-slate-400">{fi+1}</td>
+                        <td className="border border-gray-200 px-3 py-2 text-slate-700" style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.fileName}</td>
+                        <td className="border border-gray-200 px-2 py-2 text-center">
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{f.fileType}</span>
+                        </td>
+                        <td className="border border-gray-200 px-2 py-2 text-center text-slate-500">{f.version}</td>
+                        <td className="border border-gray-200 px-2 py-2 text-center text-slate-500">{f.uploadDate}</td>
+                        <td className="border border-gray-200 px-2 py-2 text-center text-slate-500">{f.uploader}</td>
+                        <td className="border border-gray-200 px-2 py-2 text-center">
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${
+                            f.reviewStatus==='已通过'?'bg-green-50 text-green-600':
+                            f.reviewStatus==='待审核'?'bg-blue-50 text-blue-600':
+                            f.reviewStatus==='已退回'?'bg-red-50 text-red-600':
+                            'bg-slate-100 text-slate-500'}`}>{f.reviewStatus}</span>
+                        </td>
+                        <td className="border border-gray-200 px-2 py-2">
+                          <div className="flex justify-center gap-1">
+                            <button type="button" onClick={()=>alert('预览功能即将上线')}
+                              className="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-500 hover:border-blue-300 hover:text-blue-600">预览</button>
+                            <button type="button" onClick={()=>setMatFiles((p)=>p.filter((x)=>x.id!==f.id))}
+                              className="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-500 hover:border-red-300 hover:text-red-500">删除</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* AI entry card */}
+            <div className="rounded-xl border border-purple-100 bg-purple-50 px-5 py-4 shadow-sm flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-purple-800">✨ AI 助手</div>
+                <div className="text-xs text-purple-600 mt-0.5">基于培训需求和内容模块，自动生成课件大纲建议</div>
+              </div>
+              <button type="button" onClick={()=>alert('AI课件助手即将上线')}
+                className="rounded-lg border border-purple-300 bg-white px-4 py-2 text-xs font-medium text-purple-700 hover:bg-purple-50">
+                生成课件大纲建议
+              </button>
+            </div>
+          </div>
+
+        ) : stage === '材料准备' && activeTab === '审核状态' ? (
+          /* ── 材料准备 / 审核状态 ── */
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              {(['任务清单','课件材料','审核状态'] as const).map((sub, idx) => {
+                const matDoneCount = matTasks.filter((t) => t.status === '已完成').length
+                const allFilesApproved = matReviews.length > 0 && matReviews.every((r) => r.conclusion === '通过')
+                const done = (sub === '任务清单' && matDoneCount === matTasks.length && matTasks.length > 0) ||
+                             (sub === '课件材料' && matFiles.length > 0) ||
+                             (sub === '审核状态' && allFilesApproved)
+                const current = activeTab === sub
+                return (
+                  <React.Fragment key={sub}>
+                    {idx > 0 && <div className="h-px flex-1 bg-slate-200" />}
+                    <div className={`flex items-center gap-1.5 text-xs font-medium ${done ? 'text-green-600' : current ? 'text-blue-600' : 'text-slate-400'}`}>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${done ? 'bg-green-100' : current ? 'bg-blue-100' : 'bg-slate-100'}`}>
+                        {done ? '✓' : idx + 1}
+                      </span>
+                      {sub}{done && <span className="text-green-500 ml-0.5">✓</span>}
+                    </div>
+                  </React.Fragment>
+                )
+              })}
+            </div>
+
+            {/* Hint */}
+            <div className="rounded-lg border border-orange-100 bg-orange-50 px-4 py-2.5 text-xs text-orange-700">
+              📋 以下材料已自动从课件材料列表导入，请逐项完成审核
+            </div>
+
+            {/* Review cards */}
+            <div className="space-y-4">
+              {matReviews.map((rev) => {
+                const DIMS = ['内容准确性','合规性','格式规范','完整性']
+                return (
+                  <div key={rev.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    {/* Card header */}
+                    <div className="mb-4 flex items-center gap-2">
+                      <span className="font-medium text-slate-800 text-sm truncate">{rev.fileName}</span>
+                      <span className="flex-shrink-0 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{rev.fileType}</span>
+                      <span className={`flex-shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs ml-auto ${
+                        rev.conclusion==='通过'?'bg-green-50 text-green-600 border border-green-200':
+                        rev.conclusion==='退回修改'?'bg-red-50 text-red-600 border border-red-200':
+                        'bg-slate-50 text-slate-500 border border-slate-200'}`}>
+                        {rev.conclusion||'待审核'}
+                      </span>
+                    </div>
+
+                    {/* Dimension checks */}
+                    <div className="mb-4 grid grid-cols-2 gap-2">
+                      {DIMS.map((dim) => {
+                        const checked = rev.checks.includes(dim)
+                        return (
+                          <label key={dim} className="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+                            <input type="checkbox" checked={checked}
+                              onChange={() => setMatReviews((p) => p.map((r) => r.id===rev.id ? {...r, checks: checked?r.checks.filter((c)=>c!==dim):[...r.checks,dim]} : r))}
+                              className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                            {dim}
+                          </label>
+                        )
+                      })}
+                    </div>
+
+                    {/* Opinion */}
+                    <input value={rev.opinion}
+                      onChange={(e)=>setMatReviews((p)=>p.map((r)=>r.id===rev.id?{...r,opinion:e.target.value}:r))}
+                      placeholder="填写审核意见（选填）"
+                      className="mb-4 w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs outline-none focus:border-blue-500" />
+
+                    {/* Conclusion */}
+                    <div className="mb-3 flex gap-2">
+                      {(['通过','退回修改'] as const).map((c) => (
+                        <button key={c} type="button"
+                          onClick={()=>setMatReviews((p)=>p.map((r)=>r.id===rev.id?{...r,conclusion:r.conclusion===c?'':c}:r))}
+                          className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${rev.conclusion===c
+                            ?(c==='通过'?'border-green-400 bg-green-50 text-green-700':'border-red-400 bg-red-50 text-red-700')
+                            :'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                          {c==='通过'?'✅ 通过':'❌ 退回修改'}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Auditor */}
+                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                      <span>审核人：</span>
+                      <input value={rev.auditor}
+                        onChange={(e)=>setMatReviews((p)=>p.map((r)=>r.id===rev.id?{...r,auditor:e.target.value}:r))}
+                        placeholder="填写审核人"
+                        className="rounded border border-slate-200 bg-transparent px-2 py-0.5 text-xs outline-none focus:border-blue-300" />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Summary */}
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+              {(() => {
+                const passed = matReviews.filter((r)=>r.conclusion==='通过').length
+                const total = matReviews.length
+                const pct = total>0?Math.round((passed/total)*100):0
+                const allPassed = passed===total && total>0
+                return (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-slate-500">整体审核进度：<span className="font-medium text-green-600">{passed}/{total}</span> 已通过</span>
+                      <div className="flex-1 overflow-hidden rounded-full bg-gray-100" style={{height:'6px'}}>
+                        <div className={`h-full rounded-full transition-all ${pct===100?'bg-green-500':pct>0?'bg-blue-500':'bg-gray-200'}`} style={{width:`${pct}%`}} />
+                      </div>
+                      <span className="text-xs text-slate-400">{pct}%</span>
+                    </div>
+                    <button type="button" disabled={!allPassed}
+                      onClick={()=>allPassed&&alert('即将进入培训实施阶段')}
+                      className={`w-full rounded-xl py-2.5 text-sm font-semibold transition-colors ${allPassed?'bg-green-600 text-white hover:bg-green-700 shadow':'cursor-not-allowed bg-gray-100 text-gray-400'}`}>
+                      ✅ 完成材料准备，进入培训实施
+                    </button>
+                  </>
+                )
+              })()}
             </div>
           </div>
 
