@@ -666,6 +666,44 @@ export default function TrainingDetail() {
     {id:2,fileName:'可疑交易识别案例集.pdf',fileType:'PDF',checks:['内容准确性','格式规范'],opinion:'',conclusion:'',auditor:''},
   ])
 
+  // ── 培训实施 state ────────────────────────────────────────────
+  type ImplNotice = { id:number; sendTime:string; scope:string; method:string; sent:boolean }
+  type ImplScore  = { id:number; name:string; dept:string; score:number; pass:boolean }
+  const [implPrepStatus, setImplPrepStatus] = useState<'草稿中'|'已完成'>('草稿中')
+  const [implNotices, setImplNotices] = useState<ImplNotice[]>([
+    {id:1,sendTime:'2026-06-08T09:00',scope:'合规岗+客户经理',method:'企业微信',sent:true}
+  ])
+  const [implPlanCount, setImplPlanCount] = useState('45')
+  const [implRegDeadline, setImplRegDeadline] = useState('2026-06-13')
+  const [implRegCount, setImplRegCount] = useState('38')
+  const [implVenue, setImplVenue] = useState('北京总部3楼培训室A')
+  const [implCapacity, setImplCapacity] = useState('50')
+  const [implVenueConfirmed, setImplVenueConfirmed] = useState('已确认')
+  const [implMaterials, setImplMaterials] = useState<Array<{id:number;name:string;ready:boolean}>>([
+    {id:1,name:'反洗钱基础认知培训课件v1.pptx',ready:true},
+    {id:2,name:'可疑交易识别案例集.pdf',ready:false},
+  ])
+  // 现场执行
+  const [implSignCount, setImplSignCount] = useState('36')
+  const [implSignMethod, setImplSignMethod] = useState('扫码')
+  const [implStartTime, setImplStartTime] = useState('2026-06-15T09:05')
+  const [implEndTime, setImplEndTime] = useState('2026-06-15T12:10')
+  const [implActualVenue, setImplActualVenue] = useState('北京总部3楼培训室A')
+  const [implLecturer, setImplLecturer] = useState('张合规')
+  const [implProcessNote, setImplProcessNote] = useState('培训按计划进行，参与度较高，互动环节反应积极')
+  const [implDeviation, setImplDeviation] = useState('')
+  // 考核测试
+  const [implExamMethod, setImplExamMethod] = useState('线上答题')
+  const [implExamLink, setImplExamLink] = useState('https://exam.company.com/aml2026')
+  const [implScores, setImplScores] = useState<ImplScore[]>([
+    {id:1,name:'李明',dept:'合规部',score:92,pass:true},
+    {id:2,name:'王芳',dept:'客户部',score:78,pass:true},
+    {id:3,name:'张伟',dept:'合规部',score:55,pass:false},
+    {id:4,name:'刘洋',dept:'运营部',score:88,pass:true},
+    {id:5,name:'陈静',dept:'客户部',score:61,pass:true},
+  ])
+  const [implFailMeasure, setImplFailMeasure] = useState('安排补考，时间2026-06-22，补考前需重新学习录播课程')
+
 
   type ReqItem = {
     id: number; title: string; desc: string; keywords: string[];
@@ -2936,6 +2974,398 @@ export default function TrainingDetail() {
                   </>
                 )
               })()}
+            </div>
+          </div>
+
+        ) : stage === '培训实施' && activeTab === '实施准备' ? (
+          /* ── 培训实施 / 实施准备 ── */
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              {(['实施准备','现场执行','考核测试'] as const).map((sub, idx) => {
+                const current = activeTab === sub
+                const done = sub === '实施准备' && implPrepStatus === '已完成'
+                return (
+                  <React.Fragment key={sub}>
+                    {idx > 0 && <div className="h-px flex-1 bg-slate-200" />}
+                    <div className={`flex items-center gap-1.5 text-xs font-medium ${done?'text-green-600':current?'text-blue-600':'text-slate-400'}`}>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${done?'bg-green-100':current?'bg-blue-100':'bg-slate-100'}`}>
+                        {done?'✓':idx+1}
+                      </span>
+                      {sub}{done&&<span className="text-green-500 ml-0.5">✓</span>}
+                    </div>
+                  </React.Fragment>
+                )
+              })}
+            </div>
+            {/* Status bar */}
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-slate-800">实施准备</span>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${implPrepStatus==='已完成'?'bg-green-50 text-green-600':'bg-yellow-50 text-yellow-600'}`}>{implPrepStatus}</span>
+              </div>
+              <button type="button" onClick={()=>setImplPrepStatus(p=>p==='已完成'?'草稿中':'已完成')}
+                className={`rounded border px-3 py-1.5 text-xs ${implPrepStatus==='已完成'?'border-slate-200 text-slate-500':'border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
+                {implPrepStatus==='已完成'?'撤回完成标记':'标记为已完成'}
+              </button>
+            </div>
+
+            {/* 组1: 通知发送 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+              <div className="text-sm font-semibold text-slate-700">通知发送</div>
+              {implNotices.map((n) => (
+                <div key={n.id} className="flex flex-wrap items-center gap-2">
+                  <input type="datetime-local" value={n.sendTime} onChange={(e)=>setImplNotices(p=>p.map(x=>x.id===n.id?{...x,sendTime:e.target.value}:x))}
+                    className="rounded-md border border-gray-300 px-2 py-1.5 text-xs outline-none focus:border-blue-500"/>
+                  <input value={n.scope} onChange={(e)=>setImplNotices(p=>p.map(x=>x.id===n.id?{...x,scope:e.target.value}:x))}
+                    placeholder="发送范围" className="w-36 rounded-md border border-gray-300 px-2 py-1.5 text-xs outline-none focus:border-blue-500"/>
+                  <div className="flex gap-1">
+                    {(['企业微信','邮件','系统通知'] as const).map(m=>(
+                      <button key={m} type="button" onClick={()=>setImplNotices(p=>p.map(x=>x.id===n.id?{...x,method:m}:x))}
+                        className={`rounded border px-2 py-1 text-xs ${n.method===m?'border-blue-400 bg-blue-50 text-blue-700':'border-slate-200 text-slate-400 hover:border-blue-200'}`}>{m}</button>
+                    ))}
+                  </div>
+                  <button type="button" onClick={()=>setImplNotices(p=>p.map(x=>x.id===n.id?{...x,sent:!x.sent}:x))}
+                    className={`rounded-full border px-2.5 py-0.5 text-xs ${n.sent?'border-green-200 bg-green-50 text-green-700':'border-slate-200 text-slate-400'}`}>{n.sent?'已发送':'待发送'}</button>
+                  <button type="button" onClick={()=>setImplNotices(p=>p.filter(x=>x.id!==n.id))} className="text-slate-300 hover:text-red-500"><X className="h-3.5 w-3.5"/></button>
+                </div>
+              ))}
+              <button type="button" onClick={()=>setImplNotices(p=>[...p,{id:Date.now(),sendTime:'',scope:'',method:'企业微信',sent:false}])}
+                className="text-xs text-blue-500 hover:text-blue-700">+ 添加通知记录</button>
+            </div>
+
+            {/* 组2: 报名管理 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="text-sm font-semibold text-slate-700">报名管理</div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">计划参训人数</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min={0} value={implPlanCount} onChange={(e)=>setImplPlanCount(e.target.value)}
+                      className="w-24 rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"/>
+                    <span className="text-xs text-slate-500">人</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">报名截止日期</label>
+                  <input type="date" value={implRegDeadline} onChange={(e)=>setImplRegDeadline(e.target.value)}
+                    className="rounded-md border border-gray-300 px-3 py-1.5 text-xs outline-none focus:border-blue-500"/>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">已报名人数</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min={0} value={implRegCount} onChange={(e)=>setImplRegCount(e.target.value)}
+                      className="w-24 rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"/>
+                    <span className="text-xs text-slate-500">人</span>
+                  </div>
+                </div>
+                <div className="flex items-end">
+                  <button type="button" onClick={()=>alert('即将上线')}
+                    className="rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">📎 上传名单</button>
+                </div>
+              </div>
+            </div>
+
+            {/* 组3: 场地确认 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="text-sm font-semibold text-slate-700">场地确认</div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">场地 / 平台
+                    <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-normal text-slate-400">来自资源计划</span>
+                  </label>
+                  <input value={implVenue} onChange={(e)=>setImplVenue(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"/>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">座位容量</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min={0} value={implCapacity} onChange={(e)=>setImplCapacity(e.target.value)}
+                      className="w-24 rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"/>
+                    <span className="text-xs text-slate-500">人</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">确认状态</label>
+                  <div className="flex gap-2">
+                    {(['已确认','待确认'] as const).map(s=>(
+                      <button key={s} type="button" onClick={()=>setImplVenueConfirmed(s)}
+                        className={`rounded-full border px-3 py-1 text-xs ${implVenueConfirmed===s?(s==='已确认'?'border-green-400 bg-green-50 text-green-700':'border-orange-300 bg-orange-50 text-orange-600'):'border-slate-200 text-slate-400 hover:border-slate-300'}`}>{s}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 组4: 物料就绪确认 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+              <div className="text-sm font-semibold text-slate-700">物料就绪确认</div>
+              <div className="text-xs text-slate-400">以下材料已从阶段三课件材料自动导入，请逐项确认已就绪</div>
+              <div className="space-y-2">
+                {implMaterials.map((m)=>(
+                  <label key={m.id} className="flex cursor-pointer items-center gap-2 text-xs text-slate-700">
+                    <input type="checkbox" checked={m.ready} onChange={()=>setImplMaterials(p=>p.map(x=>x.id===m.id?{...x,ready:!x.ready}:x))}
+                      className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600"/>
+                    {m.name}
+                    <span className={`rounded-full px-1.5 py-0.5 text-xs ${m.ready?'bg-green-50 text-green-600':'bg-slate-100 text-slate-400'}`}>{m.ready?'已就绪':'待确认'}</span>
+                  </label>
+                ))}
+                <button type="button" onClick={()=>setImplMaterials(p=>[...p,{id:Date.now(),name:'',ready:false}])}
+                  className="text-xs text-blue-500 hover:text-blue-700">+ 手动添加物料</button>
+              </div>
+            </div>
+
+            {/* 交付物 */}
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2 text-xs text-slate-600">
+                <span className="font-medium">交付物：培训通知记录 + 报名名单</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${implPrepStatus==='已完成'?'bg-green-50 text-green-600':'bg-yellow-50 text-yellow-600'}`}>{implPrepStatus}</span>
+              </div>
+            </div>
+          </div>
+
+        ) : stage === '培训实施' && activeTab === '现场执行' ? (
+          /* ── 培训实施 / 现场执行 ── */
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              {(['实施准备','现场执行','考核测试'] as const).map((sub, idx) => {
+                const current = activeTab === sub
+                const done = sub === '实施准备' && implPrepStatus === '已完成'
+                return (
+                  <React.Fragment key={sub}>
+                    {idx > 0 && <div className="h-px flex-1 bg-slate-200" />}
+                    <div className={`flex items-center gap-1.5 text-xs font-medium ${done?'text-green-600':current?'text-blue-600':'text-slate-400'}`}>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${done?'bg-green-100':current?'bg-blue-100':'bg-slate-100'}`}>
+                        {done?'✓':idx+1}
+                      </span>
+                      {sub}{done&&<span className="text-green-500 ml-0.5">✓</span>}
+                    </div>
+                  </React.Fragment>
+                )
+              })}
+            </div>
+            {/* Hint */}
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2.5 text-xs text-blue-700">
+              📋 请在培训当天或结束后及时填写本项内容
+            </div>
+
+            {/* 组1: 签到记录 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="text-sm font-semibold text-slate-700">签到记录</div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">实际签到人数</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min={0} value={implSignCount} onChange={(e)=>setImplSignCount(e.target.value)}
+                      className="w-24 rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"/>
+                    <span className="text-xs text-slate-500">人</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">签到方式</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(['纸质','扫码','系统自动'] as const).map(m=>(
+                      <button key={m} type="button" onClick={()=>setImplSignMethod(m)}
+                        className={`rounded-full border px-2.5 py-0.5 text-xs ${implSignMethod===m?'border-blue-400 bg-blue-50 text-blue-700':'border-slate-200 text-slate-400 hover:border-blue-200'}`}>{m}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-end">
+                  <button type="button" onClick={()=>alert('即将上线')}
+                    className="rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">📎 上传签到表</button>
+                </div>
+              </div>
+            </div>
+
+            {/* 组2: 实际培训信息 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="text-sm font-semibold text-slate-700">实际培训信息</div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">实际开始时间</label>
+                  <input type="datetime-local" value={implStartTime} onChange={(e)=>setImplStartTime(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs outline-none focus:border-blue-500"/>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">实际结束时间</label>
+                  <input type="datetime-local" value={implEndTime} onChange={(e)=>setImplEndTime(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs outline-none focus:border-blue-500"/>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">实际地点 / 平台</label>
+                  <input value={implActualVenue} onChange={(e)=>setImplActualVenue(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"/>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">主讲人</label>
+                  <input value={implLecturer} onChange={(e)=>setImplLecturer(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"/>
+                </div>
+              </div>
+            </div>
+
+            {/* 组3: 过程记录 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="text-sm font-semibold text-slate-700">过程记录</div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700">过程说明</label>
+                <textarea value={implProcessNote} onChange={(e)=>setImplProcessNote(e.target.value)} rows={3}
+                  className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"/>
+              </div>
+              <div className="flex items-end gap-3">
+                <button type="button" onClick={()=>alert('即将上线')}
+                  className="rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:border-blue-300 hover:text-blue-600">📷 上传照片/截图</button>
+                <span className="text-xs text-slate-400">支持多图</span>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700">偏差记录</label>
+                <textarea value={implDeviation} onChange={(e)=>setImplDeviation(e.target.value)} rows={2}
+                  placeholder="填写实际与计划的偏差及原因（如无偏差可不填）"
+                  className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"/>
+              </div>
+            </div>
+
+            {/* 交付物 */}
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm text-xs text-slate-600">
+              <span className="font-medium">交付物：签到表 + 过程记录</span>
+              <span className="rounded-full bg-yellow-50 px-2 py-0.5 text-yellow-600">草稿中</span>
+            </div>
+          </div>
+
+        ) : stage === '培训实施' && activeTab === '考核测试' ? (
+          /* ── 培训实施 / 考核测试 ── */
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              {(['实施准备','现场执行','考核测试'] as const).map((sub, idx) => {
+                const current = activeTab === sub
+                const done = sub === '实施准备' && implPrepStatus === '已完成'
+                return (
+                  <React.Fragment key={sub}>
+                    {idx > 0 && <div className="h-px flex-1 bg-slate-200" />}
+                    <div className={`flex items-center gap-1.5 text-xs font-medium ${done?'text-green-600':current?'text-blue-600':'text-slate-400'}`}>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${done?'bg-green-100':current?'bg-blue-100':'bg-slate-100'}`}>
+                        {done?'✓':idx+1}
+                      </span>
+                      {sub}{done&&<span className="text-green-500 ml-0.5">✓</span>}
+                    </div>
+                  </React.Fragment>
+                )
+              })}
+            </div>
+            {/* Intro */}
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-500">
+              📌 记录参训人员的学习成果，是合规留痕的重要证据
+            </div>
+
+            {/* 组1: 考核方式 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="text-sm font-semibold text-slate-700">考核方式</div>
+              <div>
+                <label className="mb-2 block text-xs font-medium text-gray-700">考核方式</label>
+                <div className="flex flex-wrap gap-2">
+                  {(['笔试','线上答题','口头问答','现场演练','无考核'] as const).map(m=>(
+                    <button key={m} type="button" onClick={()=>setImplExamMethod(m)}
+                      className={`rounded-full border px-3 py-1 text-xs ${implExamMethod===m?'border-blue-400 bg-blue-50 text-blue-700':'border-slate-200 text-slate-500 hover:border-blue-200'}`}>{m}</button>
+                  ))}
+                </div>
+              </div>
+              {implExamMethod!=='无考核' && (
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700">题库 / 问卷链接</label>
+                  <input value={implExamLink} onChange={(e)=>setImplExamLink(e.target.value)}
+                    placeholder="填写线上答题平台链接"
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-blue-500"/>
+                </div>
+              )}
+            </div>
+
+            {/* 组2: 成绩录入 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 text-sm font-semibold text-slate-700">成绩录入</div>
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="w-full border-collapse text-xs" style={{tableLayout:'fixed'}}>
+                  <colgroup>
+                    <col style={{width:'44px'}}/><col/><col style={{width:'90px'}}/>
+                    <col style={{width:'80px'}}/><col style={{width:'90px'}}/>
+                  </colgroup>
+                  <thead className="bg-gray-50">
+                    <tr>{['序号','姓名','部门','成绩','是否通过'].map(h=>(
+                      <th key={h} className="border border-gray-200 px-3 py-2.5 text-center font-semibold text-slate-600">{h}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody>
+                    {implScores.map((s,si)=>(
+                      <tr key={s.id} className={si%2===0?'bg-white':'bg-gray-50'} style={{height:'44px'}}>
+                        <td className="border border-gray-200 px-2 py-2 text-center text-slate-400">{si+1}</td>
+                        <td className="border border-gray-200 px-3 py-2 text-slate-700">{s.name}</td>
+                        <td className="border border-gray-200 px-3 py-2 text-center text-slate-500">{s.dept}</td>
+                        <td className="border border-gray-200 px-3 py-2 text-center">
+                          <input type="number" min={0} max={100} value={s.score}
+                            onChange={(e)=>setImplScores(p=>p.map(x=>x.id===s.id?{...x,score:Number(e.target.value),pass:Number(e.target.value)>=60}:x))}
+                            className="w-16 rounded border border-slate-200 bg-transparent px-2 py-0.5 text-center text-xs outline-none focus:border-blue-300"/>
+                        </td>
+                        <td className="border border-gray-200 px-3 py-2 text-center">
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${s.pass?'bg-green-50 text-green-600':'bg-red-50 text-red-600'}`}>
+                            {s.pass?'✅ 通过':'❌ 未通过'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    {(() => {
+                      const avg = implScores.length>0?(implScores.reduce((a,x)=>a+x.score,0)/implScores.length).toFixed(1):'—'
+                      const passRate = implScores.length>0?Math.round(implScores.filter(x=>x.pass).length/implScores.length*100):0
+                      return (
+                        <tr className="bg-gray-50">
+                          <td colSpan={5} className="border border-gray-200 px-3 py-2 text-xs text-slate-500">
+                            参测：<span className="font-medium">{implScores.length}</span> 人 &nbsp;·&nbsp;
+                            平均分：<span className="font-medium">{avg}</span> &nbsp;·&nbsp;
+                            通过率：<span className="font-medium text-green-600">{passRate}%</span>
+                          </td>
+                        </tr>
+                      )
+                    })()}
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            {/* 组3: 不合格处理 */}
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+              <div className="text-sm font-semibold text-slate-700">不合格处理</div>
+              {(() => {
+                const failed = implScores.filter(x=>!x.pass)
+                return failed.length===0 ? (
+                  <div className="rounded-lg bg-green-50 px-4 py-3 text-xs text-green-600">🎉 所有参训人员均已通过考核</div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-gray-700">不合格人员名单
+                        <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-xs font-normal text-slate-400">自动导入</span>
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {failed.map(x=>(
+                          <span key={x.id} className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs text-red-600">
+                            {x.name}（{x.score}分）
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-gray-700">处理措施</label>
+                      <textarea value={implFailMeasure} onChange={(e)=>setImplFailMeasure(e.target.value)} rows={3}
+                        placeholder="填写针对不合格人员的处理措施…"
+                        className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-100"/>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+
+            {/* 交付物 */}
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm text-xs text-slate-600">
+              <span className="font-medium">交付物：考核成绩单 + 通过率统计 + 不合格处理记录</span>
+              <span className="rounded-full bg-yellow-50 px-2 py-0.5 text-yellow-600">草稿中</span>
             </div>
           </div>
 
